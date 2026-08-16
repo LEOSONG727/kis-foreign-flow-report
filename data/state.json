@@ -1,0 +1,261 @@
+{
+  "report_date": "2026-08-14",
+  "symbols": {
+    "000270": {
+      "action": "대기",
+      "first_seen": "2026-08-14",
+      "last_seen": "2026-08-14",
+      "name": "기아",
+      "score": 52.7,
+      "stage": "중립"
+    },
+    "000660": {
+      "action": "대기",
+      "first_seen": "2026-08-14",
+      "last_seen": "2026-08-14",
+      "name": "SK하이닉스",
+      "score": 44.7,
+      "stage": "중립"
+    },
+    "000810": {
+      "action": "대기",
+      "first_seen": "2026-08-14",
+      "last_seen": "2026-08-14",
+      "name": "삼성화재",
+      "score": 42.4,
+      "stage": "중립"
+    },
+    "003230": {
+      "action": "대기",
+      "first_seen": "2026-08-14",
+      "last_seen": "2026-08-14",
+      "name": "삼양식품",
+      "score": 43.2,
+      "stage": "중립"
+    },
+    "005380": {
+      "action": "대기",
+      "first_seen": "2026-08-14",
+      "last_seen": "2026-08-14",
+      "name": "현대차",
+      "score": 45.9,
+      "stage": "중립"
+    },
+    "005490": {
+      "action": "대기",
+      "first_seen": "2026-08-14",
+      "last_seen": "2026-08-14",
+      "name": "POSCO홀딩스",
+      "score": 45.2,
+      "stage": "중립"
+    },
+    "005930": {
+      "action": "대기",
+      "first_seen": "2026-08-14",
+      "last_seen": "2026-08-14",
+      "name": "삼성전자",
+      "score": 44.6,
+      "stage": "중립"
+    },
+    "006400": {
+      "action": "대기",
+      "first_seen": "2026-08-14",
+      "last_seen": "2026-08-14",
+      "name": "삼성SDI",
+      "score": 27.6,
+      "stage": "중립"
+    },
+    "009150": {
+      "action": "대기",
+      "first_seen": "2026-08-14",
+      "last_seen": "2026-08-14",
+      "name": "삼성전기",
+      "score": 26.2,
+      "stage": "중립"
+    },
+    "009540": {
+      "action": "대기",
+      "first_seen": "2026-08-14",
+      "last_seen": "2026-08-14",
+      "name": "HD한국조선해양",
+      "score": 41.2,
+      "stage": "중립"
+    },
+    "010120": {
+      "action": "대기",
+      "first_seen": "2026-08-14",
+      "last_seen": "2026-08-14",
+      "name": "LS ELECTRIC",
+      "score": 43.8,
+      "stage": "중립"
+    },
+    "010130": {
+      "action": "대기",
+      "first_seen": "2026-08-14",
+      "last_seen": "2026-08-14",
+      "name": "고려아연",
+      "score": 36.0,
+      "stage": "중립"
+    },
+    "012330": {
+      "action": "대기",
+      "first_seen": "2026-08-14",
+      "last_seen": "2026-08-14",
+      "name": "현대모비스",
+      "score": 42.1,
+      "stage": "중립"
+    },
+    "012450": {
+      "action": "대기",
+      "first_seen": "2026-08-14",
+      "last_seen": "2026-08-14",
+      "name": "한화에어로스페이스",
+      "score": 32.6,
+      "stage": "중립"
+    },
+    "028260": {
+      "action": "대기",
+      "first_seen": "2026-08-14",
+      "last_seen": "2026-08-14",
+      "name": "삼성물산",
+      "score": 44.4,
+      "stage": "중립"
+    },
+    "032830": {
+      "action": "대기",
+      "first_seen": "2026-08-14",
+      "last_seen": "2026-08-14",
+      "name": "삼성생명",
+      "score": 48.3,
+      "stage": "중립"
+    },
+    "034020": {
+      "action": "대기",
+      "first_seen": "2026-08-14",
+      "last_seen": "2026-08-14",
+      "name": "두산에너빌리티",
+      "score": 34.8,
+      "stage": "중립"
+    },
+    "034730": {
+      "action": "대기",
+      "first_seen": "2026-08-14",
+      "last_seen": "2026-08-14",
+      "name": "SK",
+      "score": 41.7,
+      "stage": "중립"
+    },
+    "035420": {
+      "action": "대기",
+      "first_seen": "2026-08-14",
+      "last_seen": "2026-08-14",
+      "name": "NAVER",
+      "score": 32.1,
+      "stage": "중립"
+    },
+    "042660": {
+      "action": "대기",
+      "first_seen": "2026-08-14",
+      "last_seen": "2026-08-14",
+      "name": "한화오션",
+      "score": 46.1,
+      "stage": "중립"
+    },
+    "055550": {
+      "action": "대기",
+      "first_seen": "2026-08-14",
+      "last_seen": "2026-08-14",
+      "name": "신한지주",
+      "score": 44.8,
+      "stage": "중립"
+    },
+    "066570": {
+      "action": "대기",
+      "first_seen": "2026-08-14",
+      "last_seen": "2026-08-14",
+      "name": "LG전자",
+      "score": 29.4,
+      "stage": "중립"
+    },
+    "068270": {
+      "action": "대기",
+      "first_seen": "2026-08-14",
+      "last_seen": "2026-08-14",
+      "name": "셀트리온",
+      "score": 42.0,
+      "stage": "중립"
+    },
+    "069960": {
+      "action": "대기",
+      "first_seen": "2026-08-14",
+      "last_seen": "2026-08-14",
+      "name": "현대백화점",
+      "score": 39.3,
+      "stage": "중립"
+    },
+    "086790": {
+      "action": "대기",
+      "first_seen": "2026-08-14",
+      "last_seen": "2026-08-14",
+      "name": "하나금융지주",
+      "score": 42.9,
+      "stage": "중립"
+    },
+    "105560": {
+      "action": "대기",
+      "first_seen": "2026-08-14",
+      "last_seen": "2026-08-14",
+      "name": "KB금융",
+      "score": 45.1,
+      "stage": "중립"
+    },
+    "207940": {
+      "action": "대기",
+      "first_seen": "2026-08-14",
+      "last_seen": "2026-08-14",
+      "name": "삼성바이오로직스",
+      "score": 44.0,
+      "stage": "중립"
+    },
+    "267260": {
+      "action": "대기",
+      "first_seen": "2026-08-14",
+      "last_seen": "2026-08-14",
+      "name": "HD현대일렉트릭",
+      "score": 50.7,
+      "stage": "중립"
+    },
+    "298040": {
+      "action": "대기",
+      "first_seen": "2026-08-14",
+      "last_seen": "2026-08-14",
+      "name": "효성중공업",
+      "score": 47.4,
+      "stage": "중립"
+    },
+    "329180": {
+      "action": "대기",
+      "first_seen": "2026-08-14",
+      "last_seen": "2026-08-14",
+      "name": "HD현대중공업",
+      "score": 47.6,
+      "stage": "중립"
+    },
+    "373220": {
+      "action": "대기",
+      "first_seen": "2026-08-14",
+      "last_seen": "2026-08-14",
+      "name": "LG에너지솔루션",
+      "score": 30.3,
+      "stage": "중립"
+    },
+    "402340": {
+      "action": "대기",
+      "first_seen": "2026-08-14",
+      "last_seen": "2026-08-14",
+      "name": "SK스퀘어",
+      "score": 47.1,
+      "stage": "중립"
+    }
+  }
+}
