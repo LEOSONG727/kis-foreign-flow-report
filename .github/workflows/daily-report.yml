@@ -12,6 +12,11 @@ on:
         required: false
         default: false
         type: boolean
+      full_history_bootstrap:
+        description: "전체시장 약 6개월 이력 초기화 (최초 1회, 오래 걸림)"
+        required: false
+        default: false
+        type: boolean
   schedule:
     # 평일 18:41 KST. 정각 혼잡으로 인한 GitHub 스케줄 지연을 줄이기 위해 41분 사용.
     - cron: "41 9 * * 1-5"
@@ -20,7 +25,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: daily-foreign-flow-report
+  group: foreign-flow-data-write
   cancel-in-progress: false
 
 jobs:
@@ -64,6 +69,7 @@ jobs:
         env:
           INPUT_UNIVERSE_LIMIT: ${{ inputs.universe_limit }}
           INPUT_SKIP_BACKFILL: ${{ inputs.skip_backfill }}
+          INPUT_FULL_HISTORY_BOOTSTRAP: ${{ inputs.full_history_bootstrap }}
         run: |
           set -o pipefail
           args=(run)
@@ -72,6 +78,9 @@ jobs:
           fi
           if [[ "$INPUT_SKIP_BACKFILL" == "true" ]]; then
             args+=(--skip-backfill)
+          fi
+          if [[ "$INPUT_FULL_HISTORY_BOOTSTRAP" == "true" ]]; then
+            args+=(--full-history-bootstrap)
           fi
           python -m kis_flow_bot "${args[@]}" 2>&1 | tee logs/run.log
 
@@ -99,4 +108,3 @@ jobs:
           fi
           git commit -m "bot: update daily foreign-flow report"
           git push
-

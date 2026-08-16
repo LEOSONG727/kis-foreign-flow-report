@@ -19,6 +19,17 @@ def scale(value: float, low: float, high: float) -> float:
     return clamp((float(value) - low) / (high - low), 0.0, 1.0)
 
 
+def _calibrated_probability(score: float, heuristic: float, calibration: dict[str, Any] | None) -> float:
+    if not calibration or not calibration.get("active"):
+        return heuristic
+    for band in calibration.get("bands", []):
+        if float(band.get("low", 0.0)) <= score < float(band.get("high", 101.0)):
+            value = band.get("calibrated_probability")
+            if value is not None and int(band.get("samples", 0)) >= 30:
+                return clamp(float(value), 0.05, 0.95)
+    return heuristic
+
+
 def _fundamental_score(row: pd.Series) -> tuple[float, float]:
     quality = 0.0
     if row.get("operating_profit", 0.0) > 0:
@@ -35,7 +46,7 @@ def _fundamental_score(row: pd.Series) -> tuple[float, float]:
     return quality, outlook
 
 
-def _stage(row: pd.Series) -> str:
+def _stage(row: pd.Series, model: ModelConfig) -> str:
     inventory = (
         row.get("foreign_ewm120", 0.0) > 0.001
         or row.get("foreign_60_adtv", 0.0) > 0.5
@@ -47,34 +58,47 @@ def _stage(row: pd.Series) -> str:
         and row.get("sellback_ratio20", 9.0) <= 0.75
     )
     recent = row.get("foreign_5_adtv", 0.0)
+    today = row.get("foreign_1_adtv", 0.0)
     price20 = row.get("price_residual20", row.get("price_return20", 0.0))
+    absolute20 = row.get("price_return20", 0.0)
+    absolute5 = row.get("price_return5", 0.0)
     holdings_change = row.get("foreign_holding_change", np.nan)
+
+    abnormal_day = row.get("max_abs_daily_return20", 0.0) >= model.corporate_action_daily_return_pct / 100.0
+    structural_break = absolute20 <= model.structural_break_return20_pct / 100.0
+    if abnormal_day or structural_break:
+        return "이벤트확인"
 
     if (
         row.get("foreign_20_adtv", 0.0) < -0.35
         or (pd.notna(holdings_change) and holdings_change < 0 and recent < -0.15)
     ):
         return "분산·이탈"
-    if inventory and row.get("price_return20", 0.0) > 0.05 and recent < -0.20:
+    if (inventory or strong) and absolute20 > 0.05 and today < -0.08:
         return "수익실현"
-    if inventory and row.get("price_return20", 0.0) > 0.08 and recent >= -0.05:
+    fast_price_move = (
+        absolute20 >= model.absolute_chase_return20_pct / 100.0
+        or absolute5 >= model.recent_chase_return5_pct / 100.0
+    )
+    if (inventory or strong) and fast_price_move and today >= -0.08:
         return "가격상승"
-    if strong and price20 <= 0.05:
+    if strong and price20 <= 0.05 and absolute20 < model.absolute_chase_return20_pct / 100.0:
         return "매집·눌림"
-    if inventory and -0.25 <= recent <= 0.15:
+    if inventory and -0.15 <= today <= 0.05 and recent > -0.25:
         return "매집휴식"
     if row.get("foreign_20_adtv", 0.0) > 0.20:
         return "초기매집"
     return "중립"
 
 
-def _absorption(row: pd.Series, quality: float) -> tuple[str, float]:
+def _absorption(row: pd.Series, quality: float, model: ModelConfig) -> tuple[str, float]:
     falling = row.get("price_return20", 0.0) < -0.01
     buying = row.get("foreign_20_adtv", 0.0) > 0.35
     structure_ok = (
         row.get("price_return60", 0.0) > -0.25
         and row.get("distance_high60", -1.0) > -0.30
         and quality >= 4.0
+        and row.get("max_abs_daily_return20", 0.0) < model.corporate_action_daily_return_pct / 100.0
     )
     holding = row.get("foreign_holding_change", np.nan)
     holdings_ok = pd.isna(holding) or holding >= 0
@@ -90,7 +114,7 @@ def _absorption(row: pd.Series, quality: float) -> tuple[str, float]:
 def _gap_action(row: pd.Series, threshold: float) -> str | None:
     if row.get("gap_pct", 0.0) < threshold:
         return None
-    foreign_today = row.get("foreign_5_adtv", 0.0)
+    foreign_today = row.get("foreign_1_adtv", 0.0)
     weak_close = row.get("close", 0.0) < row.get("open", 0.0)
     if foreign_today < -0.20 and (weak_close or row.get("upper_wick", 0.0) >= 0.45):
         return "총 75% 익절·잔여 추적"
@@ -100,13 +124,15 @@ def _gap_action(row: pd.Series, threshold: float) -> str | None:
 
 
 def _action(row: pd.Series, model: ModelConfig) -> str:
+    stage = row.get("stage", "중립")
+    if stage == "이벤트확인":
+        return "기업 이벤트·급락 확인 전 매수 금지"
     gap_threshold = max(model.gap_take_profit_pct / 100.0, model.atr_gap_multiple * row.get("atr20_pct", 0.0))
     gap_action = _gap_action(row, gap_threshold)
     if gap_action:
         return gap_action
 
     score = row.get("score", 0.0)
-    stage = row.get("stage", "중립")
     confidence = row.get("success_probability", 0.0)
     score_delta = row.get("score_delta", 0.0)
     if stage == "분산·이탈":
@@ -115,7 +141,12 @@ def _action(row: pd.Series, model: ModelConfig) -> str:
         return "절반 익절·잔여 추적"
     if stage == "가격상승":
         return "추격 금지·보유"
-    if score >= model.strong_buy_score and confidence >= 0.62 and stage == "매집·눌림":
+    if (
+        score >= model.strong_buy_score
+        and confidence >= 0.62
+        and stage == "매집·눌림"
+        and row.get("data_points", 0) >= 60
+    ):
         return "강한 신규매수"
     if (
         score >= model.initial_buy_score
@@ -139,6 +170,7 @@ def score_features(
     features: pd.DataFrame,
     model: ModelConfig,
     previous_state: dict[str, Any] | None = None,
+    calibration: dict[str, Any] | None = None,
 ) -> pd.DataFrame:
     if features.empty:
         return features
@@ -165,7 +197,7 @@ def score_features(
         underreaction_gap = expected_move - row.get("price_residual20", 0.0)
         mismatch = 12.0 * scale(underreaction_gap, -0.02, 0.12)
         compression = 6.0 * (1.0 - scale(abs(row.get("price_residual20", 0.0)), 0.03, 0.18))
-        absorption_label, absorption_bonus = _absorption(row, quality)
+        absorption_label, absorption_bonus = _absorption(row, quality, model)
         underreaction = clamp(mismatch + compression + absorption_bonus, 0.0, 25.0)
 
         liquidity = 3.0 * scale(row.get("adtv20", 0.0), 1_000_000_000, 20_000_000_000)
@@ -184,7 +216,7 @@ def score_features(
         institution_overlay = 5.0 * clamp(row.get("institution_20_adtv", 0.0) / 2.0, -1.0, 1.0)
         raw_score = accumulation + underreaction + structure + fundamentals + institution_overlay
 
-        stage = _stage(row)
+        stage = _stage(row, model)
         penalty = 0.0
         if row.get("price_return20", 0.0) < -0.20 and absorption_label not in {"강함", "보통"}:
             penalty += 8.0
@@ -192,6 +224,10 @@ def score_features(
             penalty += 5.0
         if stage == "분산·이탈":
             penalty += 10.0
+        if stage == "이벤트확인":
+            penalty += 20.0
+        if row.get("data_points", 0) < 60:
+            penalty += 2.0
         caution = str(row.get("investment_caution", "N")).upper() not in {"", "N", "0", "00", "NAN"}
         warning = str(row.get("market_warning", "00")).upper() not in {"", "N", "0", "00", "NAN"}
         managed = str(row.get("managed_status", "00")).upper() not in {"", "N", "0", "00", "NAN"}
@@ -211,8 +247,10 @@ def score_features(
             "수익실현": -0.07,
             "분산·이탈": -0.12,
             "중립": -0.03,
+            "이벤트확인": -0.15,
         }.get(stage, 0.0)
-        probability = clamp(0.24 + 0.0052 * score + stage_adjustment, 0.30, 0.78)
+        heuristic_probability = clamp(0.24 + 0.0052 * score + stage_adjustment, 0.30, 0.78)
+        probability = _calibrated_probability(score, heuristic_probability, calibration)
         target_return = clamp(max(0.06, 1.5 * row.get("atr20_pct", 0.0)), 0.06, 0.15)
         risk_return = clamp(max(0.04, 1.2 * row.get("atr20_pct", 0.0)), 0.04, 0.10)
         expected_value = probability * target_return - (1.0 - probability) * risk_return
@@ -231,6 +269,7 @@ def score_features(
                 "stage": stage,
                 "absorption_signal": absorption_label,
                 "success_probability": round(probability, 4),
+                "probability_source": "워크포워드 보정" if calibration and calibration.get("active") else "미보정 추정",
                 "expected_value": round(expected_value, 4),
                 "is_new": symbol not in previous_symbols,
             }

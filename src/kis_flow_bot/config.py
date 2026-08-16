@@ -33,6 +33,17 @@ class ModelConfig:
     watch_score: float = 64.0
     gap_take_profit_pct: float = 5.0
     atr_gap_multiple: float = 1.2
+    absolute_chase_return20_pct: float = 8.0
+    recent_chase_return5_pct: float = 5.0
+    structural_break_return20_pct: float = -25.0
+    corporate_action_daily_return_pct: float = 33.0
+    initial_order_krw: int = 10_000_000
+    add_order_krw: int = 5_000_000
+    add_trigger_pct: float = 3.0
+    max_tranches: int = 4
+    backtest_target_pct: float = 8.0
+    backtest_stop_pct: float = 6.0
+    backtest_horizon_days: int = 20
 
 
 @dataclass(frozen=True)

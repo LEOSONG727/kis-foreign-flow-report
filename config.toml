@@ -22,8 +22,22 @@ strong_buy_score = 80.0
 watch_score = 64.0
 gap_take_profit_pct = 5.0
 atr_gap_multiple = 1.2
+# 20일 8% 또는 최근 5일 5% 이상 오른 종목은 눌림이 아니라 상승 단계로 분류
+absolute_chase_return20_pct = 8.0
+recent_chase_return5_pct = 5.0
+# 급락·권리락·분할 가능성이 있는 가격구조는 신규매수를 차단
+structural_break_return20_pct = -25.0
+corporate_action_daily_return_pct = 33.0
+# 개인화 액션 기본값(주문은 실행하지 않음)
+initial_order_krw = 10000000
+add_order_krw = 5000000
+add_trigger_pct = 3.0
+max_tranches = 4
+# 워크포워드 백테스트 목표/손절/평가기간
+backtest_target_pct = 8.0
+backtest_stop_pct = 6.0
+backtest_horizon_days = 20
 
 [watchlist]
 # 셀트리온, 현대차, SK, 현대백화점, 삼양식품
 symbols = ["068270", "005380", "034730", "069960", "003230"]
-

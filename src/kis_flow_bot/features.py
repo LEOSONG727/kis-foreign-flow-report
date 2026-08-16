@@ -246,8 +246,8 @@ def build_base_features(
             continue
         m = meta.loc[symbol]
         latest = group.iloc[-1]
-        w5, w20, w60, w120 = (_window(group, n) for n in (5, 20, 60, 120))
-        for window in (w5, w20, w60, w120):
+        w1, w5, w20, w60, w120 = (_window(group, n) for n in (1, 5, 20, 60, 120))
+        for window in (w1, w5, w20, w60, w120):
             window["flow_ratio"] = np.where(
                 window["turnover"] > 0,
                 window["foreign_net_amount"] / window["turnover"],
@@ -276,6 +276,7 @@ def build_base_features(
         atr20 = float(true_range.tail(20).mean() / latest["close"]) if latest["close"] > 0 else 0.0
         day_return = group["close"].pct_change().fillna(0.0)
         w20_returns = day_return.loc[w20.index]
+        max_abs_daily_return20 = float(w20_returns.abs().max()) if not w20_returns.empty else 0.0
         absorption_mask = (w20_returns < 0) & (w20["foreign_net_amount"] > 0)
         absorption_amount = float(w20.loc[absorption_mask, "foreign_net_amount"].sum())
         absorption_share = absorption_amount / foreign_pos20 if foreign_pos20 > 0 else 0.0
@@ -313,6 +314,7 @@ def build_base_features(
                 "high": float(latest["high"]),
                 "low": float(latest["low"]),
                 "price_return5": _return(group, 5),
+                "price_return1": _return(group, 1),
                 "price_return20": _return(group, 20),
                 "price_return60": _return(group, 60),
                 "price_return120": _return(group, 120),
@@ -323,13 +325,16 @@ def build_base_features(
                 "atr20_pct": atr20,
                 "gap_pct": gap,
                 "upper_wick": upper_wick,
+                "max_abs_daily_return20": max_abs_daily_return20,
                 "adtv20": adtv20,
                 "volume_ratio5_20": volume_ratio5_20,
                 "foreign_net5": float(w5["foreign_net_amount"].sum()),
+                "foreign_net1": float(w1["foreign_net_amount"].sum()),
                 "foreign_net20": float(w20["foreign_net_amount"].sum()),
                 "foreign_net60": float(w60["foreign_net_amount"].sum()),
                 "foreign_net120": float(w120["foreign_net_amount"].sum()),
                 "foreign_5_adtv": float(w5["foreign_net_amount"].sum() / adtv20) if adtv20 else 0.0,
+                "foreign_1_adtv": float(w1["foreign_net_amount"].sum() / adtv20) if adtv20 else 0.0,
                 "foreign_20_adtv": float(w20["foreign_net_amount"].sum() / adtv20) if adtv20 else 0.0,
                 "foreign_60_adtv": float(w60["foreign_net_amount"].sum() / adtv20) if adtv20 else 0.0,
                 "foreign_flow_share20": float(w20["foreign_net_amount"].sum() / w20["turnover"].sum()) if w20["turnover"].sum() else 0.0,
@@ -359,6 +364,7 @@ def build_base_features(
                 "target_price": target,
                 "target_upside": target_upside,
                 "opinion_coverage": coverage,
+                "history_confidence": "충분" if len(group) >= 120 else ("보통" if len(group) >= 60 else "초기"),
                 "price_series": group.tail(60)["close"].astype(float).tolist(),
             }
         )

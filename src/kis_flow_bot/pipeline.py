@@ -19,6 +19,7 @@ from .features import (
 )
 from .kis_client import KISAPIError, KISClient
 from .notify import send_telegram
+from .portfolio import apply_portfolio_actions, load_portfolio
 from .report import render_report
 from .scoring import score_features
 from .storage import (
@@ -76,10 +77,11 @@ def _features_and_scores(
     opinions: pd.DataFrame,
     settings: Settings,
     state: dict,
+    calibration: dict,
 ) -> pd.DataFrame:
     features = build_base_features(history, universe, snapshots, opinions)
     features = add_cross_sectional_residuals(features)
-    scored = score_features(features, settings.model, state)
+    scored = score_features(features, settings.model, state, calibration)
     if scored.empty:
         return scored
     liquid = (
@@ -193,8 +195,9 @@ def _write_outputs(
     (settings.reports_dir / "latest.md").write_text(rendered.markdown, encoding="utf-8")
 
     csv_columns = [
-        "symbol", "name", "market", "as_of", "score", "score_delta",
+        "symbol", "name", "market", "as_of", "score", "score_delta", "data_points",
         "success_probability", "expected_value", "stage", "action",
+        "probability_source",
         "foreign_net5", "foreign_net20", "foreign_net60", "foreign_net120",
         "foreign_20_adtv", "tolerant_buy_ratio20", "sellback_ratio20",
         "price_return5", "price_return20", "price_return60", "price_residual20",
@@ -202,6 +205,9 @@ def _write_outputs(
         "accumulation_score", "underreaction_score", "structure_score",
         "fundamental_score", "institution_overlay", "roe", "per", "pbr",
         "target_price", "target_upside", "foreign_holding_change",
+        "history_confidence", "foreign_net1", "foreign_1_adtv",
+        "model_action", "has_position", "position_quantity", "average_price",
+        "last_buy_price", "tranche_count", "position_return", "suggested_order_krw",
     ]
     write_csv(scored[[column for column in csv_columns if column in scored]], settings.reports_dir / "latest.csv")
     summary_path = os.getenv("GITHUB_STEP_SUMMARY")
@@ -232,6 +238,7 @@ def run_pipeline(
     as_of: date | None = None,
     universe_limit: int | None = None,
     skip_backfill: bool = False,
+    full_history_bootstrap: bool = False,
     notify: bool = True,
 ) -> pd.DataFrame:
     as_of = as_of or date.today()
@@ -247,10 +254,14 @@ def run_pipeline(
     snapshots_path = settings.data_dir / "holdings.csv"
     opinions_path = settings.data_dir / "opinions.csv"
     state_path = settings.data_dir / "state.json"
+    calibration_path = settings.data_dir / "calibration.json"
+    portfolio_path = settings.data_dir / "portfolio.csv"
     history = read_csv(history_path)
     snapshots = read_csv(snapshots_path)
     opinions = read_csv(opinions_path)
     state = read_state(state_path)
+    calibration = read_state(calibration_path)
+    portfolio = load_portfolio(portfolio_path)
 
     incoming, success_count, failures = _collect_windows(client, universe, as_of, "Daily scan")
     success_rate = success_count / max(len(universe), 1)
@@ -264,26 +275,30 @@ def run_pipeline(
     )
 
     preliminary = _features_and_scores(
-        history, universe, snapshots, opinions, settings, state
+        history, universe, snapshots, opinions, settings, state, calibration
     )
     if preliminary.empty:
         raise RuntimeError("No securities passed the preliminary data and liquidity checks")
 
     if not skip_backfill:
-        candidate_symbols = list(
-            dict.fromkeys(
-                preliminary.head(settings.screening.bootstrap_candidates)["symbol"].tolist()
-                + list(settings.watchlist)
+        if full_history_bootstrap:
+            candidates = universe.copy()
+            LOGGER.info("Full-market history bootstrap requested: %d securities", len(candidates))
+        else:
+            candidate_symbols = list(
+                dict.fromkeys(
+                    preliminary.head(settings.screening.bootstrap_candidates)["symbol"].tolist()
+                    + list(settings.watchlist)
+                )
             )
-        )
-        candidates = universe[universe["symbol"].isin(candidate_symbols)]
+            candidates = universe[universe["symbol"].isin(candidate_symbols)]
         backfill = _backfill_candidates(client, candidates, history, as_of, settings)
         if not backfill.empty:
             history = merge_history(
                 history, backfill, settings.screening.history_retention_days, as_of
             )
             preliminary = _features_and_scores(
-                history, universe, snapshots, opinions, settings, state
+                history, universe, snapshots, opinions, settings, state, calibration
             )
 
     enrichment_symbols = list(
@@ -308,10 +323,11 @@ def run_pipeline(
     opinions = _merge_opinions(opinions, new_opinions)
 
     scored = _features_and_scores(
-        history, universe, snapshots, opinions, settings, state
+        history, universe, snapshots, opinions, settings, state, calibration
     )
     if scored.empty:
         raise RuntimeError("No securities passed final scoring")
+    scored = apply_portfolio_actions(scored, portfolio, settings.model)
 
     write_csv(history, history_path)
     write_csv(snapshots, snapshots_path)
