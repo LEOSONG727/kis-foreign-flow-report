@@ -6,6 +6,7 @@ from kis_flow_bot.features import (
     add_cross_sectional_residuals,
     build_base_features,
     normalize_investor_rows,
+    validate_investor_amounts,
 )
 
 
@@ -28,6 +29,59 @@ def test_kis_thousand_won_amount_is_normalized_to_won():
     frame = normalize_investor_rows("005930", "삼성전자", "KOSPI", rows)
     assert frame.iloc[0]["foreign_net_amount"] == 100_000_000
     assert frame.iloc[0]["institution_net_amount"] == -50_000_000
+
+
+def test_kis_million_won_amount_is_normalized_to_won():
+    rows = [
+        {
+            "stck_bsop_date": "20260814",
+            "stck_oprc": "100000",
+            "stck_hgpr": "101000",
+            "stck_lwpr": "99000",
+            "stck_clpr": "100000",
+            "acml_vol": "1000000",
+            "acml_tr_pbmn": "100000000000",
+            "frgn_ntby_qty": "1000",
+            "frgn_ntby_tr_pbmn": "100",
+            "orgn_ntby_qty": "-500",
+            "orgn_ntby_tr_pbmn": "-50",
+        }
+    ]
+    frame = normalize_investor_rows("005930", "삼성전자", "KOSPI", rows)
+    assert frame.iloc[0]["foreign_net_amount"] == 100_000_000
+    assert frame.iloc[0]["institution_net_amount"] == -50_000_000
+
+
+def test_bad_amount_scale_is_rejected():
+    frame = pd.DataFrame(
+        {
+            "close": [100_000.0] * 5,
+            "foreign_net_qty": [1_000.0] * 5,
+            "foreign_net_amount": [100.0] * 5,
+        }
+    )
+    try:
+        validate_investor_amounts(frame)
+    except ValueError as exc:
+        assert "amount unit validation failed" in str(exc)
+    else:
+        raise AssertionError("mis-scaled foreign-flow amount was accepted")
+
+
+def test_missing_amounts_are_rejected_when_quantities_exist():
+    frame = pd.DataFrame(
+        {
+            "close": [100_000.0] * 5,
+            "foreign_net_qty": [1_000.0] * 5,
+            "foreign_net_amount": [0.0] * 5,
+        }
+    )
+    try:
+        validate_investor_amounts(frame)
+    except ValueError as exc:
+        assert "amount coverage validation failed" in str(exc)
+    else:
+        raise AssertionError("missing foreign-flow amounts were accepted")
 
 
 def _history(symbol: str, name: str, foreign_daily: float, start: float, end: float):
@@ -89,4 +143,3 @@ def test_price_decline_with_persistent_foreign_buying_is_detected():
     assert candidate["foreign_20_adtv"] > 1.0
     assert candidate["tolerant_buy_ratio20"] >= 0.9
     assert candidate["flow_residual20"] > 0
-

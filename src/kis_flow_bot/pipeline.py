@@ -15,6 +15,7 @@ from .features import (
     normalize_investor_rows,
     normalize_opinions,
     normalize_price_snapshot,
+    validate_investor_amounts,
 )
 from .kis_client import KISAPIError, KISClient
 from .notify import send_telegram
@@ -257,6 +258,7 @@ def run_pipeline(
         raise RuntimeError(
             f"Daily scan data quality too low: success={success_count}/{len(universe)}, failures={failures[:10]}"
         )
+    validate_investor_amounts(incoming)
     history = merge_history(
         history, incoming, settings.screening.history_retention_days, as_of
     )

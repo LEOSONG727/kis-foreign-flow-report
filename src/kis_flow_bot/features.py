@@ -39,9 +39,51 @@ def _infer_amount_scale(rows: list[dict], amount_key: str, qty_key: str) -> floa
         if amount > 0 and qty > 0 and close > 0:
             ratios.append((qty * close) / amount)
     if not ratios:
-        return 1_000.0  # KIS investor amount fields are normally returned in KRW thousands.
+        # The live investor endpoint currently reports these fields in KRW millions.
+        # Keep this as a fallback only; normal responses are inferred from qty × price.
+        return 1_000_000.0
     median = float(np.median(ratios))
-    return 1_000.0 if 100.0 <= median <= 10_000.0 else 1.0
+    # KIS field units can differ by endpoint/version. Select the unit whose
+    # converted amount is closest to net quantity × closing price.
+    candidates = (1.0, 1_000.0, 1_000_000.0)
+    return min(candidates, key=lambda scale: abs(np.log10(max(median, 1e-12) / scale)))
+
+
+def validate_investor_amounts(frame: pd.DataFrame) -> None:
+    """Reject obviously mis-scaled flow amounts before a report can look successful."""
+    if frame.empty:
+        return
+    required = {"close", "foreign_net_qty", "foreign_net_amount"}
+    if not required.issubset(frame.columns):
+        raise ValueError(f"Investor data is missing columns: {sorted(required - set(frame.columns))}")
+    quantity_rows = frame[
+        (frame["close"] > 0)
+        & (frame["foreign_net_qty"].abs() > 0)
+    ]
+    if len(quantity_rows) >= 5:
+        amount_coverage = float((quantity_rows["foreign_net_amount"].abs() > 0).mean())
+        if amount_coverage < 0.20:
+            raise ValueError(
+                "Foreign-flow amount coverage validation failed: "
+                f"only {amount_coverage:.1%} of non-zero quantity rows have an amount. "
+                "Refusing to publish a misleading report."
+            )
+    comparable = quantity_rows[quantity_rows["foreign_net_amount"].abs() > 0]
+    if len(comparable) < 5:
+        return
+    ratio = (
+        comparable["foreign_net_amount"].abs()
+        / (comparable["foreign_net_qty"].abs() * comparable["close"])
+    ).replace([np.inf, -np.inf], np.nan).dropna()
+    if ratio.empty:
+        return
+    median = float(ratio.median())
+    if not 0.05 <= median <= 20.0:
+        raise ValueError(
+            "Foreign-flow amount unit validation failed: "
+            f"median(amount/(qty*close))={median:.6g}. "
+            "Refusing to publish a misleading report."
+        )
 
 
 def normalize_investor_rows(

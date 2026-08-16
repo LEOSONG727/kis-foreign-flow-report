@@ -44,6 +44,10 @@ def eok(value) -> str:
         if pd.isna(value):
             return "-"
         amount = float(value) / 100_000_000
+        if abs(amount) < 0.05:
+            return "0억"
+        if abs(amount) < 1.0:
+            return f"{amount:+,.1f}억"
         return f"{amount:+,.0f}억"
     except (TypeError, ValueError):
         return "-"
@@ -271,4 +275,3 @@ def render_report(
         + "\n\n*확률은 백테스트 보정 전이며, 주문은 실행하지 않습니다.*\n"
     )
     return RenderedReport(html=html_text, markdown=markdown)
-
