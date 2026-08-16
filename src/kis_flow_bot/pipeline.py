@@ -1,0 +1,339 @@
+from __future__ import annotations
+
+import logging
+import os
+from datetime import date, datetime, timedelta
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import pandas as pd
+
+from .config import Settings
+from .features import (
+    add_cross_sectional_residuals,
+    build_base_features,
+    normalize_investor_rows,
+    normalize_opinions,
+    normalize_price_snapshot,
+)
+from .kis_client import KISAPIError, KISClient
+from .notify import send_telegram
+from .report import render_report
+from .scoring import score_features
+from .storage import (
+    merge_history,
+    merge_snapshots,
+    read_csv,
+    read_state,
+    write_csv,
+    write_state,
+)
+from .universe import load_universe
+
+LOGGER = logging.getLogger(__name__)
+
+
+def _select_universe(universe: pd.DataFrame, limit: int | None, watchlist: tuple[str, ...]) -> pd.DataFrame:
+    if not limit or limit >= len(universe):
+        return universe
+    head = universe.sort_values("market_cap_eok", ascending=False).head(limit)
+    watched = universe[universe["symbol"].isin(watchlist)]
+    return pd.concat([head, watched]).drop_duplicates("symbol").reset_index(drop=True)
+
+
+def _collect_windows(
+    client: KISClient,
+    universe: pd.DataFrame,
+    as_of: date,
+    label: str,
+) -> tuple[pd.DataFrame, int, list[str]]:
+    frames: list[pd.DataFrame] = []
+    failures: list[str] = []
+    total = len(universe)
+    for index, (_, meta) in enumerate(universe.iterrows(), 1):
+        symbol = str(meta["symbol"]).zfill(6)
+        try:
+            rows = client.investor_daily(symbol, as_of)
+            frame = normalize_investor_rows(symbol, str(meta["name"]), str(meta["market"]), rows)
+            if frame.empty:
+                failures.append(symbol)
+            else:
+                frames.append(frame)
+        except Exception as exc:  # 종목 하나의 오류가 전체 리포트를 중단시키지 않도록 격리
+            failures.append(symbol)
+            LOGGER.warning("%s failed for %s: %s", label, symbol, exc)
+        if index % 50 == 0 or index == total:
+            LOGGER.info("%s progress: %d/%d (failures=%d)", label, index, total, len(failures))
+    result = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+    return result, total - len(failures), failures
+
+
+def _features_and_scores(
+    history: pd.DataFrame,
+    universe: pd.DataFrame,
+    snapshots: pd.DataFrame,
+    opinions: pd.DataFrame,
+    settings: Settings,
+    state: dict,
+) -> pd.DataFrame:
+    features = build_base_features(history, universe, snapshots, opinions)
+    features = add_cross_sectional_residuals(features)
+    scored = score_features(features, settings.model, state)
+    if scored.empty:
+        return scored
+    liquid = (
+        (scored["adtv20"] >= settings.screening.min_median_turnover_krw)
+        & (scored["data_points"] >= 15)
+    )
+    watched = scored["symbol"].isin(settings.watchlist)
+    return scored[liquid | watched].sort_values(
+        ["score", "foreign_20_adtv"], ascending=[False, False]
+    ).reset_index(drop=True)
+
+
+def _backfill_candidates(
+    client: KISClient,
+    candidates: pd.DataFrame,
+    history: pd.DataFrame,
+    as_of: date,
+    settings: Settings,
+) -> pd.DataFrame:
+    if candidates.empty:
+        return pd.DataFrame()
+    counts = history.groupby("symbol")["date"].nunique().to_dict() if not history.empty else {}
+    needed_symbols = [
+        str(symbol).zfill(6)
+        for symbol in candidates["symbol"].tolist()
+        if counts.get(str(symbol).zfill(6), 0) < int(settings.screening.history_days * 0.72)
+    ]
+    if not needed_symbols:
+        LOGGER.info("Long-history bootstrap is already complete for current candidates")
+        return pd.DataFrame()
+    metadata = candidates.drop_duplicates("symbol").set_index("symbol")
+    frames: list[pd.DataFrame] = []
+    anchors = range(35, settings.screening.history_days + 1, 28)
+    LOGGER.info("Bootstrapping %d candidates to ~%d days", len(needed_symbols), settings.screening.history_days)
+    for position, symbol in enumerate(needed_symbols, 1):
+        meta = metadata.loc[symbol]
+        for days_back in anchors:
+            try:
+                rows = client.investor_daily(symbol, as_of - timedelta(days=days_back))
+                frame = normalize_investor_rows(symbol, str(meta["name"]), str(meta["market"]), rows)
+                if not frame.empty:
+                    frames.append(frame)
+            except Exception as exc:
+                LOGGER.warning("Backfill failed for %s at -%dd: %s", symbol, days_back, exc)
+        if position % 20 == 0 or position == len(needed_symbols):
+            LOGGER.info("Backfill progress: %d/%d", position, len(needed_symbols))
+    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+
+
+def _collect_snapshots(
+    client: KISClient,
+    candidates: pd.DataFrame,
+    report_date: pd.Timestamp,
+) -> pd.DataFrame:
+    rows = []
+    for index, symbol in enumerate(candidates["symbol"].drop_duplicates().tolist(), 1):
+        try:
+            raw = client.current_price(str(symbol).zfill(6))
+            if raw:
+                rows.append(normalize_price_snapshot(str(symbol), report_date, raw))
+        except Exception as exc:
+            LOGGER.warning("Current-price enrichment failed for %s: %s", symbol, exc)
+        if index % 25 == 0:
+            LOGGER.info("Snapshot progress: %d/%d", index, len(candidates))
+    return pd.DataFrame(rows)
+
+
+def _collect_opinions(
+    client: KISClient,
+    candidates: pd.DataFrame,
+    as_of: date,
+) -> pd.DataFrame:
+    frames = []
+    start = as_of - timedelta(days=180)
+    for symbol in candidates["symbol"].drop_duplicates().tolist():
+        try:
+            rows = client.invest_opinion(str(symbol).zfill(6), start, as_of)
+            frame = normalize_opinions(str(symbol), rows)
+            if not frame.empty:
+                frames.append(frame)
+        except Exception as exc:
+            LOGGER.warning("Opinion enrichment failed for %s: %s", symbol, exc)
+    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+
+
+def _merge_opinions(current: pd.DataFrame, incoming: pd.DataFrame) -> pd.DataFrame:
+    frames = [frame for frame in (current, incoming) if not frame.empty]
+    if not frames:
+        return pd.DataFrame()
+    merged = pd.concat(frames, ignore_index=True)
+    merged["date"] = pd.to_datetime(merged["date"], errors="coerce")
+    merged["symbol"] = merged["symbol"].astype("string").str.zfill(6)
+    return (
+        merged.dropna(subset=["date", "symbol"])
+        .drop_duplicates(["date", "symbol", "target_price", "opinion"], keep="last")
+        .sort_values(["date", "symbol"])
+        .reset_index(drop=True)
+    )
+
+
+def _write_outputs(
+    scored: pd.DataFrame,
+    settings: Settings,
+    generated_at: datetime,
+) -> Path:
+    rendered = render_report(scored, settings.screening.top_n, settings.watchlist, generated_at)
+    report_date = pd.to_datetime(scored["as_of"].max()).strftime("%Y-%m-%d")
+    latest_html = settings.reports_dir / "latest.html"
+    latest_html.write_text(rendered.html, encoding="utf-8")
+    (settings.reports_dir / f"{report_date}.html").write_text(rendered.html, encoding="utf-8")
+    (settings.reports_dir / "latest.md").write_text(rendered.markdown, encoding="utf-8")
+
+    csv_columns = [
+        "symbol", "name", "market", "as_of", "score", "score_delta",
+        "success_probability", "expected_value", "stage", "action",
+        "foreign_net5", "foreign_net20", "foreign_net60", "foreign_net120",
+        "foreign_20_adtv", "tolerant_buy_ratio20", "sellback_ratio20",
+        "price_return5", "price_return20", "price_return60", "price_residual20",
+        "absorption_signal", "volume_ratio5_20", "atr20_pct",
+        "accumulation_score", "underreaction_score", "structure_score",
+        "fundamental_score", "institution_overlay", "roe", "per", "pbr",
+        "target_price", "target_upside", "foreign_holding_change",
+    ]
+    write_csv(scored[[column for column in csv_columns if column in scored]], settings.reports_dir / "latest.csv")
+    summary_path = os.getenv("GITHUB_STEP_SUMMARY")
+    if summary_path:
+        with Path(summary_path).open("a", encoding="utf-8") as handle:
+            handle.write(rendered.markdown)
+    return latest_html
+
+
+def _new_state(scored: pd.DataFrame, previous: dict, report_date: str) -> dict:
+    old = previous.get("symbols", {})
+    symbols = {}
+    for _, row in scored.iterrows():
+        symbol = str(row["symbol"]).zfill(6)
+        symbols[symbol] = {
+            "name": str(row["name"]),
+            "score": float(row["score"]),
+            "stage": str(row["stage"]),
+            "action": str(row["action"]),
+            "first_seen": old.get(symbol, {}).get("first_seen", report_date),
+            "last_seen": report_date,
+        }
+    return {"report_date": report_date, "symbols": symbols}
+
+
+def run_pipeline(
+    settings: Settings,
+    as_of: date | None = None,
+    universe_limit: int | None = None,
+    skip_backfill: bool = False,
+    notify: bool = True,
+) -> pd.DataFrame:
+    as_of = as_of or date.today()
+    generated_at = datetime.now(ZoneInfo("Asia/Seoul"))
+    client = KISClient.from_env(settings.api)
+    client.authenticate()
+
+    universe = load_universe(settings.screening, settings.watchlist, client.session)
+    universe = _select_universe(universe, universe_limit, settings.watchlist)
+    write_csv(universe, settings.data_dir / "universe.csv")
+
+    history_path = settings.data_dir / "history.csv"
+    snapshots_path = settings.data_dir / "holdings.csv"
+    opinions_path = settings.data_dir / "opinions.csv"
+    state_path = settings.data_dir / "state.json"
+    history = read_csv(history_path)
+    snapshots = read_csv(snapshots_path)
+    opinions = read_csv(opinions_path)
+    state = read_state(state_path)
+
+    incoming, success_count, failures = _collect_windows(client, universe, as_of, "Daily scan")
+    success_rate = success_count / max(len(universe), 1)
+    if incoming.empty or success_rate < 0.70:
+        raise RuntimeError(
+            f"Daily scan data quality too low: success={success_count}/{len(universe)}, failures={failures[:10]}"
+        )
+    history = merge_history(
+        history, incoming, settings.screening.history_retention_days, as_of
+    )
+
+    preliminary = _features_and_scores(
+        history, universe, snapshots, opinions, settings, state
+    )
+    if preliminary.empty:
+        raise RuntimeError("No securities passed the preliminary data and liquidity checks")
+
+    if not skip_backfill:
+        candidate_symbols = list(
+            dict.fromkeys(
+                preliminary.head(settings.screening.bootstrap_candidates)["symbol"].tolist()
+                + list(settings.watchlist)
+            )
+        )
+        candidates = universe[universe["symbol"].isin(candidate_symbols)]
+        backfill = _backfill_candidates(client, candidates, history, as_of, settings)
+        if not backfill.empty:
+            history = merge_history(
+                history, backfill, settings.screening.history_retention_days, as_of
+            )
+            preliminary = _features_and_scores(
+                history, universe, snapshots, opinions, settings, state
+            )
+
+    enrichment_symbols = list(
+        dict.fromkeys(
+            preliminary.head(settings.screening.holdings_candidates)["symbol"].tolist()
+            + list(settings.watchlist)
+        )
+    )
+    enrichment = universe[universe["symbol"].isin(enrichment_symbols)]
+    report_date = pd.to_datetime(history["date"]).max()
+    new_snapshots = _collect_snapshots(client, enrichment, report_date)
+    snapshots = merge_snapshots(snapshots, new_snapshots)
+
+    opinion_symbols = list(
+        dict.fromkeys(
+            preliminary.head(settings.screening.opinion_candidates)["symbol"].tolist()
+            + list(settings.watchlist)
+        )
+    )
+    opinion_candidates = universe[universe["symbol"].isin(opinion_symbols)]
+    new_opinions = _collect_opinions(client, opinion_candidates, as_of)
+    opinions = _merge_opinions(opinions, new_opinions)
+
+    scored = _features_and_scores(
+        history, universe, snapshots, opinions, settings, state
+    )
+    if scored.empty:
+        raise RuntimeError("No securities passed final scoring")
+
+    write_csv(history, history_path)
+    write_csv(snapshots, snapshots_path)
+    write_csv(opinions, opinions_path)
+    latest_html = _write_outputs(scored, settings, generated_at)
+    report_date_text = pd.to_datetime(scored["as_of"].max()).strftime("%Y-%m-%d")
+    write_state(_new_state(scored, state, report_date_text), state_path)
+
+    if notify:
+        try:
+            send_telegram(scored, latest_html)
+        except Exception as exc:
+            LOGGER.error("Telegram delivery failed without invalidating the report: %s", exc)
+    LOGGER.info("Report complete: %s (%d ranked securities)", latest_html, len(scored))
+    return scored
+
+
+def smoke_test(settings: Settings) -> None:
+    client = KISClient.from_env(settings.api)
+    client.authenticate()
+    samsung = client.current_price("005930")
+    celltrion = client.investor_daily("068270", date.today())
+    price = samsung.get("stck_prpr", "?")
+    LOGGER.info("Authentication OK; Samsung current price=%s", price)
+    LOGGER.info("Celltrion investor history rows=%d", len(celltrion))
+    if not samsung or not celltrion:
+        raise KISAPIError("Smoke test returned an empty market-data response")

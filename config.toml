@@ -1,0 +1,29 @@
+[screening]
+# 실전 포지션 1천만원을 충분히 소화할 수 있는 유동성 중심 기본값
+min_market_cap_eok = 1000
+min_median_turnover_krw = 1000000000
+max_universe = 1800
+top_n = 20
+bootstrap_candidates = 120
+history_days = 180
+history_retention_days = 550
+holdings_candidates = 100
+opinion_candidates = 40
+
+[api]
+# 2026년 KIS 호출 제한 변경에 대응할 수 있도록 환경변수로 덮어쓸 수 있음
+calls_per_second = 5.0
+timeout_seconds = 20
+max_retries = 5
+
+[model]
+initial_buy_score = 72.0
+strong_buy_score = 80.0
+watch_score = 64.0
+gap_take_profit_pct = 5.0
+atr_gap_multiple = 1.2
+
+[watchlist]
+# 셀트리온, 현대차, SK, 현대백화점, 삼양식품
+symbols = ["068270", "005380", "034730", "069960", "003230"]
+

@@ -1,0 +1,102 @@
+name: Daily foreign-flow report
+
+on:
+  workflow_dispatch:
+    inputs:
+      universe_limit:
+        description: "개발 테스트용 종목 수 제한 (비우면 전체)"
+        required: false
+        type: string
+      skip_backfill:
+        description: "장기 이력 초기화 생략"
+        required: false
+        default: false
+        type: boolean
+  schedule:
+    # 평일 18:41 KST. 정각 혼잡으로 인한 GitHub 스케줄 지연을 줄이기 위해 41분 사용.
+    - cron: "41 9 * * 1-5"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-foreign-flow-report
+  cancel-in-progress: false
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
+      KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
+      KIS_CALLS_PER_SECOND: ${{ vars.KIS_CALLS_PER_SECOND || '5' }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: python -m pip install -e ".[dev]"
+
+      - name: Unit tests
+        run: pytest
+
+      - name: Validate secrets
+        shell: bash
+        run: |
+          if [[ -z "$KIS_APP_KEY" || -z "$KIS_APP_SECRET" ]]; then
+            echo "KIS_APP_KEY 또는 KIS_APP_SECRET 저장소 Secret이 없습니다." >&2
+            exit 1
+          fi
+
+      - name: Build daily report
+        shell: bash
+        env:
+          INPUT_UNIVERSE_LIMIT: ${{ inputs.universe_limit }}
+          INPUT_SKIP_BACKFILL: ${{ inputs.skip_backfill }}
+        run: |
+          set -o pipefail
+          args=(run)
+          if [[ "$INPUT_UNIVERSE_LIMIT" =~ ^[0-9]+$ ]]; then
+            args+=(--universe-limit "$INPUT_UNIVERSE_LIMIT")
+          fi
+          if [[ "$INPUT_SKIP_BACKFILL" == "true" ]]; then
+            args+=(--skip-backfill)
+          fi
+          python -m kis_flow_bot "${args[@]}" 2>&1 | tee logs/run.log
+
+      - name: Upload report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: foreign-flow-report-${{ github.run_number }}
+          path: |
+            reports/
+            logs/run.log
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Persist data and report
+        if: success()
+        shell: bash
+        run: |
+          git config user.name "foreign-flow-bot"
+          git config user.email "foreign-flow-bot@users.noreply.github.com"
+          git add data reports
+          if git diff --cached --quiet; then
+            echo "변경된 데이터가 없습니다."
+            exit 0
+          fi
+          git commit -m "bot: update daily foreign-flow report"
+          git push
+
