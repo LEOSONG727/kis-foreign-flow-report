@@ -172,7 +172,10 @@ def _reason_list(row: pd.Series) -> str:
     if row.get("absorption_signal") in {"강함", "보통", "주의"}:
         reasons.append(f'가격 하락 중 외국인 위험흡수 신호: {row.get("absorption_signal")}')
     if row.get("opinion_coverage", 0):
-        reasons.append(f'최근 목표가 중앙값 {won(row.get("target_price"))}, 현 주가 대비 {pct(row.get("target_upside"))}')
+        reasons.append(
+            f'120일 내 목표가 {int(row.get("opinion_coverage", 0))}건 중앙값 {won(row.get("target_price"))}, '
+            f'현 주가 대비 {pct(row.get("target_upside"))}·최신 {number(row.get("opinion_recency_days"), 0)}일 전'
+        )
     else:
         reasons.append("증권사 목표가 데이터 없음: 전망 점수는 중립 처리")
     if row.get("promotion_condition"):

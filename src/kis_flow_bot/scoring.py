@@ -42,7 +42,12 @@ def _fundamental_score(row: pd.Series) -> tuple[float, float]:
     if pd.isna(upside) or row.get("opinion_coverage", 0) == 0:
         outlook = 4.0  # 리포트 미커버 종목을 자동으로 벌점 처리하지 않는다.
     else:
-        outlook = 8.0 * scale(upside, -0.10, 0.40)
+        raw_outlook = 8.0 * scale(upside, -0.10, 0.40)
+        coverage_confidence = 0.2 + 0.8 * scale(row.get("opinion_coverage", 0), 1.0, 5.0)
+        freshness_confidence = 1.0 - scale(row.get("opinion_recency_days", 120.0), 45.0, 120.0)
+        dispersion_confidence = 1.0 - scale(row.get("opinion_dispersion", 1.0), 0.15, 0.60)
+        opinion_confidence = coverage_confidence * freshness_confidence * dispersion_confidence
+        outlook = 4.0 + opinion_confidence * (raw_outlook - 4.0)
     return quality, outlook
 
 
@@ -259,6 +264,8 @@ def _action(row: pd.Series, model: ModelConfig) -> str:
         return "외국인 재개 확인 후 분할매수"
     if stage == "가격상승" or campaign == "상승진행":
         return "추격 금지·보유"
+    if row.get("absorption_signal") == "주의" and row.get("price_return20", 0.0) < 0:
+        return "위험흡수 구조 확인 대기"
     if (
         entry_score >= model.entry_strong_score
         and campaign in {"지속매집", "장기매집·재가속"}

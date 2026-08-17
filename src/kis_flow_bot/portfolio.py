@@ -25,6 +25,8 @@ def _promotion_condition(row: dict, action: str, has_position: bool, model: Mode
     campaign = str(row.get("campaign_regime", "중립"))
     if action in {"강한 신규매수", "초기 분할매수"} or "추가매수 검토" in action:
         return "현재 조건 충족"
+    if "위험흡수 구조 확인" in action:
+        return "60일 가격구조 회복 + 외국인 보유수량 감소 없음 확인"
     if has_position and action == "보유·다음 눌림 대기":
         return f"마지막 매수가 대비 -{model.add_trigger_pct:.0f}% 도달 + 매집 신호 유지"
     if campaign == "신규재진입":

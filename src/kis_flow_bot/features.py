@@ -206,16 +206,29 @@ def _holding_change(symbol: str, snapshots: pd.DataFrame) -> float:
     return float(group["foreign_holding_qty"].iloc[-1] - eligible["foreign_holding_qty"].iloc[-1])
 
 
-def _opinion_consensus(symbol: str, opinions: pd.DataFrame, close: float) -> tuple[float, float, int]:
+def _opinion_consensus(
+    symbol: str,
+    opinions: pd.DataFrame,
+    close: float,
+    as_of: pd.Timestamp,
+) -> tuple[float, float, int, float, float]:
     if opinions.empty or close <= 0:
-        return float("nan"), float("nan"), 0
+        return float("nan"), float("nan"), 0, float("nan"), float("nan")
     group = opinions[opinions["symbol"].astype(str).str.zfill(6) == symbol].copy()
     group["date"] = pd.to_datetime(group["date"], errors="coerce")
+    as_of = pd.to_datetime(as_of)
+    group = group[
+        (group["date"] <= as_of)
+        & (group["date"] >= as_of - pd.Timedelta(days=120))
+    ]
     group = group.dropna(subset=["date", "target_price"]).sort_values("date").tail(20)
     if group.empty:
-        return float("nan"), float("nan"), 0
-    target = float(pd.to_numeric(group["target_price"], errors="coerce").median())
-    return target, target / close - 1.0, len(group)
+        return float("nan"), float("nan"), 0, float("nan"), float("nan")
+    targets = pd.to_numeric(group["target_price"], errors="coerce").dropna()
+    target = float(targets.median())
+    dispersion = float((targets.quantile(0.75) - targets.quantile(0.25)) / target) if target > 0 else float("nan")
+    recency_days = float((as_of - group["date"].max()).days)
+    return target, target / close - 1.0, len(group), recency_days, dispersion
 
 
 def build_base_features(
@@ -308,7 +321,9 @@ def build_base_features(
         gap = float(latest["open"] / previous_close - 1.0) if previous_close > 0 else 0.0
         daily_range = max(float(latest["high"] - latest["low"]), 1.0)
         upper_wick = float((latest["high"] - max(latest["open"], latest["close"])) / daily_range)
-        target, target_upside, coverage = _opinion_consensus(symbol, opinions, float(latest["close"]))
+        target, target_upside, coverage, opinion_recency_days, opinion_dispersion = _opinion_consensus(
+            symbol, opinions, float(latest["close"]), latest["date"]
+        )
 
         latest_snapshot = pd.DataFrame()
         if not snapshots.empty:
@@ -389,6 +404,8 @@ def build_base_features(
                 "target_price": target,
                 "target_upside": target_upside,
                 "opinion_coverage": coverage,
+                "opinion_recency_days": opinion_recency_days,
+                "opinion_dispersion": opinion_dispersion,
                 "history_confidence": "충분" if len(group) >= 120 else ("보통" if len(group) >= 60 else "초기"),
                 "price_series": group.tail(60)["close"].astype(float).tolist(),
             }

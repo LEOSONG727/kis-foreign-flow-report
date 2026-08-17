@@ -246,6 +246,7 @@ def _write_outputs(
         "accumulation_score", "underreaction_score", "structure_score",
         "fundamental_score", "institution_overlay", "roe", "per", "pbr",
         "target_price", "target_upside", "foreign_holding_change",
+        "opinion_coverage", "opinion_recency_days", "opinion_dispersion",
         "history_confidence",
         "model_action", "has_position", "position_quantity", "average_price",
         "last_buy_price", "tranche_count", "position_return", "position_drawdown",

@@ -3,11 +3,30 @@ from __future__ import annotations
 import pandas as pd
 
 from kis_flow_bot.features import (
+    _opinion_consensus,
     add_cross_sectional_residuals,
     build_base_features,
     normalize_investor_rows,
     validate_investor_amounts,
 )
+
+
+def test_opinion_consensus_ignores_stale_targets_and_reports_dispersion():
+    opinions = pd.DataFrame(
+        [
+            {"symbol": "000010", "date": "2026-03-01", "target_price": 300_000},
+            {"symbol": "000010", "date": "2026-07-20", "target_price": 120_000},
+            {"symbol": "000010", "date": "2026-08-10", "target_price": 140_000},
+        ]
+    )
+    target, upside, coverage, recency, dispersion = _opinion_consensus(
+        "000010", opinions, 100_000, pd.Timestamp("2026-08-14")
+    )
+    assert target == 130_000
+    assert round(upside, 6) == 0.3
+    assert coverage == 2
+    assert recency == 4
+    assert dispersion > 0
 
 
 def test_kis_thousand_won_amount_is_normalized_to_won():

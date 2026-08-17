@@ -151,3 +151,14 @@ def test_lumpy_flow_is_flagged_instead_of_called_accumulation():
     candidate = scored[scored["symbol"] == "000010"].iloc[0]
     assert candidate["campaign_regime"] == "이상대량·확인"
     assert candidate["action"] == "블록·이벤트성 수급 확인"
+
+
+def test_absorption_caution_does_not_become_a_buy_action():
+    features, index = _candidate_features()
+    features.loc[index, "price_return20"] = -0.10
+    features.loc[index, "price_return60"] = -0.30
+    features.loc[index, "distance_high60"] = -0.35
+    scored = score_features(features, ModelConfig())
+    candidate = scored[scored["symbol"] == "000010"].iloc[0]
+    assert candidate["absorption_signal"] == "주의"
+    assert candidate["action"] == "위험흡수 구조 확인 대기"
