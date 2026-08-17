@@ -91,7 +91,10 @@ def _decision_bucket(row: dict, action: str, has_position: bool, model: ModelCon
         return "신규매수"
     if has_position:
         return "보유관리"
-    if any(token in action for token in ("눌림", "재개", "재확인", "확인 대기", "추격 금지", "급락 멈춤", "재가속 확인")):
+    if any(token in action for token in (
+        "눌림", "재개", "재확인", "확인 대기", "추격 금지", "급락 멈춤",
+        "재가속 확인", "가격 반전", "강도 부족",
+    )):
         return "눌림·확인대기"
     if float(row.get("entry_score", 0.0)) >= model.entry_watch_score:
         return "관찰"
@@ -99,12 +102,12 @@ def _decision_bucket(row: dict, action: str, has_position: bool, model: ModelCon
 
 
 def _add_opportunity_score(row: dict, has_position: bool, position_drawdown: float) -> float:
-    campaign = float(row.get("campaign_score", 0.0))
-    entry = float(row.get("entry_score", 0.0))
+    discovery = float(row.get("discovery_score", row.get("campaign_score", 0.0)))
+    timing = float(row.get("timing_score", row.get("entry_score", 0.0)))
     foreign5 = float(row.get("foreign_5_adtv", 0.0))
     price5 = float(row.get("price_return5", 0.0))
     price20 = float(row.get("price_return20", 0.0))
-    score = 0.55 * campaign + 0.25 * entry
+    score = 0.45 * discovery + 0.35 * timing
     score += 10.0 * _clamp(foreign5 / 0.50, 0.0, 1.0)
     score += 10.0 * _clamp(-price5 / 0.08, 0.0, 1.0)
     score -= 15.0 * _clamp((price20 - 0.08) / 0.14, 0.0, 1.0)
@@ -192,6 +195,10 @@ def apply_portfolio_actions(
                 stage in {"매집·눌림", "초기매집", "매집휴식"}
                 and score >= model.initial_buy_score
                 and entry_ready
+                and float(row.get("discovery_score", model.discovery_candidate_score))
+                >= model.discovery_candidate_score
+                and float(row.get("timing_score", model.timing_buy_score))
+                >= model.timing_buy_score
             )
             if stage == "가격상승":
                 action = "보유·추격매수 금지"
@@ -218,11 +225,17 @@ def apply_portfolio_actions(
         )
         decision_bucket = _decision_bucket(row, action, has_position, model)
         if decision_bucket == "신규매수":
-            action_priority = float(row.get("entry_score", 0.0))
+            action_priority = (
+                0.55 * float(row.get("discovery_score", row.get("campaign_score", 0.0)))
+                + 0.45 * float(row.get("timing_score", row.get("entry_score", 0.0)))
+            )
         elif decision_bucket == "추가매수":
             action_priority = add_score
         elif decision_bucket in {"눌림·확인대기", "관찰"}:
-            action_priority = 0.6 * float(row.get("campaign_score", 0.0)) + 0.4 * float(row.get("entry_score", 0.0))
+            action_priority = (
+                0.65 * float(row.get("discovery_score", row.get("campaign_score", 0.0)))
+                + 0.35 * float(row.get("timing_score", row.get("entry_score", 0.0)))
+            )
         elif decision_bucket == "수익실현·중단":
             action_priority = 100.0 - float(row.get("entry_score", 0.0))
         else:
