@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import logging
+import os
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,6 +15,9 @@ from .config import ModelConfig, Settings
 from .features import add_cross_sectional_residuals, build_base_features
 from .scoring import score_features
 from .storage import read_csv, write_csv
+
+LOGGER = logging.getLogger(__name__)
+_GATE_SWEEP_CTX: dict = {}
 
 
 @dataclass(frozen=True)
@@ -776,3 +782,479 @@ def run_backtest(settings: Settings) -> pd.DataFrame:
     )
     _write_backtest_report(settings, results, summary, score_bands, calibration)
     return results
+
+
+GATE_SWEEP_POLICIES = (
+    {
+        "variant": "current",
+        "label": "현재 즉시매수",
+        "min3": -3.0,
+        "max20": 3.0,
+        "max_rebound20": 5.0,
+        "baseline": True,
+    },
+    {
+        "variant": "plus_one",
+        "label": "한 칸 완화",
+        "min3": -3.0,
+        "max20": 4.0,
+        "max_rebound20": 6.0,
+        "baseline": False,
+    },
+    {
+        "variant": "plus_two",
+        "label": "두 칸 완화",
+        "min3": -3.0,
+        "max20": 5.0,
+        "max_rebound20": 7.0,
+        "baseline": False,
+    },
+    {
+        "variant": "watch_keep_3d",
+        "label": "관심후보 가격만",
+        "min3": -3.0,
+        "max20": 6.0,
+        "max_rebound20": 8.0,
+        "baseline": False,
+    },
+    {
+        "variant": "watch",
+        "label": "관심후보 전체",
+        "min3": -4.0,
+        "max20": 6.0,
+        "max_rebound20": 8.0,
+        "baseline": False,
+    },
+)
+
+
+def passes_price_gates(
+    price_return3: float,
+    price_return20: float,
+    rebound_from_low20: float,
+    min3: float,
+    max20: float,
+    max_rebound20: float,
+) -> bool:
+    return (
+        float(price_return3) >= min3 / 100.0
+        and float(price_return20) < max20 / 100.0
+        and float(rebound_from_low20) < max_rebound20 / 100.0
+    )
+
+
+def apply_signal_cooldown(
+    events: pd.DataFrame,
+    horizon_days: int,
+    date_ranks: dict[pd.Timestamp, int] | None = None,
+) -> pd.DataFrame:
+    if events.empty:
+        return events
+    frame = events.sort_values(["symbol", "as_of"]).copy()
+    ranks = date_ranks or {
+        pd.Timestamp(date): index for index, date in enumerate(sorted(frame["as_of"].unique()))
+    }
+    kept: list[int] = []
+    last_index: dict[str, int] = {}
+    for position, row in frame.iterrows():
+        symbol = str(row["symbol"])
+        rank = ranks.get(pd.Timestamp(row["as_of"]))
+        if rank is None:
+            continue
+        previous = last_index.get(symbol)
+        if previous is not None and rank - previous < horizon_days:
+            continue
+        kept.append(position)
+        last_index[symbol] = rank
+    return frame.loc[kept].reset_index(drop=True)
+
+
+def _summarize_event_subset(variant: str, policy: dict, group: pd.DataFrame) -> dict:
+    if group.empty:
+        return {
+            "variant": variant,
+            "label": policy.get("label", variant),
+            "min3": policy["min3"],
+            "max20": policy["max20"],
+            "max_rebound20": policy["max_rebound20"],
+            "signals": 0,
+            "resolved": 0,
+            "resolved_win_rate": float("nan"),
+            "positive_20d_rate": float("nan"),
+            "mean_20d_return": float("nan"),
+            "mean_excess_20d_return": float("nan"),
+            "mean_scaled_strategy_return": float("nan"),
+            "positive_scaled_strategy_rate": float("nan"),
+            "mean_max_drawdown": float("nan"),
+            "mean_tranches": float("nan"),
+        }
+    resolved = group[group["outcome"].isin(["target", "stop"])]
+    wins = int((group["outcome"] == "target").sum())
+    scaled = pd.to_numeric(group["scaled_strategy_return"], errors="coerce")
+    return {
+        "variant": variant,
+        "label": policy.get("label", variant),
+        "min3": policy["min3"],
+        "max20": policy["max20"],
+        "max_rebound20": policy["max_rebound20"],
+        "signals": len(group),
+        "resolved": len(resolved),
+        "resolved_win_rate": wins / len(resolved) if len(resolved) else float("nan"),
+        "positive_20d_rate": float((group["forward_return"] > 0).mean()),
+        "mean_20d_return": float(group["forward_return"].mean()),
+        "mean_excess_20d_return": float(pd.to_numeric(group["excess_forward_return"], errors="coerce").mean()),
+        "mean_scaled_strategy_return": float(scaled.mean()),
+        "positive_scaled_strategy_rate": float((scaled > 0).mean()),
+        "mean_max_drawdown": float(group["max_drawdown"].mean()),
+        "mean_tranches": float(pd.to_numeric(group["strategy_tranches"], errors="coerce").mean()),
+    }
+
+
+def recommend_gate_policy(
+    summaries: pd.DataFrame,
+    minimum_incremental_signals: int = 15,
+) -> dict:
+    """Pick the widest gate that does not clearly hurt incremental trades."""
+    if summaries.empty:
+        return {"chosen": "current", "reasons": ["비교 표본이 없습니다."], "applied": False}
+    by_name = summaries.set_index("variant").to_dict("index")
+    if "current" not in by_name:
+        return {"chosen": "current", "reasons": ["기준 게이트 결과가 없습니다."], "applied": False}
+    base = by_name["current"]
+    chosen = "current"
+    reasons = [
+        (
+            f"기준 현재 게이트 신호 {int(base['signals'])}건, 분할전략 "
+            f"{base['mean_scaled_strategy_return'] * 100:+.2f}%, 시장초과 "
+            f"{base['mean_excess_20d_return'] * 100:+.2f}%"
+        )
+    ]
+    for name in ("plus_one", "plus_two", "watch_keep_3d", "watch"):
+        row = by_name.get(name)
+        incremental = by_name.get(f"{name}_incremental")
+        if row is None or incremental is None:
+            continue
+        if int(incremental["signals"]) < minimum_incremental_signals:
+            reasons.append(
+                f"{row['label']}: 추가 신호 {int(incremental['signals'])}건으로 "
+                f"{minimum_incremental_signals}건 미만이라 채택하지 않음"
+            )
+            continue
+        overall_ok = (
+            row["mean_scaled_strategy_return"]
+            >= base["mean_scaled_strategy_return"] - 0.003
+        )
+        incremental_ok = (
+            incremental["mean_scaled_strategy_return"]
+            >= base["mean_scaled_strategy_return"] - 0.005
+        )
+        drawdown_ok = incremental["mean_max_drawdown"] >= base["mean_max_drawdown"] - 0.02
+        excess_ok = incremental["mean_excess_20d_return"] >= min(
+            0.0, base["mean_excess_20d_return"] - 0.01
+        )
+        if overall_ok and incremental_ok and drawdown_ok and excess_ok:
+            chosen = name
+            reasons.append(
+                f"{row['label']}: 채택. 추가 신호 분할전략 "
+                f"{incremental['mean_scaled_strategy_return'] * 100:+.2f}%, "
+                f"낙폭 {incremental['mean_max_drawdown'] * 100:+.2f}%"
+            )
+        else:
+            reasons.append(
+                f"{row['label']}: 거절. 추가 신호 분할전략 "
+                f"{incremental['mean_scaled_strategy_return'] * 100:+.2f}% / "
+                f"낙폭 {incremental['mean_max_drawdown'] * 100:+.2f}% / "
+                f"시장초과 {incremental['mean_excess_20d_return'] * 100:+.2f}%"
+            )
+    return {"chosen": chosen, "reasons": reasons, "applied": chosen != "current"}
+
+
+def _init_gate_sweep_worker(payload: dict) -> None:
+    _GATE_SWEEP_CTX.clear()
+    _GATE_SWEEP_CTX.update(payload)
+
+
+def _gate_sweep_one_date(date_index: int) -> tuple[int, list[dict]]:
+    """Score the widest executable gate for one as-of date."""
+    ctx = _GATE_SWEEP_CTX
+    history = ctx["history"]
+    universe = ctx["universe"]
+    snapshots = ctx["snapshots"]
+    opinions = ctx["opinions"]
+    dates = ctx["dates"]
+    horizon = int(ctx["horizon"])
+    widest_model = ctx["widest_model"]
+    eval_model = ctx["eval_model"]
+    as_of = pd.Timestamp(dates[date_index])
+    history_view = history[history["date"] <= as_of]
+    market_benchmarks = market_forward_benchmarks(
+        history,
+        as_of,
+        pd.Timestamp(dates[date_index + horizon]),
+        eval_model.backtest_roundtrip_cost_pct / 100.0,
+    )
+    snapshot_view = snapshots
+    if not snapshots.empty and "date" in snapshots:
+        snapshot_view = snapshots[snapshots["date"] <= as_of]
+    opinion_view = opinions
+    if not opinions.empty and "date" in opinions:
+        opinion_view = opinions[opinions["date"] <= as_of]
+    features = build_base_features(history_view, universe, snapshot_view, opinion_view)
+    features = add_cross_sectional_residuals(features)
+    scored = score_features(features, widest_model)
+    candidates = scored[
+        scored["action"].isin(["강한 신규매수", "초기 분할매수"])
+        & (scored["entry_score"] >= eval_model.entry_buy_score)
+        & (scored["data_points"] >= 60)
+    ]
+    events: list[dict] = []
+    for _, row in candidates.iterrows():
+        symbol = str(row["symbol"]).zfill(6)
+        future = history[
+            (history["symbol"] == symbol) & (history["date"] > as_of)
+        ].sort_values("date").head(horizon)
+        if len(future) < horizon:
+            continue
+        next_open = pd.to_numeric(future["open"].iloc[0], errors="coerce")
+        entry_price = (
+            float(next_open)
+            if pd.notna(next_open) and next_open > 0
+            else float(future["close"].iloc[0])
+        )
+        path = evaluate_forward_ohlc(
+            entry_price,
+            future,
+            eval_model.backtest_target_pct / 100.0,
+            eval_model.backtest_stop_pct / 100.0,
+            eval_model.backtest_roundtrip_cost_pct / 100.0,
+        )
+        market = str(row.get("market", ""))
+        market_forward = float(
+            market_benchmarks.get(
+                market,
+                np.median(list(market_benchmarks.values())) if market_benchmarks else 0.0,
+            )
+        )
+        context = history[
+            (history["symbol"] == symbol)
+            & (history["date"] <= future["date"].iloc[-1])
+        ].sort_values("date")
+        scaled = simulate_scaled_strategy(context, as_of, eval_model)
+        events.append(
+            {
+                "as_of": as_of,
+                "entry_date": future["date"].iloc[0],
+                "symbol": symbol,
+                "name": row.get("name", symbol),
+                "market": market,
+                "discovery_score": row.get("discovery_score", 0.0),
+                "entry_score": row.get("entry_score", 0.0),
+                "campaign_regime": row.get("campaign_regime", ""),
+                "stage": row.get("stage", ""),
+                "price_return3": float(row.get("price_return3", 0.0)),
+                "price_return20": float(row.get("price_return20", 0.0)),
+                "rebound_from_low20": float(row.get("rebound_from_low20", 0.0)),
+                "outcome": path.outcome,
+                "forward_return": path.forward_return,
+                "excess_forward_return": path.forward_return - market_forward,
+                "realized_return": path.realized_return,
+                "max_drawdown": path.max_drawdown,
+                "scaled_strategy_return": scaled.return_rate,
+                "strategy_tranches": scaled.tranches,
+            }
+        )
+    return date_index, events
+
+
+def run_gate_sweep(settings: Settings) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
+    """Score once, then compare nested price-gate policies for executable buys."""
+    history = read_csv(settings.data_dir / "history.csv")
+    universe = read_csv(settings.data_dir / "universe.csv")
+    snapshots = read_csv(settings.data_dir / "holdings.csv")
+    opinions = read_csv(settings.data_dir / "opinions.csv")
+    horizon = settings.model.backtest_horizon_days
+    empty = pd.DataFrame()
+    if history.empty or universe.empty:
+        decision = recommend_gate_policy(empty)
+        _write_gate_sweep_report(settings, empty, empty, decision)
+        return empty, empty, decision
+
+    history["date"] = pd.to_datetime(history["date"], errors="coerce")
+    history["symbol"] = history["symbol"].astype("string").str.zfill(6)
+    if not snapshots.empty and "date" in snapshots:
+        snapshots = snapshots.copy()
+        snapshots["date"] = pd.to_datetime(snapshots["date"], errors="coerce")
+        snapshots["symbol"] = snapshots["symbol"].astype("string").str.zfill(6)
+    if not opinions.empty and "date" in opinions:
+        opinions = opinions.copy()
+        opinions["date"] = pd.to_datetime(opinions["date"], errors="coerce")
+        opinions["symbol"] = opinions["symbol"].astype("string").str.zfill(6)
+    dates = sorted(history["date"].dropna().unique())
+    widest = GATE_SWEEP_POLICIES[-1]
+    widest_model = replace(
+        settings.model,
+        entry_min_return3_pct=widest["min3"],
+        entry_max_return20_pct=widest["max20"],
+        entry_max_rebound20_pct=widest["max_rebound20"],
+    )
+    events: list[dict] = []
+    if len(dates) >= 60 + horizon:
+        date_indexes = list(range(59, len(dates) - horizon))
+        payload = {
+            "history": history,
+            "universe": universe,
+            "snapshots": snapshots,
+            "opinions": opinions,
+            "dates": dates,
+            "horizon": horizon,
+            "widest_model": widest_model,
+            "eval_model": settings.model,
+        }
+        workers = max(1, min(6, (os.cpu_count() or 2) - 1))
+        LOGGER.info("gate-sweep start: %s dates, %s workers", len(date_indexes), workers)
+        if workers == 1:
+            _init_gate_sweep_worker(payload)
+            for step, date_index in enumerate(date_indexes, start=1):
+                _, date_events = _gate_sweep_one_date(date_index)
+                events.extend(date_events)
+                if step == 1 or step % 5 == 0 or step == len(date_indexes):
+                    LOGGER.info(
+                        "gate-sweep %s/%s dates, events=%s",
+                        step,
+                        len(date_indexes),
+                        len(events),
+                    )
+        else:
+            with ProcessPoolExecutor(
+                max_workers=workers,
+                initializer=_init_gate_sweep_worker,
+                initargs=(payload,),
+            ) as pool:
+                futures = [pool.submit(_gate_sweep_one_date, date_index) for date_index in date_indexes]
+                done = 0
+                for future in as_completed(futures):
+                    _, date_events = future.result()
+                    events.extend(date_events)
+                    done += 1
+                    if done == 1 or done % 5 == 0 or done == len(date_indexes):
+                        LOGGER.info(
+                            "gate-sweep %s/%s dates, events=%s",
+                            done,
+                            len(date_indexes),
+                            len(events),
+                        )
+    events_frame = pd.DataFrame(events)
+    summaries: list[dict] = []
+    selected_rows: list[pd.DataFrame] = []
+    baseline_keys: set[tuple] = set()
+    date_ranks = {pd.Timestamp(date): index for index, date in enumerate(dates)}
+    for policy in GATE_SWEEP_POLICIES:
+        if events_frame.empty:
+            subset = events_frame
+        else:
+            mask = events_frame.apply(
+                lambda row, item=policy: passes_price_gates(
+                    row["price_return3"],
+                    row["price_return20"],
+                    row["rebound_from_low20"],
+                    item["min3"],
+                    item["max20"],
+                    item["max_rebound20"],
+                ),
+                axis=1,
+            )
+            subset = apply_signal_cooldown(events_frame[mask], horizon, date_ranks)
+        tagged = subset.copy()
+        if not tagged.empty:
+            tagged["variant"] = policy["variant"]
+            selected_rows.append(tagged)
+        summaries.append(_summarize_event_subset(policy["variant"], policy, subset))
+        if policy["variant"] == "current" and not subset.empty:
+            baseline_keys = set(zip(subset["symbol"], subset["as_of"]))
+        elif not subset.empty:
+            incremental = subset[
+                ~subset.apply(lambda row: (row["symbol"], row["as_of"]) in baseline_keys, axis=1)
+            ]
+            incremental_tagged = incremental.copy()
+            if not incremental_tagged.empty:
+                incremental_tagged["variant"] = f"{policy['variant']}_incremental"
+                selected_rows.append(incremental_tagged)
+            summaries.append(
+                _summarize_event_subset(
+                    f"{policy['variant']}_incremental",
+                    {**policy, "label": f"{policy['label']} 추가분만"},
+                    incremental,
+                )
+            )
+    summary = pd.DataFrame(summaries)
+    decision = recommend_gate_policy(summary)
+    detail = pd.concat(selected_rows, ignore_index=True) if selected_rows else pd.DataFrame()
+    write_csv(detail, settings.reports_dir / "gate_sweep_latest.csv")
+    write_csv(summary, settings.reports_dir / "gate_sweep_summary.csv")
+    _write_gate_sweep_report(settings, detail, summary, decision)
+    LOGGER.info(
+        "gate-sweep done: chosen=%s applied=%s events=%s",
+        decision.get("chosen"),
+        decision.get("applied"),
+        0 if events_frame.empty else len(events_frame),
+    )
+    for reason in decision.get("reasons", []):
+        LOGGER.info("gate-sweep reason: %s", reason)
+    return detail, summary, decision
+
+
+def _write_gate_sweep_report(
+    settings: Settings,
+    detail: pd.DataFrame,
+    summary: pd.DataFrame,
+    decision: dict,
+) -> None:
+    path = settings.reports_dir / "gate_sweep.md"
+    settings.reports_dir.mkdir(parents=True, exist_ok=True)
+    if summary.empty:
+        path.write_text(
+            "# 게이트 완화 검증\n\n비교할 워크포워드 신호가 없습니다.\n",
+            encoding="utf-8",
+        )
+        return
+    def pct_cell(value: float) -> str:
+        numeric = float(value) if value is not None else float("nan")
+        return "-" if not np.isfinite(numeric) else f"{numeric * 100:.1f}%"
+
+    def signed_cell(value: float) -> str:
+        numeric = float(value) if value is not None else float("nan")
+        return "-" if not np.isfinite(numeric) else f"{numeric * 100:+.2f}%"
+
+    rows = []
+    for _, item in summary.iterrows():
+        rows.append(
+            f"| {item['label']} | 3일 {item['min3']:+.0f}% / 20일 +{item['max20']:.0f}% / "
+            f"저점 +{item['max_rebound20']:.0f}% | {int(item['signals'])} | {int(item['resolved'])} | "
+            f"{pct_cell(item['resolved_win_rate'])} | {pct_cell(item['positive_20d_rate'])} | "
+            f"{signed_cell(item['mean_scaled_strategy_return'])} | "
+            f"{pct_cell(item['positive_scaled_strategy_rate'])} | "
+            f"{signed_cell(item['mean_20d_return'])} | {signed_cell(item['mean_excess_20d_return'])} | "
+            f"{signed_cell(item['mean_max_drawdown'])} |"
+        )
+    chosen = str(decision.get("chosen", "current"))
+    reasons = "\n".join(f"- {reason}" for reason in decision.get("reasons", []))
+    text = (
+        "# 게이트 완화 검증\n\n"
+        "즉시매수 가격 게이트만 바꾸고, 발견점수·국면·분산·위험흡수 조건은 그대로 둡니다. "
+        "점수는 가장 넓은 게이트로 한 번만 계산한 뒤 하위 게이트를 부분집합으로 비교합니다. "
+        "추가분은 현재 게이트를 통과하지 못한 신호만 따로 본 결과입니다.\n\n"
+        f"- 체결 가정: 신호 다음 거래일 시가, {settings.model.backtest_horizon_days}거래일, "
+        f"목표 +{settings.model.backtest_target_pct:.0f}% / 손절 -{settings.model.backtest_stop_pct:.0f}%, "
+        f"왕복 {settings.model.backtest_roundtrip_cost_pct:.1f}%\n"
+        f"- 권고안: **{chosen}**\n"
+        f"- 즉시매수 게이트 변경: {'예' if decision.get('applied') else '아니오'}\n\n"
+        "## 비교표\n\n"
+        "| 정책 | 게이트 | 신호 | 판정 | 목표 선도달 | 20일 양수 | 분할전략 평균 | 분할전략 양수 | 평균 20일 | 시장초과 | 평균 최대낙폭 |\n"
+        "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n"
+        + "\n".join(rows)
+        + "\n\n## 판정 이유\n\n"
+        + reasons
+        + "\n\n추가 신호가 기준보다 뚜렷이 나빠지면 화면의 관심후보만 유지하고 즉시매수는 바꾸지 않습니다. "
+        "표본이 작으므로 절대 승률보다 현재 대비 상대 비교를 사용합니다.\n"
+    )
+    path.write_text(text, encoding="utf-8")

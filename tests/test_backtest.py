@@ -3,12 +3,15 @@ from __future__ import annotations
 import pandas as pd
 
 from kis_flow_bot.backtest import (
+    apply_signal_cooldown,
     build_calibration,
     evaluate_forward_ohlc,
     evaluate_forward_path,
     market_forward_benchmarks,
-    summarize_variants,
+    passes_price_gates,
+    recommend_gate_policy,
     simulate_scaled_strategy,
+    summarize_variants,
 )
 from kis_flow_bot.config import ModelConfig
 
@@ -150,6 +153,78 @@ def test_strict_add_waits_until_flow_and_price_stabilize():
     result = simulate_scaled_strategy(context, signal_date, ModelConfig())
     assert result.tranches == 2
     assert result.invested_krw > 10_000_000
+
+
+def test_price_gates_keep_watch_names_out_of_current_buy():
+    assert passes_price_gates(0.0, 0.045, 0.06, -3.0, 3.0, 5.0) is False
+    assert passes_price_gates(0.0, 0.045, 0.06, -4.0, 6.0, 8.0) is True
+
+
+def test_signal_cooldown_uses_full_calendar_ranks():
+    events = pd.DataFrame(
+        [
+            {"symbol": "000010", "as_of": pd.Timestamp("2026-03-02")},
+            {"symbol": "000010", "as_of": pd.Timestamp("2026-03-04")},
+            {"symbol": "000010", "as_of": pd.Timestamp("2026-04-01")},
+        ]
+    )
+    ranks = {
+        pd.Timestamp("2026-03-02"): 0,
+        pd.Timestamp("2026-03-04"): 2,
+        pd.Timestamp("2026-04-01"): 22,
+    }
+    kept = apply_signal_cooldown(events, horizon_days=20, date_ranks=ranks)
+    assert list(kept["as_of"].dt.strftime("%Y-%m-%d")) == ["2026-03-02", "2026-04-01"]
+
+
+def test_gate_policy_accepts_wider_gates_when_incremental_is_similar():
+    summaries = pd.DataFrame(
+        [
+            {
+                "variant": "current", "label": "현재",
+                "mean_scaled_strategy_return": 0.012, "mean_excess_20d_return": 0.04,
+                "mean_max_drawdown": -0.10, "signals": 120,
+            },
+            {
+                "variant": "watch", "label": "관심후보 전체",
+                "mean_scaled_strategy_return": 0.013, "mean_excess_20d_return": 0.041,
+                "mean_max_drawdown": -0.105, "signals": 160,
+            },
+            {
+                "variant": "watch_incremental", "label": "관심후보 전체 추가분만",
+                "mean_scaled_strategy_return": 0.011, "mean_excess_20d_return": 0.03,
+                "mean_max_drawdown": -0.11, "signals": 40,
+            },
+        ]
+    )
+    decision = recommend_gate_policy(summaries)
+    assert decision["chosen"] == "watch"
+    assert decision["applied"] is True
+
+
+def test_gate_policy_rejects_wider_gates_when_incremental_is_worse():
+    summaries = pd.DataFrame(
+        [
+            {
+                "variant": "current", "label": "현재",
+                "mean_scaled_strategy_return": 0.012, "mean_excess_20d_return": 0.04,
+                "mean_max_drawdown": -0.10, "signals": 120,
+            },
+            {
+                "variant": "watch", "label": "관심후보 전체",
+                "mean_scaled_strategy_return": 0.004, "mean_excess_20d_return": 0.01,
+                "mean_max_drawdown": -0.14, "signals": 200,
+            },
+            {
+                "variant": "watch_incremental", "label": "관심후보 전체 추가분만",
+                "mean_scaled_strategy_return": -0.02, "mean_excess_20d_return": -0.01,
+                "mean_max_drawdown": -0.16, "signals": 80,
+            },
+        ]
+    )
+    decision = recommend_gate_policy(summaries)
+    assert decision["chosen"] == "current"
+    assert decision["applied"] is False
 
 
 def test_scaled_strategy_takes_gap_half_and_trails_the_rest():
