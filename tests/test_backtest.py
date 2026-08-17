@@ -7,7 +7,9 @@ from kis_flow_bot.backtest import (
     evaluate_forward_ohlc,
     evaluate_forward_path,
     summarize_variants,
+    simulate_scaled_strategy,
 )
+from kis_flow_bot.config import ModelConfig
 
 
 def test_target_before_stop_is_a_win():
@@ -79,3 +81,44 @@ def test_variant_summary_reports_signal_quality():
     assert row["signals"] == 2
     assert row["resolved_win_rate"] == 0.5
     assert row["ambiguous_days"] == 1
+
+
+def _strategy_context(future_rows: list[dict]) -> tuple[pd.DataFrame, pd.Timestamp]:
+    dates = pd.bdate_range("2026-01-02", periods=20 + len(future_rows))
+    rows = [
+        {
+            "date": date, "open": 100.0, "high": 101.0, "low": 99.0,
+            "close": 100.0, "foreign_net_amount": 10_000_000.0,
+        }
+        for date in dates[:20]
+    ]
+    for date, values in zip(dates[20:], future_rows):
+        rows.append({"date": date, "foreign_net_amount": 10_000_000.0, **values})
+    return pd.DataFrame(rows), dates[19]
+
+
+def test_scaled_strategy_adds_only_on_next_open_while_flow_is_alive():
+    context, signal_date = _strategy_context(
+        [
+            {"open": 100.0, "high": 101.0, "low": 95.0, "close": 96.0},
+            {"open": 95.0, "high": 101.0, "low": 94.0, "close": 100.0},
+        ]
+    )
+    result = simulate_scaled_strategy(context, signal_date, ModelConfig())
+    assert result.tranches == 2
+    assert result.invested_krw > 10_000_000
+    assert result.return_rate > 0
+
+
+def test_scaled_strategy_takes_gap_half_and_trails_the_rest():
+    context, signal_date = _strategy_context(
+        [
+            {"open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0},
+            {"open": 106.0, "high": 108.0, "low": 104.0, "close": 107.0},
+            {"open": 105.0, "high": 106.0, "low": 98.0, "close": 100.0},
+        ]
+    )
+    result = simulate_scaled_strategy(context, signal_date, ModelConfig())
+    assert result.gap_half_sold
+    assert result.exit_reason == "절반 익절 후 추적손절"
+    assert result.return_rate > 0
