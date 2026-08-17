@@ -65,3 +65,11 @@ def test_hot_reentry_is_sorted_into_pullback_wait_queue():
     result = apply_portfolio_actions(scored, pd.DataFrame(), ModelConfig()).iloc[0]
     assert result["decision_bucket"] == "눌림·확인대기"
     assert "첫 조정" in result["promotion_condition"]
+
+
+def test_rising_campaign_requires_both_short_and_monthly_heat_to_cool():
+    scored = _scored()
+    scored.loc[0, "campaign_regime"] = "상승진행"
+    scored.loc[0, "action"] = "추격 금지·보유"
+    result = apply_portfolio_actions(scored, pd.DataFrame(), ModelConfig()).iloc[0]
+    assert "20일 상승률 +8% 이하" in result["promotion_condition"]

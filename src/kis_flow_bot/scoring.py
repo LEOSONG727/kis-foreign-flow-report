@@ -266,6 +266,15 @@ def _action(row: pd.Series, model: ModelConfig) -> str:
         return "추격 금지·보유"
     if row.get("absorption_signal") == "주의" and row.get("price_return20", 0.0) < 0:
         return "위험흡수 구조 확인 대기"
+    # A large 20-day total is not enough for a fresh entry while the most
+    # recent tape is still net selling. One- or two-day pauses remain
+    # tolerable, but both the 3- and 5-day windows cannot be negative.
+    if (
+        campaign in {"지속매집", "장기매집·재가속"}
+        and row.get("foreign_3_adtv", 0.0) <= 0
+        and row.get("foreign_5_adtv", 0.0) <= 0
+    ):
+        return "외국인 재개 확인 후 분할매수"
     if (
         entry_score >= model.entry_strong_score
         and campaign in {"지속매집", "장기매집·재가속"}

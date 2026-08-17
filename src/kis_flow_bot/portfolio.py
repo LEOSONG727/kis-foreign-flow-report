@@ -32,7 +32,7 @@ def _promotion_condition(row: dict, action: str, has_position: bool, model: Mode
     if campaign == "신규재진입":
         return "첫 조정 후 최근 3일 외국인 순매수 유지"
     if campaign == "상승진행":
-        return "5일 상승률 +3% 이하로 진정 + 외국인 5일 순매수 유지"
+        return "5일 상승률 +3% 이하·20일 상승률 +8% 이하로 진정 + 외국인 5일 순매수 유지"
     if campaign == "장기매집·휴식":
         return f"최근 3일 외국인 순매수 전환 + 진입점수 {model.entry_buy_score:.0f}점 이상"
     if campaign == "손바뀜·재확인":

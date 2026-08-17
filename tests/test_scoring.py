@@ -162,3 +162,17 @@ def test_absorption_caution_does_not_become_a_buy_action():
     candidate = scored[scored["symbol"] == "000010"].iloc[0]
     assert candidate["absorption_signal"] == "주의"
     assert candidate["action"] == "위험흡수 구조 확인 대기"
+
+
+def test_recent_three_and_five_day_selling_requires_restart_confirmation():
+    features, index = _candidate_features()
+    features.loc[index, "foreign_60_adtv"] = 0.0
+    features.loc[index, "foreign_120_adtv"] = 0.0
+    features.loc[index, "foreign_20_adtv"] = 0.8
+    features.loc[index, "foreign_3_adtv"] = -0.20
+    features.loc[index, "foreign_5_adtv"] = -0.10
+    features.loc[index, "absorption_signal"] = "없음"
+    scored = score_features(features, ModelConfig())
+    candidate = scored[scored["symbol"] == "000010"].iloc[0]
+    assert candidate["campaign_regime"] in {"지속매집", "장기매집·재가속"}
+    assert candidate["action"] == "외국인 재개 확인 후 분할매수"
