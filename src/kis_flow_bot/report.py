@@ -139,7 +139,8 @@ def _table(frame: pd.DataFrame, start_rank: int = 1, empty_message: str = "해�
             "<tr>"
             f'<td class="rank">{start_rank + offset}</td>'
             f'<td><strong>{esc(row.get("name", ""))}</strong><small>{esc(row.get("symbol", ""))} · {esc(row.get("market", ""))}</small></td>'
-            f'<td class="score">{number(row.get("entry_score"))}<small>종합 {number(row.get("score"))} · {esc(row.get("entry_readiness", "-"))}</small></td>'
+            f'<td class="score">{number(row.get("discovery_score", row.get("entry_score")))}'
+            f'<small>진입 {number(row.get("timing_score", row.get("entry_score")))} · 분산 {number(row.get("distribution_score"))}</small></td>'
             f'<td>{number(row.get("campaign_score"))}</td>'
             f'<td>{badge(campaign, CAMPAIGN_CLASS.get(campaign, "gray"))}<small>가격 {esc(row.get("stage", "중립"))}</small></td>'
             f'<td>{eok(row.get("foreign_net20"))} {large_badge}<small>{number(row.get("foreign_20_adtv"))}일 ADTV</small></td>'
@@ -154,7 +155,7 @@ def _table(frame: pd.DataFrame, start_rank: int = 1, empty_message: str = "해�
         )
     return (
         '<div class="table-wrap"><table><thead><tr>'
-        '<th>#</th><th>종목</th><th>진입점수</th><th>매집강도</th><th>매집 국면</th>'
+        '<th>#</th><th>종목</th><th>발견/진입/분산</th><th>매집강도</th><th>매집 국면</th>'
         '<th>20일 외인</th><th>가격·단기열기</th><th>액션</th><th>다음 조건</th>'
         f'</tr></thead><tbody>{"".join(rows)}</tbody></table></div>'
     )
@@ -167,6 +168,10 @@ def _reason_list(row: pd.Series) -> str:
     if bool(row.get("large_flow_signal", False)):
         reasons.append("20거래일 누적 외국인 순매수 500억원 이상")
     reasons.append(f'매집 국면 {row.get("campaign_regime", "중립")}·매집 강도 {number(row.get("campaign_score"))}점')
+    reasons.append(
+        f'발견 {number(row.get("discovery_score"))}·진입 타이밍 {number(row.get("timing_score"))}·'
+        f'분산 위험 {number(row.get("distribution_score"))}점'
+    )
     reasons.append(
         f'매수일 {int(row.get("buy_days20", 0))}일·매도일 {int(row.get("sell_days20", 0))}일, 되팔기 비율 {number(row.get("sellback_ratio20") * 100, 0)}%'
     )
@@ -206,7 +211,8 @@ def _hero_cards(frame: pd.DataFrame) -> str:
             '<article class="hero-card">'
             f'<div class="hero-head"><span class="hero-rank">#{rank}</span>{badge(campaign, CAMPAIGN_CLASS.get(campaign, "gray"))}</div>'
             f'<h3>{esc(row.get("name"))} <small>{esc(row.get("symbol"))}</small></h3>'
-            f'<div class="hero-score"><strong>{number(row.get("entry_score"))}</strong><span>/100 진입</span></div>'
+            f'<div class="hero-score"><strong>{number(row.get("discovery_score", row.get("entry_score")))}</strong><span>/100 발견</span></div>'
+            f'<small>진입 타이밍 {number(row.get("timing_score", row.get("entry_score")))} · 분산 위험 {number(row.get("distribution_score"))}</small>'
             f'<div class="chart">{sparkline(row.get("price_series", []), 210, 54)}</div>'
             f'<p class="primary-action">{esc(row.get("action"))}</p>'
             f'<ul>{_reason_list(row)}</ul>'
@@ -233,7 +239,7 @@ def _detail_cards(frame: pd.DataFrame) -> str:
         cards.append(
             '<article class="detail-card">'
             f'<div class="detail-title"><div><h3>{esc(row.get("name"))}</h3><small>{esc(row.get("symbol"))} · {esc(row.get("market"))}</small></div>'
-            f'<div class="big-score">진입 {number(row.get("entry_score"))}</div></div>'
+            f'<div class="big-score">발견 {number(row.get("discovery_score", row.get("entry_score")))}</div></div>'
             f'<div class="detail-chart">{sparkline(row.get("price_series", []), 360, 76)}</div>'
             f'<div class="metrics">{bars}</div>'
             '<div class="facts">'
@@ -286,14 +292,25 @@ def render_report(
         )
     if "action_priority" not in ranked:
         ranked["action_priority"] = ranked.get("entry_score", pd.Series(0.0, index=ranked.index))
-    queue_sort = ["action_priority", "entry_score", "campaign_score"]
+    for column, fallback in (
+        ("discovery_score", "entry_score"),
+        ("timing_score", "entry_score"),
+        ("distribution_score", None),
+    ):
+        if column not in ranked:
+            ranked[column] = ranked.get(fallback, pd.Series(0.0, index=ranked.index)) if fallback else 0.0
+    queue_sort = ["action_priority", "discovery_score", "timing_score"]
+    discovery_sort = ["discovery_score", "campaign_score", "underreaction_score"]
+    discovery_top = ranked[
+        ranked.get("discovery_score", pd.Series(0.0, index=ranked.index)) >= 60.0
+    ].sort_values(discovery_sort, ascending=False).head(top_n)
     new_buys = ranked[ranked["decision_bucket"] == "신규매수"].sort_values(queue_sort, ascending=False).head(10)
     add_buys = ranked[ranked["decision_bucket"] == "추가매수"].sort_values(queue_sort, ascending=False).head(10)
     wait_candidates = ranked[ranked["decision_bucket"].isin(["눌림·확인대기", "관찰"])].sort_values(queue_sort, ascending=False).head(12)
     held_management = ranked[ranked["decision_bucket"] == "보유관리"].sort_values(queue_sort, ascending=False).head(10)
     risk_actions = ranked[ranked["decision_bucket"] == "수익실현·중단"].sort_values(queue_sort, ascending=False).head(12)
     actionable = pd.concat([new_buys, add_buys, wait_candidates]).drop_duplicates("symbol")
-    top = actionable.head(top_n) if not actionable.empty else ranked.head(top_n)
+    top = actionable.head(top_n) if not actionable.empty else discovery_top
     watched = ranked[ranked["symbol"].astype(str).str.zfill(6).isin(watchlist)]
     falling = ranked[
         (ranked["price_return20"] < 0)
@@ -313,34 +330,35 @@ def render_report(
 <header><div><h1>외국인 매집 레이더</h1><div class="muted">많이 샀지만 아직 덜 오른 종목 · KIS 일별 확정 데이터</div></div><div class="stamp">기준일 {report_date}<br>생성 {generated_at.strftime('%Y-%m-%d %H:%M KST')}</div></header>
 <section class="summary"><div><b>{new_count}</b><span>신규매수 후보</span></div><div><b>{add_count}</b><span>추가매수 실행 후보</span></div><div><b>{wait_count}</b><span>눌림·확인 대기</span></div><div><b>{risk_count}</b><span>수익실현·중단</span></div></section>
 <h2>오늘의 우선 확인 3종목</h2>{_hero_cards(top)}
-<h2>① 오늘 신규매수 후보</h2>{_table(new_buys, empty_message="오늘은 신규매수 기준을 모두 통과한 종목이 없습니다.")}
-<h2>② 보유종목 추가매수 후보</h2>{_table(add_buys, empty_message="추가매수 실행 후보가 없습니다. portfolio.csv에 실제 보유정보가 있어야 개인화됩니다.")}
-<h2>③ 좋은 종목·첫 눌림/확인 대기</h2>{_table(wait_candidates)}
-<div class="two-col"><section><h2>④ 보유·추가매수 준비</h2>{_table(held_management, empty_message="등록된 보유종목 관리 항목이 없습니다.")}</section><section><h2>⑤ 수익실현·신호 중단</h2>{_table(risk_actions)}</section></div>
-<h2>진입점수 전체 TOP {top_n}</h2>{_table(ranked.head(top_n))}
+<h2>① 종목 발견 TOP {top_n}</h2>{_table(discovery_top, empty_message="발견점수 60점 이상인 후보가 없습니다.")}
+<h2>② 오늘 신규매수 후보</h2>{_table(new_buys, empty_message="오늘은 발견·타이밍·과열 기준을 모두 통과한 종목이 없습니다.")}
+<h2>③ 보유종목 추가매수 후보</h2>{_table(add_buys, empty_message="추가매수 실행 후보가 없습니다. portfolio.csv에 실제 보유정보가 있어야 개인화됩니다.")}
+<h2>④ 좋은 종목·첫 눌림/확인 대기</h2>{_table(wait_candidates)}
+<div class="two-col"><section><h2>⑤ 보유·추가매수 준비</h2>{_table(held_management, empty_message="등록된 보유종목 관리 항목이 없습니다.")}</section><section><h2>⑥ 수익실현·신호 중단</h2>{_table(risk_actions)}</section></div>
 <div class="two-col"><section><h2>20일 외인 500억원 이상 ({large_flow_count})</h2>{_table(large_flow)}</section><section><h2>가격 하락 + 외국인 매수</h2>{_table(falling)}</section></div>
 <h2>내 관찰 종목</h2>{_table(watched)}
 <h2>상세 분석</h2>{_detail_cards(pd.concat([new_buys, add_buys, wait_candidates, watched]).drop_duplicates('symbol').head(12))}
 <h2>국면 해석</h2><div class="legend"><div><b>지속매집</b>20일 순매수·매수일 비율·되팔기 비율이 함께 양호</div><div><b>장기매집·휴식</b>60·120일 재고는 남아 있으나 최근 5일은 잠시 매도</div><div><b>신규재진입</b>장기 순매도 뒤 최근 20·5일 외국인이 다시 들어오는 전환</div><div><b>상승진행</b>매집은 유효하지만 가격이 먼저 올라 신규 추격은 제한</div><div><b>기관주도·외인확인</b>기관이 가격을 이끌고 외국인 확인은 아직 부족</div><div><b>이상대량·확인</b>소수 대량 거래가 전체 수급을 왜곡할 수 있어 블록·이벤트 확인 필요</div></div>
-<p class="note">진입점수는 후보 우선순위이며 매수 허가가 아니다. 실제 신규·추가매수는 최근 3일 급락 진정, 20일 상승률 +3% 미만, 20일 저점 반등 +5% 미만, 외국인 재가속을 별도 통과해야 한다. 20거래일 외국인 500억원 이상에는 대형 매집 신호를 부여한다. 확률은 양(+)의 워크포워드 기대값과 홀드아웃 검증을 통과하기 전에는 보정하지 않는다. 주문 API는 포함되어 있지 않다.</p>
+<p class="note">발견점수는 앞으로 볼 후보의 질, 진입점수는 가격 반전·수급 재가속, 분산점수는 외국인 매도 전환과 가격 강세 속 수익실현 위험이다. 신규·추가매수는 발견 60점·진입 62점과 최근 3일 급락 진정, 20일 상승률 +3% 미만, 20일 저점 반등 +5% 미만을 함께 통과해야 한다. 20거래일 외국인 500억원 이상에는 대형 매집 신호를 부여한다. 백테스트 검증 전에는 이 점수들을 수익 확률로 읽으면 안 되며 주문 API는 포함되어 있지 않다.</p>
 </main></body></html>"""
 
     def md_section(title: str, frame: pd.DataFrame) -> str:
-        lines = [f"### {title}", "", "| 순위 | 종목 | 진입 | 매집 | 국면 | 외인 20일 | 가격 20일 | 저점반등 20일 | 액션 |", "|---:|---|---:|---:|---|---:|---:|---:|---|"]
+        lines = [f"### {title}", "", "| 순위 | 종목 | 발견 | 진입 | 분산 | 국면 | 외인 20일 | 가격 20일 | 저점반등 20일 | 액션 |", "|---:|---|---:|---:|---:|---|---:|---:|---:|---|"]
         if frame.empty:
-            lines.append("| - | 해당 없음 | - | - | - | - | - | - | - |")
+            lines.append("| - | 해당 없음 | - | - | - | - | - | - | - | - |")
         else:
             for rank, (_, row) in enumerate(frame.head(10).iterrows(), 1):
-                lines.append(f"| {rank} | {row['name']} ({row['symbol']}) | {row['entry_score']:.1f} | {row['campaign_score']:.1f} | {row['campaign_regime']} | {eok(row['foreign_net20'])} | {pct(row['price_return20'])} | {pct(row.get('rebound_from_low20'))} | {row['action']} |")
+                lines.append(f"| {rank} | {row['name']} ({row['symbol']}) | {row.get('discovery_score', 0):.1f} | {row.get('timing_score', 0):.1f} | {row.get('distribution_score', 0):.1f} | {row['campaign_regime']} | {eok(row['foreign_net20'])} | {pct(row['price_return20'])} | {pct(row.get('rebound_from_low20'))} | {row['action']} |")
         return "\n".join(lines)
 
     markdown = "\n\n".join(
         [
             f"## 외국인 매집 액션 리포트 · {report_date}",
-            md_section("① 신규매수", new_buys),
-            md_section("② 추가매수", add_buys),
-            md_section("③ 눌림·확인 대기", wait_candidates),
-            md_section("④ 수익실현·중단", risk_actions),
+            md_section("① 종목 발견 TOP", discovery_top),
+            md_section("② 신규매수", new_buys),
+            md_section("③ 추가매수", add_buys),
+            md_section("④ 눌림·확인 대기", wait_candidates),
+            md_section("⑤ 수익실현·중단", risk_actions),
         ]
-    ) + "\n\n*진입점수는 백테스트 보정 전이며, 주문은 실행하지 않습니다.*\n"
+    ) + "\n\n*발견·진입·분산 점수는 백테스트 검증 전이며, 주문은 실행하지 않습니다.*\n"
     return RenderedReport(html=html_text, markdown=markdown)
