@@ -28,9 +28,16 @@ entry_watch_score = 52.0
 large_flow_threshold_krw = 50000000000
 gap_take_profit_pct = 5.0
 atr_gap_multiple = 1.2
-# 20일 8% 또는 최근 5일 5% 이상 오른 종목은 눌림이 아니라 상승 단계로 분류
+# 종가 수익률뿐 아니라 최근 저점 이후 반등 경로까지 추격 과열로 판정
+recent_chase_return1_pct = 4.0
+recent_chase_return3_pct = 6.0
 absolute_chase_return20_pct = 8.0
 recent_chase_return5_pct = 5.0
+recent_chase_return10_pct = 10.0
+rebound_chase_return10_pct = 12.0
+rebound_chase_return20_pct = 15.0
+ma20_atr_chase_multiple = 2.5
+rebound_atr_chase_multiple = 4.0
 # 급락·권리락·분할 가능성이 있는 가격구조는 신규매수를 차단
 structural_break_return20_pct = -25.0
 corporate_action_daily_return_pct = 33.0

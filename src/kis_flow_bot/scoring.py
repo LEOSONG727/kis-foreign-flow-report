@@ -58,6 +58,85 @@ def _long_inventory20(row: pd.Series) -> float:
     return 0.6 * flow60 + 0.4 * flow120
 
 
+def _price_heat_flags(row: pd.Series, model: ModelConfig) -> list[tuple[str, float]]:
+    """Return active chase-risk signals, with price path prioritized over endpoints."""
+    candidates = [
+        (
+            "20일 저점반등",
+            row.get("rebound_from_low20", 0.0),
+            model.rebound_chase_return20_pct / 100.0,
+        ),
+        (
+            "10일 저점반등",
+            row.get("rebound_from_low10", 0.0),
+            model.rebound_chase_return10_pct / 100.0,
+        ),
+        (
+            "저점반등 ATR",
+            row.get("rebound_atr_distance20", 0.0),
+            model.rebound_atr_chase_multiple,
+        ),
+        (
+            "20일선 ATR 이격",
+            row.get("ma20_atr_distance", 0.0),
+            model.ma20_atr_chase_multiple,
+        ),
+        ("10일 상승", row.get("price_return10", 0.0), model.recent_chase_return10_pct / 100.0),
+        ("5일 상승", row.get("price_return5", 0.0), model.recent_chase_return5_pct / 100.0),
+        ("3일 상승", row.get("price_return3", 0.0), model.recent_chase_return3_pct / 100.0),
+        ("1일 상승", row.get("price_return1", 0.0), model.recent_chase_return1_pct / 100.0),
+        ("20일 상승", row.get("price_return20", 0.0), model.absolute_chase_return20_pct / 100.0),
+    ]
+    return [(label, float(value)) for label, value, threshold in candidates if float(value) >= threshold]
+
+
+def _is_price_hot(row: pd.Series, model: ModelConfig) -> bool:
+    return bool(_price_heat_flags(row, model))
+
+
+def _price_heat_reason(row: pd.Series, model: ModelConfig) -> str:
+    reasons = []
+    for label, value in _price_heat_flags(row, model)[:4]:
+        if "ATR" in label:
+            reasons.append(f"{label} {value:.1f}배")
+        else:
+            reasons.append(f"{label} {value:+.1%}")
+    return " · ".join(reasons) if reasons else "과열 없음"
+
+
+def _price_heat_penalty(row: pd.Series) -> float:
+    endpoint_heat = max(
+        8.0 * scale(row.get("price_return1", 0.0), 0.02, 0.08),
+        10.0 * scale(row.get("price_return3", 0.0), 0.03, 0.10),
+        12.0 * scale(row.get("price_return5", 0.0), 0.03, 0.12),
+        14.0 * scale(row.get("price_return10", 0.0), 0.06, 0.18),
+        16.0 * scale(row.get("price_return20", 0.0), 0.05, 0.20),
+    )
+    path_heat = max(
+        14.0 * scale(row.get("rebound_from_low10", 0.0), 0.08, 0.20),
+        18.0 * scale(row.get("rebound_from_low20", 0.0), 0.10, 0.25),
+        10.0 * scale(row.get("rebound_atr_distance20", 0.0), 2.5, 7.0),
+    )
+    trend_heat = (
+        4.0 * scale(row.get("ma20_atr_distance", 0.0), 1.5, 4.0)
+        + 3.0 * scale(row.get("up_days10", 0.0), 6.0, 10.0)
+        + 2.0 * scale(row.get("price_up_streak", 0.0), 3.0, 6.0)
+    )
+    volume_heat = (
+        4.0
+        * scale(row.get("rebound_volume_ratio20", 1.0), 1.2, 2.4)
+        * scale(row.get("rebound_from_low20", 0.0), 0.10, 0.25)
+    )
+    near_high_heat = (
+        2.0
+        * scale(row.get("distance_high20", -1.0), -0.06, 0.0)
+        * scale(row.get("rebound_from_low20", 0.0), 0.10, 0.20)
+    )
+    # Endpoint returns and the low-to-current path are correlated, so only the
+    # larger core penalty is fully counted. Trend and volume confirm the move.
+    return clamp(max(endpoint_heat, path_heat) + 0.5 * trend_heat + volume_heat + near_high_heat, 0.0, 32.0)
+
+
 def _campaign_regime(row: pd.Series, model: ModelConfig) -> str:
     current = row.get("foreign_20_adtv", 0.0)
     recent = row.get("foreign_5_adtv", 0.0)
@@ -68,10 +147,7 @@ def _campaign_regime(row: pd.Series, model: ModelConfig) -> str:
     buy_ratio = row.get("tolerant_buy_ratio20", 0.0)
     sellback = row.get("sellback_ratio20", 9.0)
     acceleration = row.get("foreign_acceleration5", 0.0)
-    hot = (
-        row.get("price_return20", 0.0) >= model.absolute_chase_return20_pct / 100.0
-        or row.get("price_return5", 0.0) >= model.recent_chase_return5_pct / 100.0
-    )
+    hot = _is_price_hot(row, model)
 
     if (
         row.get("max_abs_daily_return20", 0.0) >= model.corporate_action_daily_return_pct / 100.0
@@ -130,6 +206,7 @@ def _entry_opportunity(
     institution_overlay: float,
     campaign_regime: str,
     large_flow: bool,
+    model: ModelConfig,
 ) -> tuple[float, float]:
     value = (
         0.50 * campaign_strength
@@ -139,10 +216,7 @@ def _entry_opportunity(
         + 0.40 * max(institution_overlay, 0.0)
         + (6.0 if large_flow else 0.0)
     )
-    heat_penalty = (
-        16.0 * scale(row.get("price_return20", 0.0), 0.08, 0.22)
-        + 12.0 * scale(row.get("price_return5", 0.0), 0.05, 0.15)
-    )
+    heat_penalty = _price_heat_penalty(row)
     regime_penalty = {
         "기관주도·외인확인": 6.0,
         "장기재고·확인": 5.0,
@@ -168,7 +242,6 @@ def _stage(row: pd.Series, model: ModelConfig) -> str:
     today = row.get("foreign_1_adtv", 0.0)
     price20 = row.get("price_residual20", row.get("price_return20", 0.0))
     absolute20 = row.get("price_return20", 0.0)
-    absolute5 = row.get("price_return5", 0.0)
     holdings_change = row.get("foreign_holding_change", np.nan)
 
     abnormal_day = row.get("max_abs_daily_return20", 0.0) >= model.corporate_action_daily_return_pct / 100.0
@@ -184,10 +257,7 @@ def _stage(row: pd.Series, model: ModelConfig) -> str:
         return "분산·이탈"
     if (strong or (inventory and row.get("foreign_20_adtv", 0.0) > 0.15)) and absolute20 > 0.05 and today < -0.08:
         return "수익실현"
-    fast_price_move = (
-        absolute20 >= model.absolute_chase_return20_pct / 100.0
-        or absolute5 >= model.recent_chase_return5_pct / 100.0
-    )
+    fast_price_move = _is_price_hot(row, model)
     if (inventory or strong) and fast_price_move and today >= -0.08:
         return "가격상승"
     if strong and price20 <= 0.05 and absolute20 < model.absolute_chase_return20_pct / 100.0:
@@ -362,6 +432,7 @@ def score_features(
             institution_overlay,
             campaign_regime,
             large_flow_signal,
+            model,
         )
         penalty = 0.0
         if row.get("price_return20", 0.0) < -0.20 and absorption_label not in {"강함", "보통"}:
@@ -417,6 +488,8 @@ def score_features(
                 "entry_score": round(entry_score, 1),
                 "entry_score_delta": round(entry_score_delta, 1),
                 "price_heat_penalty": round(price_heat_penalty, 1),
+                "price_heat_flag": _is_price_hot(row, model),
+                "price_heat_reason": _price_heat_reason(row, model),
                 "score_delta": round(score_delta, 1),
                 "stage": stage,
                 "campaign_regime": campaign_regime,

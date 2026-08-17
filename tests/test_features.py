@@ -162,3 +162,38 @@ def test_price_decline_with_persistent_foreign_buying_is_detected():
     assert candidate["foreign_20_adtv"] > 1.0
     assert candidate["tolerant_buy_ratio20"] >= 0.9
     assert candidate["flow_residual20"] > 0
+
+
+def test_short_price_path_and_low_rebound_features_are_calculated():
+    history = _history("000010", "V자반등", 500_000_000, 100_000, 100_000)
+    path = [
+        100_000, 95_000, 90_000, 85_000, 80_000, 82_000, 84_000,
+        86_000, 88_000, 90_000, 100_000, 100_000, 100_000, 100_000,
+        100_000, 100_000, 100_000, 100_000, 100_000, 100_000, 100_000,
+    ]
+    indexes = history.tail(len(path)).index
+    history.loc[indexes, "close"] = path
+    history.loc[indexes, "open"] = history.loc[indexes, "close"] * 0.998
+    history.loc[indexes, "high"] = history.loc[indexes, "close"] * 1.01
+    history.loc[indexes, "low"] = history.loc[indexes, "close"] * 0.99
+    history.loc[indexes[:10], "volume"] = 100_000
+    history.loc[indexes[10:], "volume"] = 200_000
+    universe = pd.DataFrame(
+        [{
+            "symbol": "000010", "name": "V자반등", "market": "KOSPI",
+            "sector_code": "0010", "market_cap_eok": 50_000,
+            "sales": 1_000, "operating_profit": 100, "net_income": 80,
+            "roe": 12, "financial_base_ym": "202512",
+        }]
+    )
+
+    row = build_base_features(history, universe).iloc[0]
+
+    assert abs(row["price_return20"]) < 0.001
+    assert abs(row["price_return10"]) < 0.001
+    assert row["rebound_from_low20"] > 0.20
+    assert row["rebound_from_low10"] < 0.03
+    assert row["rebound_atr_distance20"] > 0
+    assert row["rebound_volume_ratio20"] > 1.0
+    assert row["distance_high20"] <= 0
+    assert {"price_return1", "price_return3", "price_return5"}.issubset(row.index)

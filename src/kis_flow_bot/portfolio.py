@@ -32,6 +32,16 @@ def _promotion_condition(row: dict, action: str, has_position: bool, model: Mode
     if campaign == "신규재진입":
         return "첫 조정 후 최근 3일 외국인 순매수 유지"
     if campaign == "상승진행":
+        if float(row.get("rebound_from_low20", 0.0)) > 0.12:
+            return "20일 저점 대비 반등률 +12% 이하로 진정 + 외국인 5일 순매수 유지"
+        if float(row.get("rebound_from_low10", 0.0)) > 0.08:
+            return "10일 저점 대비 반등률 +8% 이하로 진정 + 외국인 5일 순매수 유지"
+        if float(row.get("price_return10", 0.0)) > 0.08:
+            return "10일 상승률 +8% 이하로 진정 + 외국인 5일 순매수 유지"
+        if float(row.get("price_return3", 0.0)) > 0.04:
+            return "3일 상승률 +4% 이하로 진정 + 외국인 5일 순매수 유지"
+        if float(row.get("ma20_atr_distance", 0.0)) > 2.0:
+            return "20일선 이격 2 ATR 이하로 진정 + 외국인 5일 순매수 유지"
         return "5일 상승률 +3% 이하·20일 상승률 +8% 이하로 진정 + 외국인 5일 순매수 유지"
     if campaign == "장기매집·휴식":
         return f"최근 3일 외국인 순매수 전환 + 진입점수 {model.entry_buy_score:.0f}점 이상"
@@ -89,6 +99,7 @@ def _add_opportunity_score(row: dict, has_position: bool, position_drawdown: flo
     score += 10.0 * _clamp(foreign5 / 0.50, 0.0, 1.0)
     score += 10.0 * _clamp(-price5 / 0.08, 0.0, 1.0)
     score -= 15.0 * _clamp((price20 - 0.08) / 0.14, 0.0, 1.0)
+    score -= 0.6 * float(row.get("price_heat_penalty", 0.0))
     if has_position and position_drawdown <= -0.03:
         score += 10.0
     if str(row.get("campaign_regime", "")) in {

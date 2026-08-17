@@ -73,3 +73,12 @@ def test_rising_campaign_requires_both_short_and_monthly_heat_to_cool():
     scored.loc[0, "action"] = "추격 금지·보유"
     result = apply_portfolio_actions(scored, pd.DataFrame(), ModelConfig()).iloc[0]
     assert "20일 상승률 +8% 이하" in result["promotion_condition"]
+
+
+def test_low_rebound_is_the_binding_pullback_condition():
+    scored = _scored()
+    scored.loc[0, "campaign_regime"] = "상승진행"
+    scored.loc[0, "action"] = "추격 금지·보유"
+    scored.loc[0, "rebound_from_low20"] = 0.20
+    result = apply_portfolio_actions(scored, pd.DataFrame(), ModelConfig()).iloc[0]
+    assert "20일 저점 대비 반등률 +12% 이하" in result["promotion_condition"]
