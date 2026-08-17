@@ -61,3 +61,93 @@ def test_structural_break_blocks_new_buy():
     candidate = scored[scored["symbol"] == "000010"].iloc[0]
     assert candidate["stage"] == "이벤트확인"
     assert candidate["action"] == "기업 이벤트·급락 확인 전 매수 금지"
+
+
+def _candidate_features():
+    features = synthetic_features()
+    index = features[features["symbol"] == "000010"].index[0]
+    return features, index
+
+
+def test_large_flow_signal_requires_20_day_500_eok():
+    features, index = _candidate_features()
+    features.loc[index, "foreign_net20"] = 60_000_000_000
+    scored = score_features(features, ModelConfig())
+    candidate = scored[scored["symbol"] == "000010"].iloc[0]
+    assert bool(candidate["large_flow_signal"])
+    assert candidate["campaign_score"] > 0
+
+
+def test_long_inventory_pause_is_not_mistaken_for_distribution():
+    features, index = _candidate_features()
+    features.loc[index, "foreign_60_adtv"] = 3.0
+    features.loc[index, "foreign_120_adtv"] = 6.0
+    features.loc[index, "foreign_20_adtv"] = 0.8
+    features.loc[index, "foreign_5_adtv"] = -0.1
+    features.loc[index, "foreign_3_adtv"] = -0.05
+    features.loc[index, "foreign_acceleration5"] = -0.03
+    features.loc[index, "sellback_ratio20"] = 0.36
+    features.loc[index, "price_return20"] = 0.07
+    features.loc[index, "price_return5"] = 0.01
+    scored = score_features(features, ModelConfig())
+    candidate = scored[scored["symbol"] == "000010"].iloc[0]
+    assert candidate["campaign_regime"] == "장기매집·휴식"
+    assert candidate["action"] == "외국인 재개 확인 후 분할매수"
+
+
+def test_new_reentry_after_long_distribution_waits_for_first_pullback_when_hot():
+    features, index = _candidate_features()
+    features.loc[index, "foreign_60_adtv"] = -3.0
+    features.loc[index, "foreign_120_adtv"] = -6.0
+    features.loc[index, "foreign_20_adtv"] = 0.6
+    features.loc[index, "foreign_5_adtv"] = 0.4
+    features.loc[index, "foreign_3_adtv"] = 0.3
+    features.loc[index, "price_return20"] = 0.06
+    features.loc[index, "price_return5"] = 0.12
+    scored = score_features(features, ModelConfig())
+    candidate = scored[scored["symbol"] == "000010"].iloc[0]
+    assert candidate["campaign_regime"] == "신규재진입"
+    assert candidate["action"] == "첫 눌림·외국인 유지 확인"
+
+
+def test_institution_led_rally_waits_for_foreign_confirmation():
+    features, index = _candidate_features()
+    features.loc[index, "foreign_20_adtv"] = 0.1
+    features.loc[index, "foreign_5_adtv"] = -0.1
+    features.loc[index, "institution_20_adtv"] = 0.5
+    features.loc[index, "foreign_60_adtv"] = 3.0
+    features.loc[index, "foreign_120_adtv"] = 6.0
+    features.loc[index, "sellback_ratio20"] = 0.9
+    scored = score_features(features, ModelConfig())
+    candidate = scored[scored["symbol"] == "000010"].iloc[0]
+    assert candidate["campaign_regime"] == "기관주도·외인확인"
+    assert candidate["action"] == "기관 주도·외국인 확인 대기"
+
+
+def test_long_inventory_handoff_is_not_called_distribution():
+    features, index = _candidate_features()
+    features.loc[index, "foreign_20_adtv"] = -0.5
+    features.loc[index, "foreign_5_adtv"] = -0.15
+    features.loc[index, "foreign_3_adtv"] = 0.08
+    features.loc[index, "foreign_60_adtv"] = 3.6
+    features.loc[index, "foreign_120_adtv"] = 9.0
+    features.loc[index, "institution_20_adtv"] = 1.8
+    features.loc[index, "price_return20"] = 0.10
+    scored = score_features(features, ModelConfig())
+    candidate = scored[scored["symbol"] == "000010"].iloc[0]
+    assert candidate["campaign_regime"] == "손바뀜·재확인"
+    assert candidate["stage"] != "분산·이탈"
+    assert candidate["action"] == "기관 흡수 후 외국인 재확인"
+
+
+def test_lumpy_flow_is_flagged_instead_of_called_accumulation():
+    features, index = _candidate_features()
+    features.loc[index, "foreign_20_adtv"] = 0.1
+    features.loc[index, "foreign_60_adtv"] = 0.0
+    features.loc[index, "foreign_120_adtv"] = 0.0
+    features.loc[index, "foreign_flow_concentration20"] = 0.5
+    features.loc[index, "tolerant_buy_ratio20"] = 0.4
+    scored = score_features(features, ModelConfig())
+    candidate = scored[scored["symbol"] == "000010"].iloc[0]
+    assert candidate["campaign_regime"] == "이상대량·확인"
+    assert candidate["action"] == "블록·이벤트성 수급 확인"

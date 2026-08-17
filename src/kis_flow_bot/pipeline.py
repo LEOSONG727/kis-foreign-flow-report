@@ -128,7 +128,7 @@ def _features_and_scores(
     )
     watched = scored["symbol"].isin(settings.watchlist)
     return scored[liquid | watched].sort_values(
-        ["score", "foreign_20_adtv"], ascending=[False, False]
+        ["entry_score", "campaign_score", "score"], ascending=[False, False, False]
     ).reset_index(drop=True)
 
 
@@ -233,17 +233,20 @@ def _write_outputs(
     (settings.reports_dir / "latest.md").write_text(rendered.markdown, encoding="utf-8")
 
     csv_columns = [
-        "symbol", "name", "market", "as_of", "score", "score_delta", "data_points",
+        "symbol", "name", "market", "as_of", "score", "campaign_score", "entry_score",
+        "price_heat_penalty", "score_delta", "entry_score_delta", "data_points",
         "success_probability", "expected_value", "stage", "action",
-        "probability_source",
-        "foreign_net5", "foreign_net20", "foreign_net60", "foreign_net120",
+        "campaign_regime", "large_flow_signal", "probability_source",
+        "foreign_net1", "foreign_net3", "foreign_net5", "foreign_net20", "foreign_net60", "foreign_net120",
+        "foreign_1_adtv", "foreign_3_adtv", "foreign_5_adtv", "foreign_acceleration5",
+        "foreign_flow_concentration20", "foreign_prior15_adtv",
         "foreign_20_adtv", "tolerant_buy_ratio20", "sellback_ratio20",
         "price_return5", "price_return20", "price_return60", "price_residual20",
         "absorption_signal", "volume_ratio5_20", "atr20_pct",
         "accumulation_score", "underreaction_score", "structure_score",
         "fundamental_score", "institution_overlay", "roe", "per", "pbr",
         "target_price", "target_upside", "foreign_holding_change",
-        "history_confidence", "foreign_net1", "foreign_1_adtv",
+        "history_confidence",
         "model_action", "has_position", "position_quantity", "average_price",
         "last_buy_price", "tranche_count", "position_return", "suggested_order_krw",
     ]
@@ -263,7 +266,10 @@ def _new_state(scored: pd.DataFrame, previous: dict, report_date: str) -> dict:
         symbols[symbol] = {
             "name": str(row["name"]),
             "score": float(row["score"]),
+            "entry_score": float(row.get("entry_score", 0.0)),
+            "campaign_score": float(row.get("campaign_score", 0.0)),
             "stage": str(row["stage"]),
+            "campaign_regime": str(row.get("campaign_regime", "중립")),
             "action": str(row["action"]),
             "first_seen": old.get(symbol, {}).get("first_seen", report_date),
             "last_seen": report_date,

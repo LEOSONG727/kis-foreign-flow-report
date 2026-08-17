@@ -246,8 +246,8 @@ def build_base_features(
             continue
         m = meta.loc[symbol]
         latest = group.iloc[-1]
-        w1, w5, w20, w60, w120 = (_window(group, n) for n in (1, 5, 20, 60, 120))
-        for window in (w1, w5, w20, w60, w120):
+        w1, w3, w5, w20, w60, w120 = (_window(group, n) for n in (1, 3, 5, 20, 60, 120))
+        for window in (w1, w3, w5, w20, w60, w120):
             window["flow_ratio"] = np.where(
                 window["turnover"] > 0,
                 window["foreign_net_amount"] / window["turnover"],
@@ -262,6 +262,22 @@ def build_base_features(
         neutral = ~(positive | negative)
         tolerant_buy_ratio = float((positive.sum() + 0.5 * neutral.sum()) / max(len(w20), 1))
         sellback = foreign_neg20 / foreign_pos20 if foreign_pos20 > 0 else 9.0
+        prior15 = w20.iloc[:-5] if len(w20) > 5 else w20.iloc[:0]
+        foreign_net3 = float(w3["foreign_net_amount"].sum())
+        foreign_net5 = float(w5["foreign_net_amount"].sum())
+        foreign_net20 = float(w20["foreign_net_amount"].sum())
+        foreign_prior15 = float(prior15["foreign_net_amount"].sum())
+        institution_net5 = float(w5["institution_net_amount"].sum())
+        institution_net20 = float(w20["institution_net_amount"].sum())
+        acceleration5 = (
+            (foreign_net5 / 5.0 - foreign_prior15 / max(len(prior15), 1)) / adtv20
+            if adtv20 else 0.0
+        )
+        absolute_flow20 = float(w20["foreign_net_amount"].abs().sum())
+        flow_concentration20 = (
+            float(w20["foreign_net_amount"].abs().max() / absolute_flow20)
+            if absolute_flow20 > 0 else 0.0
+        )
 
         close_series = group["close"].replace(0, np.nan).ffill()
         prev_close = close_series.shift(1)
@@ -328,15 +344,21 @@ def build_base_features(
                 "max_abs_daily_return20": max_abs_daily_return20,
                 "adtv20": adtv20,
                 "volume_ratio5_20": volume_ratio5_20,
-                "foreign_net5": float(w5["foreign_net_amount"].sum()),
+                "foreign_net3": foreign_net3,
+                "foreign_net5": foreign_net5,
                 "foreign_net1": float(w1["foreign_net_amount"].sum()),
-                "foreign_net20": float(w20["foreign_net_amount"].sum()),
+                "foreign_net20": foreign_net20,
                 "foreign_net60": float(w60["foreign_net_amount"].sum()),
                 "foreign_net120": float(w120["foreign_net_amount"].sum()),
-                "foreign_5_adtv": float(w5["foreign_net_amount"].sum() / adtv20) if adtv20 else 0.0,
+                "foreign_3_adtv": float(foreign_net3 / adtv20) if adtv20 else 0.0,
+                "foreign_5_adtv": float(foreign_net5 / adtv20) if adtv20 else 0.0,
                 "foreign_1_adtv": float(w1["foreign_net_amount"].sum() / adtv20) if adtv20 else 0.0,
-                "foreign_20_adtv": float(w20["foreign_net_amount"].sum() / adtv20) if adtv20 else 0.0,
+                "foreign_20_adtv": float(foreign_net20 / adtv20) if adtv20 else 0.0,
                 "foreign_60_adtv": float(w60["foreign_net_amount"].sum() / adtv20) if adtv20 else 0.0,
+                "foreign_120_adtv": float(w120["foreign_net_amount"].sum() / adtv20) if adtv20 else 0.0,
+                "foreign_prior15_adtv": float(foreign_prior15 / adtv20) if adtv20 else 0.0,
+                "foreign_acceleration5": acceleration5,
+                "foreign_flow_concentration20": flow_concentration20,
                 "foreign_flow_share20": float(w20["foreign_net_amount"].sum() / w20["turnover"].sum()) if w20["turnover"].sum() else 0.0,
                 "foreign_ewm20": float(w120["flow_ratio"].ewm(halflife=20, adjust=False).mean().iloc[-1]),
                 "foreign_ewm120": float(w120["flow_ratio"].ewm(halflife=120, adjust=False).mean().iloc[-1]),
@@ -346,7 +368,10 @@ def build_base_features(
                 "current_buy_streak": _streak(flow_ratio20),
                 "sellback_ratio20": sellback,
                 "absorption_share20": absorption_share,
-                "institution_20_adtv": float(w20["institution_net_amount"].sum() / adtv20) if adtv20 else 0.0,
+                "institution_net5": institution_net5,
+                "institution_net20": institution_net20,
+                "institution_5_adtv": float(institution_net5 / adtv20) if adtv20 else 0.0,
+                "institution_20_adtv": float(institution_net20 / adtv20) if adtv20 else 0.0,
                 "market_cap_eok": _float_or(m.get("market_cap_eok")),
                 "sales": _float_or(m.get("sales")),
                 "operating_profit": _float_or(m.get("operating_profit")),

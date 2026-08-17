@@ -36,3 +36,11 @@ def test_exit_action_is_never_overwritten_by_portfolio_logic():
     )
     result = apply_portfolio_actions(scored, portfolio, ModelConfig()).iloc[0]
     assert result["action"] == "비중 축소·신규매수 금지"
+
+
+def test_profit_taking_action_is_only_shown_as_execution_for_a_held_position():
+    scored = _scored()
+    scored.loc[0, "stage"] = "수익실현"
+    scored.loc[0, "action"] = "절반 익절·잔여 추적"
+    result = apply_portfolio_actions(scored, pd.DataFrame(), ModelConfig()).iloc[0]
+    assert result["action"] == "수익실현 신호·신규 추격 금지"

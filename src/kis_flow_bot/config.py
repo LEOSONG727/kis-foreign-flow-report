@@ -31,6 +31,10 @@ class ModelConfig:
     initial_buy_score: float = 72.0
     strong_buy_score: float = 80.0
     watch_score: float = 64.0
+    entry_buy_score: float = 62.0
+    entry_strong_score: float = 72.0
+    entry_watch_score: float = 52.0
+    large_flow_threshold_krw: int = 50_000_000_000
     gap_take_profit_pct: float = 5.0
     atr_gap_multiple: float = 1.2
     absolute_chase_return20_pct: float = 8.0

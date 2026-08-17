@@ -26,6 +26,20 @@ STAGE_CLASS = {
     "중립": "gray",
 }
 
+CAMPAIGN_CLASS = {
+    "지속매집": "green",
+    "장기매집·재가속": "green",
+    "장기매집·휴식": "yellow",
+    "신규재진입": "blue",
+    "초기매집": "blue",
+    "상승진행": "purple",
+    "손바뀜·재확인": "yellow",
+    "기관주도·외인확인": "yellow",
+    "이상대량·확인": "orange",
+    "분산·이탈": "red",
+    "이벤트·구조확인": "red",
+}
+
 
 def esc(value) -> str:
     return html.escape(str(value if value is not None else ""))
@@ -106,7 +120,7 @@ def sparkline(values, width: int = 124, height: int = 38) -> str:
 def _change_badge(row: pd.Series) -> str:
     if bool(row.get("is_new", False)):
         return badge("NEW", "blue")
-    delta = float(row.get("score_delta", 0.0))
+    delta = float(row.get("entry_score_delta", row.get("score_delta", 0.0)))
     if delta > 0.4:
         return badge(f"▲ {delta:.1f}", "green")
     if delta < -0.4:
@@ -119,28 +133,25 @@ def _table(frame: pd.DataFrame, start_rank: int = 1) -> str:
         return '<div class="empty">해당 종목이 없습니다.</div>'
     rows = []
     for offset, (_, row) in enumerate(frame.iterrows()):
-        stage = str(row.get("stage", "중립"))
-        absorption = str(row.get("absorption_signal", "없음"))
-        absorption_kind = {"강함": "green", "보통": "blue", "주의": "red"}.get(absorption, "gray")
+        campaign = str(row.get("campaign_regime", "중립"))
+        large_badge = badge("500억+", "green") if bool(row.get("large_flow_signal", False)) else ""
         rows.append(
             "<tr>"
             f'<td class="rank">{start_rank + offset}</td>'
             f'<td><strong>{esc(row.get("name", ""))}</strong><small>{esc(row.get("symbol", ""))} · {esc(row.get("market", ""))}</small></td>'
-            f'<td class="score">{number(row.get("score"))}</td>'
-            f'<td>{pct(row.get("success_probability"), 0)}</td>'
-            f'<td>{badge(stage, STAGE_CLASS.get(stage, "gray"))}<small>이력 {esc(row.get("history_confidence", "-"))}</small></td>'
-            f'<td>{eok(row.get("foreign_net20"))}<small>{number(row.get("foreign_20_adtv"))}일 ADTV</small></td>'
-            f'<td>{pct(row.get("price_return20"))}</td>'
-            f'<td>{badge(absorption, absorption_kind)}</td>'
-            f'<td>{_change_badge(row)}</td>'
+            f'<td class="score">{number(row.get("entry_score"))}<small>종합 {number(row.get("score"))}</small></td>'
+            f'<td>{number(row.get("campaign_score"))}</td>'
+            f'<td>{badge(campaign, CAMPAIGN_CLASS.get(campaign, "gray"))}<small>가격 {esc(row.get("stage", "중립"))}</small></td>'
+            f'<td>{eok(row.get("foreign_net20"))} {large_badge}<small>{number(row.get("foreign_20_adtv"))}일 ADTV</small></td>'
+            f'<td>{pct(row.get("price_return20"))}<small>5일 {pct(row.get("price_return5"))}</small></td>'
             f'<td class="action">{esc(row.get("action", ""))}'
             f'<small>{won(row.get("suggested_order_krw")) if row.get("suggested_order_krw", 0) else ""}</small></td>'
             "</tr>"
         )
     return (
         '<div class="table-wrap"><table><thead><tr>'
-        '<th>#</th><th>종목</th><th>점수</th><th>추정확률*</th><th>단계</th>'
-        '<th>20일 외인</th><th>20일 가격</th><th>위험흡수</th><th>변화</th><th>액션</th>'
+        '<th>#</th><th>종목</th><th>진입점수</th><th>매집강도</th><th>매집 국면</th>'
+        '<th>20일 외인</th><th>가격</th><th>액션</th>'
         f'</tr></thead><tbody>{"".join(rows)}</tbody></table></div>'
     )
 
@@ -149,6 +160,9 @@ def _reason_list(row: pd.Series) -> str:
     reasons = []
     if row.get("foreign_20_adtv", 0.0) > 0:
         reasons.append(f'20일 외국인 순매수 {eok(row.get("foreign_net20"))} ({number(row.get("foreign_20_adtv"))}일치 거래대금)')
+    if bool(row.get("large_flow_signal", False)):
+        reasons.append("20거래일 누적 외국인 순매수 500억원 이상")
+    reasons.append(f'매집 국면 {row.get("campaign_regime", "중립")}·매집 강도 {number(row.get("campaign_score"))}점')
     reasons.append(
         f'매수일 {int(row.get("buy_days20", 0))}일·매도일 {int(row.get("sell_days20", 0))}일, 되팔기 비율 {number(row.get("sellback_ratio20") * 100, 0)}%'
     )
@@ -165,12 +179,12 @@ def _reason_list(row: pd.Series) -> str:
 def _hero_cards(frame: pd.DataFrame) -> str:
     cards = []
     for rank, (_, row) in enumerate(frame.head(3).iterrows(), 1):
-        stage = str(row.get("stage", "중립"))
+        campaign = str(row.get("campaign_regime", "중립"))
         cards.append(
             '<article class="hero-card">'
-            f'<div class="hero-head"><span class="hero-rank">#{rank}</span>{badge(stage, STAGE_CLASS.get(stage, "gray"))}</div>'
+            f'<div class="hero-head"><span class="hero-rank">#{rank}</span>{badge(campaign, CAMPAIGN_CLASS.get(campaign, "gray"))}</div>'
             f'<h3>{esc(row.get("name"))} <small>{esc(row.get("symbol"))}</small></h3>'
-            f'<div class="hero-score"><strong>{number(row.get("score"))}</strong><span>/100</span></div>'
+            f'<div class="hero-score"><strong>{number(row.get("entry_score"))}</strong><span>/100 진입</span></div>'
             f'<div class="chart">{sparkline(row.get("price_series", []), 210, 54)}</div>'
             f'<p class="primary-action">{esc(row.get("action"))}</p>'
             f'<ul>{_reason_list(row)}</ul>'
@@ -183,7 +197,7 @@ def _detail_cards(frame: pd.DataFrame) -> str:
     cards = []
     for _, row in frame.iterrows():
         components = [
-            ("외인 매집", row.get("accumulation_score", 0), 40),
+            ("매집 강도", row.get("campaign_score", 0), 100),
             ("가격 미반응", row.get("underreaction_score", 0), 25),
             ("가격·거래량", row.get("structure_score", 0), 15),
             ("실적·전망", row.get("fundamental_score", 0), 20),
@@ -197,10 +211,12 @@ def _detail_cards(frame: pd.DataFrame) -> str:
         cards.append(
             '<article class="detail-card">'
             f'<div class="detail-title"><div><h3>{esc(row.get("name"))}</h3><small>{esc(row.get("symbol"))} · {esc(row.get("market"))}</small></div>'
-            f'<div class="big-score">{number(row.get("score"))}</div></div>'
+            f'<div class="big-score">진입 {number(row.get("entry_score"))}</div></div>'
             f'<div class="detail-chart">{sparkline(row.get("price_series", []), 360, 76)}</div>'
             f'<div class="metrics">{bars}</div>'
             '<div class="facts">'
+            f'<span>매집 국면 <b>{esc(row.get("campaign_regime", "중립"))}</b></span>'
+            f'<span>외인 5일 <b>{eok(row.get("foreign_net5"))}</b></span>'
             f'<span>외인 20일 <b>{eok(row.get("foreign_net20"))}</b></span>'
             f'<span>당일 외인 <b>{eok(row.get("foreign_net1"))}</b></span>'
             f'<span>외인 60일 <b>{eok(row.get("foreign_net60"))}</b></span>'
@@ -242,40 +258,46 @@ def render_report(
         & (ranked["absorption_signal"].isin(["강함", "보통"]))
     ].head(10)
     new_accumulation = ranked[
-        ranked["is_new"] & ranked["stage"].isin(["매집·눌림", "초기매집"])
+        ranked["campaign_regime"].isin(["지속매집", "장기매집·재가속", "신규재진입"])
     ].head(10)
+    large_flow = ranked[ranked["large_flow_signal"].fillna(False)].head(15)
     add_candidates = ranked[ranked["action"].astype(str).str.contains("분할 추가매수 검토", regex=False)].head(10)
-    alerts = ranked[ranked["stage"].isin(["수익실현", "분산·이탈", "이벤트확인"])].head(10)
+    alerts = ranked[
+        ranked["stage"].isin(["수익실현", "분산·이탈", "이벤트확인"])
+        | ranked["campaign_regime"].isin(["이상대량·확인", "분산·이탈", "이벤트·구조확인"])
+    ].head(10)
 
     model_actions = ranked["model_action"] if "model_action" in ranked else ranked["action"]
     strong_count = int((model_actions == "강한 신규매수").sum())
     initial_count = int((model_actions == "초기 분할매수").sum())
     absorption_count = len(falling)
+    large_flow_count = int(ranked["large_flow_signal"].fillna(False).sum())
     report_date = pd.to_datetime(ranked["as_of"].max()).strftime("%Y-%m-%d") if not ranked.empty else generated_at.strftime("%Y-%m-%d")
 
     html_text = f"""<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>외국인 매집 리포트 {report_date}</title><style>{CSS}</style></head><body><main class="page">
 <header><div><h1>외국인 매집 레이더</h1><div class="muted">많이 샀지만 아직 덜 오른 종목 · KIS 일별 확정 데이터</div></div><div class="stamp">기준일 {report_date}<br>생성 {generated_at.strftime('%Y-%m-%d %H:%M KST')}</div></header>
-<section class="summary"><div><b>{len(ranked):,}</b><span>분석 통과 종목</span></div><div><b>{strong_count}</b><span>강한 신규매수</span></div><div><b>{initial_count}</b><span>초기 분할매수</span></div><div><b>{absorption_count}</b><span>하락 중 위험흡수</span></div></section>
+<section class="summary"><div><b>{len(ranked):,}</b><span>분석 통과 종목</span></div><div><b>{large_flow_count}</b><span>20일 외인 500억+</span></div><div><b>{strong_count}</b><span>강한 신규매수</span></div><div><b>{initial_count}</b><span>초기 분할매수</span></div></section>
 <h2>오늘의 상위 3종목</h2>{_hero_cards(top)}
 <h2>전체 순위 TOP {top_n}</h2>{_table(top)}
-<div class="two-col"><section><h2>가격 하락 + 외국인 매수</h2>{_table(falling)}</section><section><h2>신규 매집 포착</h2>{_table(new_accumulation)}</section></div>
-<div class="two-col"><section><h2>보유 시 추가매수 후보</h2>{_table(add_candidates)}</section><section><h2>수익실현·분산 경고</h2>{_table(alerts)}</section></div>
+<div class="two-col"><section><h2>20일 외인 500억원 이상</h2>{_table(large_flow)}</section><section><h2>가격 하락 + 외국인 매수</h2>{_table(falling)}</section></div>
+<div class="two-col"><section><h2>신규·재가속 매집</h2>{_table(new_accumulation)}</section><section><h2>보유 시 추가매수 후보</h2>{_table(add_candidates)}</section></div>
+<h2>수익실현·분산·이상수급 경고</h2>{_table(alerts)}
 <h2>내 관찰 종목</h2>{_table(watched)}
 <h2>상세 분석</h2>{_detail_cards(pd.concat([top.head(5), watched]).drop_duplicates('symbol').head(10))}
-<h2>단계 해석</h2><div class="legend"><div><b>매집·눌림</b>외국인 매수 강도는 높고 절대·상대 가격 반응은 아직 제한적</div><div><b>매집휴식</b>장기 재고는 양수지만 당일 외국인이 매도·중립</div><div><b>가격상승</b>20일 8% 또는 최근 5일 5% 이상 상승해 신규 추격 제한</div><div><b>수익실현</b>가격 상승 뒤 당일 외국인 순매도가 확인됨</div><div><b>분산·이탈</b>외국인 재고와 가격 구조가 함께 약화</div><div><b>이벤트확인</b>25% 이상 급락 또는 비정상 일간 변동으로 신규매수 차단</div><div><b>위험흡수</b>가격 하락 중 외국인이 물량을 받아내되 구조·실적 필터를 통과</div></div>
-<p class="note">* 추정확률과 기대값은 아직 워크포워드 백테스트로 보정하지 않은 모델 출력이다. 점수는 투자결정 보조용이며 수익을 보장하지 않는다. 주문 API는 포함되어 있지 않다.</p>
+<h2>국면 해석</h2><div class="legend"><div><b>지속매집</b>20일 순매수·매수일 비율·되팔기 비율이 함께 양호</div><div><b>장기매집·휴식</b>60·120일 재고는 남아 있으나 최근 5일은 잠시 매도</div><div><b>신규재진입</b>장기 순매도 뒤 최근 20·5일 외국인이 다시 들어오는 전환</div><div><b>상승진행</b>매집은 유효하지만 가격이 먼저 올라 신규 추격은 제한</div><div><b>기관주도·외인확인</b>기관이 가격을 이끌고 외국인 확인은 아직 부족</div><div><b>이상대량·확인</b>소수 대량 거래가 전체 수급을 왜곡할 수 있어 블록·이벤트 확인 필요</div></div>
+<p class="note">진입점수는 매집 강도와 가격 미반응을 분리해 계산하며, 20거래일 외국인 500억원 이상에는 대형 매집 신호를 부여한다. 확률은 백테스트 보정 전이므로 표에서는 제외했다. 주문 API는 포함되어 있지 않다.</p>
 </main></body></html>"""
 
     md_rows = []
     for rank, (_, row) in enumerate(top.head(10).iterrows(), 1):
         md_rows.append(
-            f"| {rank} | {row['name']} ({row['symbol']}) | {row['score']:.1f} | {row['stage']} | {eok(row['foreign_net20'])} | {pct(row['price_return20'])} | {row['action']} |"
+            f"| {rank} | {row['name']} ({row['symbol']}) | {row['entry_score']:.1f} | {row['campaign_score']:.1f} | {row['campaign_regime']} | {eok(row['foreign_net20'])} | {pct(row['price_return20'])} | {row['action']} |"
         )
     markdown = (
         f"## 외국인 매집 리포트 · {report_date}\n\n"
-        "| 순위 | 종목 | 점수 | 단계 | 외인 20일 | 가격 20일 | 액션 |\n"
-        "|---:|---|---:|---|---:|---:|---|\n"
+        "| 순위 | 종목 | 진입 | 매집 | 국면 | 외인 20일 | 가격 20일 | 액션 |\n"
+        "|---:|---|---:|---:|---|---:|---:|---|\n"
         + "\n".join(md_rows)
-        + "\n\n*확률은 백테스트 보정 전이며, 주문은 실행하지 않습니다.*\n"
+        + "\n\n*진입점수는 백테스트 보정 전이며, 주문은 실행하지 않습니다.*\n"
     )
     return RenderedReport(html=html_text, markdown=markdown)

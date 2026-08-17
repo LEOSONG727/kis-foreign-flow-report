@@ -20,6 +20,12 @@ max_retries = 5
 initial_buy_score = 72.0
 strong_buy_score = 80.0
 watch_score = 64.0
+# 종합점수와 별도로 계산하는 '지금 진입 적합도' 기준
+entry_buy_score = 62.0
+entry_strong_score = 72.0
+entry_watch_score = 52.0
+# 대형주 매집 표시: 최근 20거래일 외국인 누적 순매수 500억원 이상
+large_flow_threshold_krw = 50000000000
 gap_take_profit_pct = 5.0
 atr_gap_multiple = 1.2
 # 20일 8% 또는 최근 5일 5% 이상 오른 종목은 눌림이 아니라 상승 단계로 분류
@@ -39,5 +45,6 @@ backtest_stop_pct = 6.0
 backtest_horizon_days = 20
 
 [watchlist]
-# 셀트리온, 현대차, SK, 현대백화점, 삼양식품
-symbols = ["068270", "005380", "034730", "069960", "003230"]
+# 기존 관심종목 + 비교 기준 7종목
+# LG에너지솔루션, LG화학, 셀트리온, 현대차, 삼성SDI, 한화에어로스페이스, HD현대중공업
+symbols = ["068270", "005380", "034730", "069960", "003230", "373220", "051910", "006400", "012450", "329180"]

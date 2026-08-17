@@ -50,6 +50,12 @@ def apply_portfolio_actions(
         "비중 축소·신규매수 금지",
         "기업 이벤트·급락 확인 전 매수 금지",
     }
+    profit_actions = {
+        "절반 익절·잔여 추적",
+        "총 75% 익절·잔여 추적",
+        "총 50% 익절·잔여 추적",
+        "25% 익절 후 보유",
+    }
 
     for _, original in scored.iterrows():
         row = original.to_dict()
@@ -67,7 +73,11 @@ def apply_portfolio_actions(
         suggested_order = 0
 
         if not has_position:
-            if model_action in {"강한 신규매수", "초기 분할매수"}:
+            if model_action in profit_actions:
+                action = "수익실현 신호·신규 추격 금지"
+            elif model_action == "추격 금지·보유":
+                action = "추격 금지·첫 눌림 대기"
+            elif model_action in {"강한 신규매수", "초기 분할매수"}:
                 suggested_order = model.initial_order_krw
         elif model_action not in protected_actions:
             stage = str(row.get("stage", "중립"))
