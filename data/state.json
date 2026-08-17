@@ -511,11 +511,11 @@
       "action": "강한 신규매수",
       "campaign_regime": "지속매집",
       "campaign_score": 71.7,
-      "entry_score": 72.5,
+      "entry_score": 74.7,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "대한항공",
-      "score": 63.8,
+      "score": 67.5,
       "stage": "매집·눌림"
     },
     "003530": {
@@ -717,15 +717,15 @@
       "stage": "분산·이탈"
     },
     "004990": {
-      "action": "추격 금지·첫 눌림 대기",
-      "campaign_regime": "상승진행",
+      "action": "대기",
+      "campaign_regime": "장기매집·휴식",
       "campaign_score": 55.3,
       "entry_score": 44.8,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "롯데지주",
       "score": 55.0,
-      "stage": "가격상승"
+      "stage": "매집·눌림"
     },
     "005070": {
       "action": "추격 금지·첫 눌림 대기",
@@ -907,11 +907,11 @@
       "action": "추격 금지·첫 눌림 대기",
       "campaign_regime": "상승진행",
       "campaign_score": 87.8,
-      "entry_score": 64.4,
+      "entry_score": 66.8,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "NH투자증권",
-      "score": 62.7,
+      "score": 66.7,
       "stage": "가격상승"
     },
     "005950": {
@@ -1028,11 +1028,11 @@
       "action": "위험흡수 구조 확인 대기",
       "campaign_regime": "장기매집·재가속",
       "campaign_score": 83.8,
-      "entry_score": 63.8,
+      "entry_score": 65.5,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "대한유화",
-      "score": 63.8,
+      "score": 66.8,
       "stage": "매집·눌림"
     },
     "006730": {
@@ -1347,11 +1347,11 @@
       "action": "위험흡수 구조 확인 대기",
       "campaign_regime": "지속매집",
       "campaign_score": 71.7,
-      "entry_score": 59.8,
+      "entry_score": 61.2,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "아이에스동서",
-      "score": 59.6,
+      "score": 62.0,
       "stage": "매집·눌림"
     },
     "010820": {
@@ -1424,11 +1424,11 @@
       "action": "추격 금지·첫 눌림 대기",
       "campaign_regime": "상승진행",
       "campaign_score": 94.3,
-      "entry_score": 61.8,
+      "entry_score": 63.5,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "금호석유화학",
-      "score": 68.6,
+      "score": 71.3,
       "stage": "가격상승"
     },
     "011790": {
@@ -1578,11 +1578,11 @@
       "action": "외국인 재개 확인 후 분할매수",
       "campaign_regime": "지속매집",
       "campaign_score": 62.7,
-      "entry_score": 72.1,
+      "entry_score": 73.8,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "한국전력",
-      "score": 67.5,
+      "score": 70.4,
       "stage": "매집·눌림"
     },
     "016360": {
@@ -1743,11 +1743,11 @@
       "action": "위험흡수 구조 확인 대기",
       "campaign_regime": "지속매집",
       "campaign_score": 72.1,
-      "entry_score": 58.6,
+      "entry_score": 60.6,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "한섬",
-      "score": 56.0,
+      "score": 59.3,
       "stage": "매집·눌림"
     },
     "020150": {
@@ -2271,11 +2271,11 @@
       "action": "외국인 재개 확인 후 분할매수",
       "campaign_regime": "장기매집·휴식",
       "campaign_score": 74.5,
-      "entry_score": 65.8,
+      "entry_score": 68.2,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "파라다이스",
-      "score": 65.8,
+      "score": 69.7,
       "stage": "매집·눌림"
     },
     "034730": {
@@ -2865,11 +2865,11 @@
       "action": "추격 금지·첫 눌림 대기",
       "campaign_regime": "상승진행",
       "campaign_score": 66.3,
-      "entry_score": 34.5,
+      "entry_score": 36.5,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "LG화학",
-      "score": 50.3,
+      "score": 53.6,
       "stage": "가격상승"
     },
     "052020": {
@@ -3778,11 +3778,11 @@
       "action": "추격 금지·첫 눌림 대기",
       "campaign_regime": "상승진행",
       "campaign_score": 72.0,
-      "entry_score": 57.1,
+      "entry_score": 57.3,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "메디톡스",
-      "score": 65.9,
+      "score": 66.3,
       "stage": "가격상승"
     },
     "087010": {
@@ -5021,11 +5021,11 @@
       "action": "외국인 재개 확인 후 분할매수",
       "campaign_regime": "장기매집·휴식",
       "campaign_score": 75.4,
-      "entry_score": 67.3,
+      "entry_score": 68.9,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "더블유게임즈",
-      "score": 68.9,
+      "score": 71.6,
       "stage": "매집·눌림"
     },
     "192650": {
@@ -5527,11 +5527,11 @@
       "action": "추격 금지·첫 눌림 대기",
       "campaign_regime": "상승진행",
       "campaign_score": 74.7,
-      "entry_score": 56.2,
+      "entry_score": 58.5,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "두산밥캣",
-      "score": 63.4,
+      "score": 67.3,
       "stage": "가격상승"
     },
     "241710": {
@@ -5846,11 +5846,11 @@
       "action": "위험흡수 구조 확인 대기",
       "campaign_regime": "지속매집",
       "campaign_score": 74.5,
-      "entry_score": 59.6,
+      "entry_score": 60.6,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "케이뱅크",
-      "score": 56.2,
+      "score": 57.7,
       "stage": "매집·눌림"
     },
     "280360": {
@@ -6030,15 +6030,15 @@
       "stage": "중립"
     },
     "300720": {
-      "action": "추격 금지·첫 눌림 대기",
-      "campaign_regime": "상승진행",
+      "action": "관찰·신호 강화 대기",
+      "campaign_regime": "지속매집",
       "campaign_score": 38.1,
       "entry_score": 40.6,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "한일시멘트",
       "score": 64.3,
-      "stage": "가격상승"
+      "stage": "매집·눌림"
     },
     "302440": {
       "action": "재진입 신호 관찰",
@@ -6110,11 +6110,11 @@
       "action": "재진입 신호 관찰",
       "campaign_regime": "신규재진입",
       "campaign_score": 52.5,
-      "entry_score": 56.6,
+      "entry_score": 58.1,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "우리금융지주",
-      "score": 58.4,
+      "score": 60.9,
       "stage": "매집·눌림"
     },
     "317400": {
@@ -6198,11 +6198,11 @@
       "action": "위험흡수 구조 확인 대기",
       "campaign_regime": "지속매집",
       "campaign_score": 70.9,
-      "entry_score": 61.2,
+      "entry_score": 62.7,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "카카오뱅크",
-      "score": 62.3,
+      "score": 64.8,
       "stage": "매집·눌림"
     },
     "326030": {
