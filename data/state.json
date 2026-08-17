@@ -629,7 +629,7 @@
       "stage": "분산·이탈"
     },
     "004090": {
-      "action": "대기",
+      "action": "외국인 재개 확인 후 분할매수",
       "campaign_regime": "지속매집",
       "campaign_score": 26.0,
       "entry_score": 39.7,
@@ -1575,7 +1575,7 @@
       "stage": "가격상승"
     },
     "015760": {
-      "action": "강한 신규매수",
+      "action": "외국인 재개 확인 후 분할매수",
       "campaign_regime": "지속매집",
       "campaign_score": 62.7,
       "entry_score": 72.1,
@@ -1916,7 +1916,7 @@
       "stage": "분산·이탈"
     },
     "025980": {
-      "action": "대기",
+      "action": "외국인 재개 확인 후 분할매수",
       "campaign_regime": "지속매집",
       "campaign_score": 43.5,
       "entry_score": 43.3,
@@ -4402,7 +4402,7 @@
       "stage": "초기매집"
     },
     "114090": {
-      "action": "관찰·신호 강화 대기",
+      "action": "외국인 재개 확인 후 분할매수",
       "campaign_regime": "지속매집",
       "campaign_score": 38.7,
       "entry_score": 49.2,
@@ -7108,7 +7108,7 @@
       "stage": "분산·이탈"
     },
     "462870": {
-      "action": "대기",
+      "action": "외국인 재개 확인 후 분할매수",
       "campaign_regime": "지속매집",
       "campaign_score": 41.8,
       "entry_score": 49.8,
@@ -7361,7 +7361,7 @@
       "stage": "매집·눌림"
     },
     "499790": {
-      "action": "관찰·신호 강화 대기",
+      "action": "외국인 재개 확인 후 분할매수",
       "campaign_regime": "지속매집",
       "campaign_score": 49.0,
       "entry_score": 56.3,
