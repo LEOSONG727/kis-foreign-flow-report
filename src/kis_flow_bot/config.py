@@ -34,9 +34,12 @@ class ModelConfig:
     entry_buy_score: float = 62.0
     entry_strong_score: float = 72.0
     entry_watch_score: float = 52.0
-    discovery_candidate_score: float = 60.0
-    timing_buy_score: float = 62.0
+    discovery_candidate_score: float = 65.0
+    # V2 keeps timing as a ranking/explanation signal. The first walk-forward
+    # test did not support a monotonic hard cutoff.
+    timing_buy_score: float = 0.0
     distribution_exit_score: float = 65.0
+    entry_max_distribution_score: float = 25.0
     large_flow_threshold_krw: int = 50_000_000_000
     gap_take_profit_pct: float = 5.0
     atr_gap_multiple: float = 1.2
@@ -52,7 +55,7 @@ class ModelConfig:
     entry_min_return3_pct: float = -3.0
     entry_max_return20_pct: float = 3.0
     entry_max_rebound20_pct: float = 5.0
-    persistent_entry_requires_reacceleration: bool = True
+    persistent_entry_requires_reacceleration: bool = False
     ma20_atr_chase_multiple: float = 2.5
     rebound_atr_chase_multiple: float = 4.0
     structural_break_return20_pct: float = -25.0
@@ -61,6 +64,11 @@ class ModelConfig:
     add_order_krw: int = 5_000_000
     add_trigger_pct: float = 3.0
     max_tranches: int = 4
+    strict_add_confirmation: bool = True
+    add_min_return3_pct: float = -1.5
+    add_min_return1_pct: float = -0.5
+    add_min_return20_pct: float = -15.0
+    add_cooldown_days: int = 3
     backtest_target_pct: float = 8.0
     backtest_stop_pct: float = 6.0
     backtest_horizon_days: int = 20
