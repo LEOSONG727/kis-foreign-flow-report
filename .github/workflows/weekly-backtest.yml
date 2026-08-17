@@ -22,7 +22,7 @@ concurrency:
 jobs:
   backtest:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -33,12 +33,20 @@ jobs:
       - run: pytest
       - name: Run campaign walk-forward backtest
         run: python -m kis_flow_bot backtest
+      - name: Upload backtest artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: walk-forward-backtest-${{ github.run_number }}
+          path: reports/
+          if-no-files-found: warn
+          retention-days: 30
       - name: Persist calibration and report
         shell: bash
         run: |
           git config user.name "foreign-flow-bot"
           git config user.email "foreign-flow-bot@users.noreply.github.com"
-          git add data/calibration.json reports/backtest_latest.csv reports/backtest_thresholds.csv reports/backtest_latest.md
+          git add data/calibration.json reports/backtest_latest.csv reports/backtest_thresholds.csv reports/backtest_score_bands.csv reports/backtest_latest.md
           if git diff --cached --quiet; then
             echo "변경된 백테스트 결과가 없습니다."
             exit 0
