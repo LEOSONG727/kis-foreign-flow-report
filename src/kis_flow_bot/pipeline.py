@@ -235,6 +235,7 @@ def _write_outputs(
     csv_columns = [
         "symbol", "name", "market", "as_of", "score", "campaign_score", "entry_score",
         "price_heat_penalty", "price_heat_flag", "price_heat_reason",
+        "entry_readiness", "entry_gate_passed", "entry_gate_reason",
         "score_delta", "entry_score_delta", "data_points",
         "success_probability", "expected_value", "stage", "action",
         "campaign_regime", "large_flow_signal", "probability_source",

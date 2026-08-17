@@ -19,6 +19,7 @@ class PathResult:
     outcome: str
     days_to_event: int | None
     forward_return: float
+    realized_return: float
     max_upside: float
     max_drawdown: float
     ambiguous_same_day: bool = False
@@ -44,6 +45,11 @@ def evaluate_forward_path(
         outcome=outcome,
         days_to_event=days_to_event,
         forward_return=float(returns.iloc[-1]) if not returns.empty else 0.0,
+        realized_return=(
+            target if outcome == "target"
+            else -stop if outcome == "stop"
+            else float(returns.iloc[-1]) if not returns.empty else 0.0
+        ),
         max_upside=float(returns.max()) if not returns.empty else 0.0,
         max_drawdown=float(returns.min()) if not returns.empty else 0.0,
     )
@@ -62,7 +68,7 @@ def evaluate_forward_ohlc(
         path[column] = pd.to_numeric(path[column], errors="coerce")
     path = path.dropna(subset=["high", "low", "close"])
     if entry_price <= 0 or path.empty:
-        return PathResult("censored", None, 0.0, 0.0, 0.0)
+        return PathResult("censored", None, 0.0, 0.0, 0.0, 0.0)
 
     outcome = "censored"
     days_to_event = None
@@ -89,18 +95,30 @@ def evaluate_forward_ohlc(
         outcome=outcome,
         days_to_event=days_to_event,
         forward_return=float(close_returns.iloc[-1]),
+        realized_return=(
+            target - roundtrip_cost if outcome == "target"
+            else -stop - roundtrip_cost if outcome == "stop"
+            else float(close_returns.iloc[-1])
+        ),
         max_upside=float(high_returns.max()),
         max_drawdown=float(low_returns.min()),
         ambiguous_same_day=ambiguous,
     )
 
 
-def build_calibration(results: pd.DataFrame) -> dict:
-    bands = [(0.0, 64.0, "<64"), (64.0, 72.0, "64-71"), (72.0, 80.0, "72-79"), (80.0, 101.0, "80+")]
+def build_calibration(
+    results: pd.DataFrame,
+    target: float = 0.08,
+    stop: float = 0.06,
+    roundtrip_cost: float = 0.003,
+) -> dict:
+    """Activate probabilities only after economic and temporal holdout checks pass."""
+    bands = [(0.0, 64.0, "<64"), (64.0, 68.0, "64-67"), (68.0, 72.0, "68-71"), (72.0, 101.0, "72+")]
     resolved = results[results["outcome"].isin(["target", "stop"])].copy() if not results.empty else pd.DataFrame()
+    score_column = "entry_score" if "entry_score" in resolved else "score"
     summaries = []
     for low, high, label in bands:
-        group = resolved[(resolved["score"] >= low) & (resolved["score"] < high)] if not resolved.empty else pd.DataFrame()
+        group = resolved[(resolved[score_column] >= low) & (resolved[score_column] < high)] if not resolved.empty else pd.DataFrame()
         wins = int((group["outcome"] == "target").sum()) if not group.empty else 0
         count = len(group)
         summaries.append(
@@ -114,14 +132,55 @@ def build_calibration(results: pd.DataFrame) -> dict:
                 "calibrated_probability": (wins + 2) / (count + 4) if count else None,
             }
         )
-    actionable_samples = sum(item["samples"] for item in summaries if item["low"] >= 72.0)
-    active = len(resolved) >= 300 and actionable_samples >= 100
+    breakeven_win_rate = (stop + roundtrip_cost) / (target + stop)
+    wins = int((resolved["outcome"] == "target").sum()) if not resolved.empty else 0
+    overall_win_rate = wins / len(resolved) if len(resolved) else 0.0
+    if "realized_return" in results:
+        overall_mean_return = float(pd.to_numeric(results["realized_return"], errors="coerce").mean())
+    else:
+        overall_mean_return = float("nan")
+
+    holdout = pd.DataFrame()
+    if not results.empty and "as_of" in results:
+        ordered_dates = sorted(pd.to_datetime(results["as_of"], errors="coerce").dropna().unique())
+        if ordered_dates:
+            holdout_start = pd.Timestamp(ordered_dates[max(0, int(len(ordered_dates) * 2 / 3))])
+            holdout = results[pd.to_datetime(results["as_of"], errors="coerce") >= holdout_start].copy()
+    holdout_resolved = holdout[holdout["outcome"].isin(["target", "stop"])] if not holdout.empty else pd.DataFrame()
+    holdout_wins = int((holdout_resolved["outcome"] == "target").sum()) if not holdout_resolved.empty else 0
+    holdout_win_rate = holdout_wins / len(holdout_resolved) if len(holdout_resolved) else 0.0
+    holdout_mean_return = (
+        float(pd.to_numeric(holdout["realized_return"], errors="coerce").mean())
+        if not holdout.empty and "realized_return" in holdout else float("nan")
+    )
+    sampled_rates = [item["win_rate"] for item in summaries if item["samples"] >= 30]
+    roughly_monotonic = all(
+        later + 0.03 >= earlier for earlier, later in zip(sampled_rates, sampled_rates[1:])
+    )
+    checks = {
+        "resolved_samples": len(resolved) >= 300,
+        "holdout_samples": len(holdout_resolved) >= 75,
+        "overall_positive_expectancy": overall_mean_return > 0,
+        "holdout_positive_expectancy": holdout_mean_return > 0,
+        "overall_above_breakeven": overall_win_rate >= breakeven_win_rate,
+        "holdout_above_breakeven": holdout_win_rate >= breakeven_win_rate,
+        "score_ordering": roughly_monotonic and len(sampled_rates) >= 2,
+    }
+    active = all(checks.values())
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "quality_gate_version": 2,
         "active": active,
         "resolved_samples": len(resolved),
         "minimum_resolved_samples": 300,
-        "minimum_actionable_samples": 100,
+        "holdout_resolved_samples": len(holdout_resolved),
+        "minimum_holdout_samples": 75,
+        "breakeven_win_rate": breakeven_win_rate,
+        "overall_win_rate": overall_win_rate,
+        "holdout_win_rate": holdout_win_rate,
+        "overall_mean_realized_return": overall_mean_return,
+        "holdout_mean_realized_return": holdout_mean_return,
+        "activation_checks": checks,
         "bands": summaries,
     }
 
@@ -138,8 +197,10 @@ def summarize_variants(results: pd.DataFrame) -> pd.DataFrame:
             {
                 "variant": variant,
                 "production": bool(group["production"].iloc[0]),
-                "rebound20_pct": float(group["rebound20_gate_pct"].iloc[0]),
-                "rebound10_pct": float(group["rebound10_gate_pct"].iloc[0]),
+                "entry_min_return3_pct": float(group["entry_min_return3_pct"].iloc[0]),
+                "entry_max_return20_pct": float(group["entry_max_return20_pct"].iloc[0]),
+                "entry_max_rebound20_pct": float(group["entry_max_rebound20_pct"].iloc[0]),
+                "requires_reacceleration": bool(group["requires_reacceleration"].iloc[0]),
                 "signals": len(group),
                 "resolved": len(resolved),
                 "targets": wins,
@@ -149,12 +210,14 @@ def summarize_variants(results: pd.DataFrame) -> pd.DataFrame:
                 "positive_20d_rate": float((group["forward_return"] > 0).mean()),
                 "mean_20d_return": float(group["forward_return"].mean()),
                 "median_20d_return": float(group["forward_return"].median()),
+                "mean_strategy_return": float(group["realized_return"].mean()),
+                "median_strategy_return": float(group["realized_return"].median()),
                 "mean_max_upside": float(group["max_upside"].mean()),
                 "mean_max_drawdown": float(group["max_drawdown"].mean()),
                 "ambiguous_days": int(group["ambiguous_same_day"].sum()),
             }
         )
-    return pd.DataFrame(rows).sort_values("rebound20_pct", na_position="first").reset_index(drop=True)
+    return pd.DataFrame(rows).sort_values("variant").reset_index(drop=True)
 
 
 def _write_backtest_report(
@@ -177,11 +240,15 @@ def _write_backtest_report(
         rows.append(f"| {item['label']} | {item['samples']} | {item['wins']} | {rate} |")
     comparison = []
     for _, item in summary.iterrows():
-        gate = "벌점만" if item["variant"] == "penalty_only" else f"{item['rebound20_pct']:.0f}%/{item['rebound10_pct']:.0f}%"
+        gate = (
+            f"3일 {item['entry_min_return3_pct']:+.0f}% / 20일 +{item['entry_max_return20_pct']:.0f}% / "
+            f"저점 +{item['entry_max_rebound20_pct']:.0f}%"
+        )
         comparison.append(
-            f"| {item['variant']}{' (현재)' if item['production'] else ''} | {gate} | "
+            f"| {item['variant']}{' (현재)' if item['production'] else ''} | {gate} | {'예' if item['requires_reacceleration'] else '아니오'} | "
             f"{int(item['signals'])} | {int(item['resolved'])} | {item['resolved_win_rate'] * 100:.1f}% | "
-            f"{item['positive_20d_rate'] * 100:.1f}% | {item['mean_20d_return'] * 100:+.2f}% | "
+            f"{item['positive_20d_rate'] * 100:.1f}% | {item['mean_strategy_return'] * 100:+.2f}% | "
+            f"{item['mean_20d_return'] * 100:+.2f}% | "
             f"{item['mean_max_drawdown'] * 100:+.2f}% |"
         )
     text = (
@@ -192,10 +259,12 @@ def _write_backtest_report(
         "- 같은 날 목표·손절 동시 도달: 보수적으로 손절 처리\n"
         f"- 전체 임계값별 신호: {len(results):,}건\n"
         f"- 목표/손절 판정 완료: {calibration['resolved_samples']:,}건\n"
+        f"- 손익분기 승률: {calibration['breakeven_win_rate'] * 100:.1f}%\n"
+        f"- 홀드아웃 승률/실현수익: {calibration['holdout_win_rate'] * 100:.1f}% / {calibration['holdout_mean_realized_return'] * 100:+.2f}%\n"
         f"- 확률 보정 활성화: {'예' if calibration['active'] else '아니오'}\n\n"
-        "## 저점 반등 게이트 비교\n\n"
-        "| 변형 | 20일/10일 게이트 | 신호 | 판정 | 목표 선도달 | 20일 수익 양수 | 평균 20일 수익 | 평균 최대낙폭 |\n"
-        "|---|---:|---:|---:|---:|---:|---:|---:|\n"
+        "## V1 진입정책 비교\n\n"
+        "| 변형 | 3일 하한/20일 상한/저점반등 상한 | 재가속 필수 | 신호 | 판정 | 목표 선도달 | 20일 수익 양수 | 평균 전략수익 | 평균 20일 수익 | 평균 최대낙폭 |\n"
+        "|---|---|---|---:|---:|---:|---:|---:|---:|---:|\n"
         + "\n".join(comparison)
         + "\n\n## 현재 모델 점수대 확인\n\n"
         "| 점수대 | 판정표본 | 목표 선도달 | 승률 |\n|---|---:|---:|---:|\n"
@@ -206,18 +275,28 @@ def _write_backtest_report(
     report_path.write_text(text, encoding="utf-8")
 
 
-def _threshold_variants(settings: Settings) -> list[tuple[str, float, float, bool]]:
-    current20 = float(settings.model.rebound_chase_return20_pct)
-    current10 = float(settings.model.rebound_chase_return10_pct)
-    pairs = [(15.0, 12.0), (18.0, 15.0), (20.0, 17.0), (22.0, 19.0)]
-    if (current20, current10) not in pairs:
-        pairs.append((current20, current10))
-    variants = [("penalty_only", 999.0, 999.0, False)]
-    variants.extend(
-        (f"path_{int(gate20)}", gate20, gate10, gate20 == current20 and gate10 == current10)
-        for gate20, gate10 in sorted(set(pairs))
-    )
-    return variants
+def _policy_variants(settings: Settings) -> list[tuple[str, float, float, float, bool, bool]]:
+    model = settings.model
+    return [
+        ("legacy_v0", -99.0, 99.0, 99.0, False, False),
+        (
+            "price_gate_only",
+            model.entry_min_return3_pct,
+            model.entry_max_return20_pct,
+            model.entry_max_rebound20_pct,
+            False,
+            False,
+        ),
+        ("v1_relaxed", -3.0, 6.0, 8.0, True, False),
+        (
+            "v1_balanced",
+            model.entry_min_return3_pct,
+            model.entry_max_return20_pct,
+            model.entry_max_rebound20_pct,
+            model.persistent_entry_requires_reacceleration,
+            True,
+        ),
+    ]
 
 
 def run_backtest(settings: Settings) -> pd.DataFrame:
@@ -234,7 +313,7 @@ def run_backtest(settings: Settings) -> pd.DataFrame:
         dates = sorted(history["date"].dropna().unique())
         signal_rows: list[dict] = []
         last_signal_index: dict[tuple[str, str], int] = {}
-        variants = _threshold_variants(settings)
+        variants = _policy_variants(settings)
         if len(dates) >= 60 + horizon:
             for date_index in range(59, len(dates) - horizon):
                 as_of = pd.Timestamp(dates[date_index])
@@ -247,11 +326,13 @@ def run_backtest(settings: Settings) -> pd.DataFrame:
                     opinion_view = opinions[pd.to_datetime(opinions["date"], errors="coerce") <= as_of]
                 features = build_base_features(history_view, universe, snapshot_view, opinion_view)
                 features = add_cross_sectional_residuals(features)
-                for variant, gate20, gate10, production in variants:
+                for variant, min3, max20, max_rebound20, require_reacceleration, production in variants:
                     variant_model = replace(
                         settings.model,
-                        rebound_chase_return20_pct=gate20,
-                        rebound_chase_return10_pct=gate10,
+                        entry_min_return3_pct=min3,
+                        entry_max_return20_pct=max20,
+                        entry_max_rebound20_pct=max_rebound20,
+                        persistent_entry_requires_reacceleration=require_reacceleration,
                     )
                     scored = score_features(features, variant_model)
                     candidates = scored[
@@ -282,8 +363,10 @@ def run_backtest(settings: Settings) -> pd.DataFrame:
                             {
                                 "variant": variant,
                                 "production": production,
-                                "rebound20_gate_pct": gate20,
-                                "rebound10_gate_pct": gate10,
+                                "entry_min_return3_pct": min3,
+                                "entry_max_return20_pct": max20,
+                                "entry_max_rebound20_pct": max_rebound20,
+                                "requires_reacceleration": require_reacceleration,
                                 "as_of": as_of,
                                 "entry_date": future["date"].iloc[0],
                                 "symbol": symbol,
@@ -304,6 +387,7 @@ def run_backtest(settings: Settings) -> pd.DataFrame:
                                 "outcome": path.outcome,
                                 "days_to_event": path.days_to_event,
                                 "forward_return": path.forward_return,
+                                "realized_return": path.realized_return,
                                 "max_upside": path.max_upside,
                                 "max_drawdown": path.max_drawdown,
                                 "ambiguous_same_day": path.ambiguous_same_day,
@@ -313,7 +397,12 @@ def run_backtest(settings: Settings) -> pd.DataFrame:
         results = pd.DataFrame(signal_rows)
 
     production_results = results[results["production"]].copy() if not results.empty else results
-    calibration = build_calibration(production_results)
+    calibration = build_calibration(
+        production_results,
+        settings.model.backtest_target_pct / 100.0,
+        settings.model.backtest_stop_pct / 100.0,
+        settings.model.backtest_roundtrip_cost_pct / 100.0,
+    )
     summary = summarize_variants(results)
     write_csv(results, settings.reports_dir / "backtest_latest.csv")
     write_csv(summary, settings.reports_dir / "backtest_thresholds.csv")

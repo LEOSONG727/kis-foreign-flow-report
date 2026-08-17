@@ -36,6 +36,11 @@ recent_chase_return5_pct = 5.0
 recent_chase_return10_pct = 10.0
 rebound_chase_return10_pct = 12.0
 rebound_chase_return20_pct = 15.0
+# 순위에는 남기되 실제 신규/추가매수 액션은 가격 안정 구간에서만 허용
+entry_min_return3_pct = -3.0
+entry_max_return20_pct = 3.0
+entry_max_rebound20_pct = 5.0
+persistent_entry_requires_reacceleration = true
 ma20_atr_chase_multiple = 2.5
 rebound_atr_chase_multiple = 4.0
 # 급락·권리락·분할 가능성이 있는 가격구조는 신규매수를 차단

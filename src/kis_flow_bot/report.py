@@ -139,7 +139,7 @@ def _table(frame: pd.DataFrame, start_rank: int = 1, empty_message: str = "해�
             "<tr>"
             f'<td class="rank">{start_rank + offset}</td>'
             f'<td><strong>{esc(row.get("name", ""))}</strong><small>{esc(row.get("symbol", ""))} · {esc(row.get("market", ""))}</small></td>'
-            f'<td class="score">{number(row.get("entry_score"))}<small>종합 {number(row.get("score"))}</small></td>'
+            f'<td class="score">{number(row.get("entry_score"))}<small>종합 {number(row.get("score"))} · {esc(row.get("entry_readiness", "-"))}</small></td>'
             f'<td>{number(row.get("campaign_score"))}</td>'
             f'<td>{badge(campaign, CAMPAIGN_CLASS.get(campaign, "gray"))}<small>가격 {esc(row.get("stage", "중립"))}</small></td>'
             f'<td>{eok(row.get("foreign_net20"))} {large_badge}<small>{number(row.get("foreign_20_adtv"))}일 ADTV</small></td>'
@@ -322,7 +322,7 @@ def render_report(
 <h2>내 관찰 종목</h2>{_table(watched)}
 <h2>상세 분석</h2>{_detail_cards(pd.concat([new_buys, add_buys, wait_candidates, watched]).drop_duplicates('symbol').head(12))}
 <h2>국면 해석</h2><div class="legend"><div><b>지속매집</b>20일 순매수·매수일 비율·되팔기 비율이 함께 양호</div><div><b>장기매집·휴식</b>60·120일 재고는 남아 있으나 최근 5일은 잠시 매도</div><div><b>신규재진입</b>장기 순매도 뒤 최근 20·5일 외국인이 다시 들어오는 전환</div><div><b>상승진행</b>매집은 유효하지만 가격이 먼저 올라 신규 추격은 제한</div><div><b>기관주도·외인확인</b>기관이 가격을 이끌고 외국인 확인은 아직 부족</div><div><b>이상대량·확인</b>소수 대량 거래가 전체 수급을 왜곡할 수 있어 블록·이벤트 확인 필요</div></div>
-<p class="note">진입점수는 매집 강도와 가격 미반응을 분리한다. 가격 과열은 1·3·5·10·20일 수익률, 10·20일 저점 반등, 20일선·ATR 이격, 상승일 수, 반등 거래량과 20일 고점 접근도를 함께 본다. 20거래일 외국인 500억원 이상에는 대형 매집 신호를 부여한다. 확률은 백테스트 보정 전이므로 표에서는 제외했다. 주문 API는 포함되어 있지 않다.</p>
+<p class="note">진입점수는 후보 우선순위이며 매수 허가가 아니다. 실제 신규·추가매수는 최근 3일 급락 진정, 20일 상승률 +3% 미만, 20일 저점 반등 +5% 미만, 외국인 재가속을 별도 통과해야 한다. 20거래일 외국인 500억원 이상에는 대형 매집 신호를 부여한다. 확률은 양(+)의 워크포워드 기대값과 홀드아웃 검증을 통과하기 전에는 보정하지 않는다. 주문 API는 포함되어 있지 않다.</p>
 </main></body></html>"""
 
     def md_section(title: str, frame: pd.DataFrame) -> str:

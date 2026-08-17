@@ -44,6 +44,12 @@ class ModelConfig:
     recent_chase_return10_pct: float = 10.0
     rebound_chase_return10_pct: float = 12.0
     rebound_chase_return20_pct: float = 15.0
+    # A ranking candidate can remain attractive while its *entry* is not ready.
+    # These tighter gates are applied only to fresh/add-on buy actions.
+    entry_min_return3_pct: float = -3.0
+    entry_max_return20_pct: float = 3.0
+    entry_max_rebound20_pct: float = 5.0
+    persistent_entry_requires_reacceleration: bool = True
     ma20_atr_chase_multiple: float = 2.5
     rebound_atr_chase_multiple: float = 4.0
     structural_break_return20_pct: float = -25.0
