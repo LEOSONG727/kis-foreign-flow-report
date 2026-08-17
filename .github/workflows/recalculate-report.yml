@@ -47,4 +47,9 @@ jobs:
             exit 0
           fi
           git commit -m "bot: recalculate action-ranked report"
-          git push
+          # This push-triggered job can wait behind the backtest because both
+          # workflows serialize repository writes. During that wait the
+          # backtest may advance main with calibration results, so rebase the
+          # generated report commit onto the latest main before pushing.
+          git pull --rebase origin main
+          git push origin HEAD:main
