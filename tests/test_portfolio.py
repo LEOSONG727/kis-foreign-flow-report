@@ -13,7 +13,8 @@ def _scored(close: float = 94_000.0) -> pd.DataFrame:
             "entry_score": 74.0, "campaign_score": 82.0,
             "discovery_score": 78.0, "timing_score": 70.0,
             "campaign_regime": "지속매집", "foreign_5_adtv": 0.5,
-            "price_return5": -0.02, "price_return20": 0.01,
+            "foreign_3_adtv": 0.3, "price_return1": 0.0, "price_return3": 0.0,
+            "price_return5": -0.02, "price_return20": 0.01, "distribution_score": 5.0,
             "stage": "매집·눌림", "action": "초기 분할매수",
         }]
     )
@@ -36,6 +37,17 @@ def test_held_position_gets_add_action_after_price_decline():
     assert result["suggested_order_krw"] == 5_000_000
     assert result["decision_bucket"] == "추가매수"
     assert result["add_score"] > 0
+
+
+def test_held_position_waits_when_price_is_still_falling_fast():
+    scored = _scored(94_000)
+    scored.loc[0, "price_return3"] = -0.03
+    portfolio = pd.DataFrame(
+        [{"symbol": "000010", "quantity": 100, "average_price": 100_000, "last_buy_price": 100_000, "tranche_count": 1}]
+    )
+    result = apply_portfolio_actions(scored, portfolio, ModelConfig()).iloc[0]
+    assert result["action"] == "보유·추가매수 재확인 대기"
+    assert result["suggested_order_krw"] == 0
 
 
 def test_exit_action_is_never_overwritten_by_portfolio_logic():
