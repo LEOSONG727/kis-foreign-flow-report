@@ -35,6 +35,44 @@ from .universe import load_universe
 LOGGER = logging.getLogger(__name__)
 
 
+def _resolve_investor_query_date(
+    client: KISClient,
+    requested_as_of: date,
+    probe_symbol: str = "005930",
+    max_lookback_days: int = 7,
+) -> date:
+    """Find the latest date accepted by the settled investor-flow endpoint.
+
+    KIS returns OPSQ2001 when the requested calendar date has not been
+    settled yet (before the daily cutoff, weekend, or holiday). The endpoint
+    itself returns the latest trading rows for an accepted earlier date, so a
+    short calendar-day fallback is sufficient and does not require a separate
+    exchange-holiday calendar.
+    """
+    last_error: KISAPIError | None = None
+    for days_back in range(max_lookback_days + 1):
+        candidate = requested_as_of - timedelta(days=days_back)
+        try:
+            rows = client.investor_daily(probe_symbol, candidate)
+            if rows:
+                if days_back:
+                    LOGGER.info(
+                        "Investor-flow query date adjusted from %s to %s because the newer date is not settled",
+                        requested_as_of,
+                        candidate,
+                    )
+                return candidate
+        except KISAPIError as exc:
+            if exc.code != "OPSQ2001":
+                raise
+            last_error = exc
+            LOGGER.info("Investor-flow date %s is not settled yet; trying the prior day", candidate)
+    raise RuntimeError(
+        f"Could not find a settled investor-flow date within {max_lookback_days} days of "
+        f"{requested_as_of}: {last_error}"
+    )
+
+
 def _select_universe(universe: pd.DataFrame, limit: int | None, watchlist: tuple[str, ...]) -> pd.DataFrame:
     if not limit or limit >= len(universe):
         return universe
@@ -241,14 +279,15 @@ def run_pipeline(
     full_history_bootstrap: bool = False,
     notify: bool = True,
 ) -> pd.DataFrame:
-    as_of = as_of or date.today()
     generated_at = datetime.now(ZoneInfo("Asia/Seoul"))
+    as_of = as_of or generated_at.date()
     client = KISClient.from_env(settings.api)
     client.authenticate()
 
     universe = load_universe(settings.screening, settings.watchlist, client.session)
     universe = _select_universe(universe, universe_limit, settings.watchlist)
     write_csv(universe, settings.data_dir / "universe.csv")
+    as_of = _resolve_investor_query_date(client, as_of)
 
     history_path = settings.data_dir / "history.csv"
     snapshots_path = settings.data_dir / "holdings.csv"
@@ -349,7 +388,9 @@ def smoke_test(settings: Settings) -> None:
     client = KISClient.from_env(settings.api)
     client.authenticate()
     samsung = client.current_price("005930")
-    celltrion = client.investor_daily("068270", date.today())
+    requested_as_of = datetime.now(ZoneInfo("Asia/Seoul")).date()
+    query_as_of = _resolve_investor_query_date(client, requested_as_of)
+    celltrion = client.investor_daily("068270", query_as_of)
     price = samsung.get("stck_prpr", "?")
     LOGGER.info("Authentication OK; Samsung current price=%s", price)
     LOGGER.info("Celltrion investor history rows=%d", len(celltrion))
