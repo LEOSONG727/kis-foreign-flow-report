@@ -50,6 +50,7 @@ max_tranches = 4
 backtest_target_pct = 8.0
 backtest_stop_pct = 6.0
 backtest_horizon_days = 20
+backtest_roundtrip_cost_pct = 0.3
 
 [watchlist]
 # 기존 관심종목 + 비교 기준 7종목
