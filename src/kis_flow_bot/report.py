@@ -8,6 +8,9 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
+from .brief import annotate_watch_brief, select_daily_brief
+from .config import BriefConfig, ModelConfig
+
 
 @dataclass(frozen=True)
 class RenderedReport:
@@ -24,6 +27,17 @@ STAGE_CLASS = {
     "분산·이탈": "red",
     "이벤트확인": "red",
     "중립": "gray",
+}
+
+TIER_CLASS = {
+    "즉시매수": "green",
+    "추가매수": "blue",
+    "관심후보": "green",
+    "고확신눌림": "yellow",
+    "급락진정": "orange",
+    "눌림대기": "purple",
+    "위험확인": "red",
+    "제외": "gray",
 }
 
 CAMPAIGN_CLASS = {
@@ -147,9 +161,11 @@ def _table(frame: pd.DataFrame, start_rank: int = 1, empty_message: str = "해�
             f'<td>{pct(row.get("price_return20"))}'
             f'<small>3일 {pct(row.get("price_return3"))} · 10일 {pct(row.get("price_return10"))}</small>'
             f'<small>20일 저점반등 {pct(row.get("rebound_from_low20"))}</small></td>'
-            f'<td class="action">{esc(row.get("action", ""))}'
+            f'<td class="action">{badge(str(row.get("watch_tier", "")), TIER_CLASS.get(str(row.get("watch_tier", "")), "gray")) if row.get("watch_tier") else ""}'
+            f'{esc(row.get("action", ""))}'
             f'<small>{won(row.get("suggested_order_krw")) if row.get("suggested_order_krw", 0) else ""}</small></td>'
-            f'<td class="condition">{esc(row.get("promotion_condition", "-"))}'
+            f'<td class="condition">{esc(row.get("block_reason") or row.get("promotion_condition", "-"))}'
+            f'<small>다음: {esc(row.get("next_trigger") or row.get("promotion_condition", "-"))}</small>'
             f'<small>무효: {esc(row.get("invalidation_condition", "-"))}</small></td>'
             "</tr>"
         )
@@ -221,6 +237,34 @@ def _hero_cards(frame: pd.DataFrame) -> str:
     return '<div class="hero-grid">' + "".join(cards) + "</div>"
 
 
+def _brief_cards(frame: pd.DataFrame) -> str:
+    if frame.empty:
+        return (
+            '<div class="empty">오늘 사람이 볼 매집 후보가 없습니다. '
+            "발견 65점 이상이면서 분산·이벤트 단계가 아닌 종목이 없습니다.</div>"
+        )
+    cards = []
+    for rank, (_, row) in enumerate(frame.iterrows(), 1):
+        tier = str(row.get("watch_tier", "관찰"))
+        cards.append(
+            '<article class="brief-card">'
+            f'<div class="hero-head"><span class="hero-rank">#{rank}</span>'
+            f'{badge(tier, TIER_CLASS.get(tier, "gray"))}</div>'
+            f'<h3>{esc(row.get("name"))} <small>{esc(row.get("symbol"))}</small></h3>'
+            f'<div class="hero-score"><strong>{number(row.get("discovery_score", row.get("entry_score")))}</strong>'
+            f"<span>/100 발견</span></div>"
+            f'<small>20일 {pct(row.get("price_return20"))} · 저점반등 {pct(row.get("rebound_from_low20"))}'
+            f' · 분산 {number(row.get("distribution_score"))}</small>'
+            f'<div class="chart">{sparkline(row.get("price_series", []), 210, 54)}</div>'
+            f'<p class="flow-line">{esc(row.get("flow_summary", ""))}</p>'
+            f'<p class="block-line"><b>{"지금 할 일" if tier in {"즉시매수", "추가매수"} else "지금 안 사는 이유"}</b>{esc(row.get("block_reason", "-"))}</p>'
+            f'<p class="next-line"><b>{"판단 포인트" if tier in {"즉시매수", "추가매수"} else "이 조건이면 다시 본다"}</b>{esc(row.get("next_trigger", "-"))}</p>'
+            f'<p class="primary-action">{esc(row.get("action"))}</p>'
+            "</article>"
+        )
+    return '<div class="brief-grid">' + "".join(cards) + "</div>"
+
+
 def _detail_cards(frame: pd.DataFrame) -> str:
     cards = []
     for _, row in frame.iterrows():
@@ -273,8 +317,21 @@ CSS = """
 :root{color-scheme:dark;--bg:#0a0d12;--panel:#111720;--line:#263140;--text:#f4f7fb;--muted:#8f9baa;--green:#28d17c;--blue:#55a7ff;--red:#ff6b6b;--yellow:#f4c95d;--purple:#ae7cff;--orange:#ff9f55}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,Pretendard,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.45}.page{max-width:1240px;margin:auto;padding:28px 20px 72px}header{display:flex;justify-content:space-between;gap:20px;align-items:end;margin-bottom:24px}h1{font-size:30px;margin:0 0 5px}h2{font-size:21px;margin:36px 0 14px}h3{margin:0}small,.muted{display:block;color:var(--muted);font-size:12px}.stamp{text-align:right;color:var(--muted)}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.summary>div,.hero-card,.detail-card,.panel{background:linear-gradient(145deg,#151c26,#0e141d);border:1px solid var(--line);border-radius:16px}.summary>div{padding:15px}.summary b{font-size:25px;display:block}.summary span{color:var(--muted);font-size:12px}.hero-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.hero-card{padding:18px}.hero-head{display:flex;justify-content:space-between}.hero-rank{font-weight:800;color:var(--blue)}.hero-card h3{font-size:22px;margin-top:13px}.hero-card h3 small{display:inline}.hero-score strong{font-size:42px}.hero-score span{color:var(--muted)}.chart,.detail-chart{margin:8px 0}.spark{width:100%;height:auto}.primary-action{font-weight:800;color:#fff;background:#1c2836;border-left:3px solid var(--green);padding:10px 12px;border-radius:8px}.hero-card ul,.detail-card ul{padding-left:19px;color:#c7d0da;font-size:13px}.table-wrap{border:1px solid var(--line);border-radius:14px;overflow:auto;background:var(--panel)}table{width:100%;border-collapse:collapse;min-width:1020px}th,td{padding:12px 10px;border-bottom:1px solid #202a37;text-align:left;white-space:nowrap}th{position:sticky;top:0;background:#151c26;color:var(--muted);font-size:12px}td{font-size:13px}td small{margin-top:3px}.rank{color:var(--muted)}.score{font-size:18px;font-weight:850}.action{font-weight:750}.badge{display:inline-block;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:800;background:#263140}.badge.green{color:var(--green);background:#123326}.badge.blue{color:var(--blue);background:#142d49}.badge.red{color:var(--red);background:#3a1d22}.badge.yellow{color:var(--yellow);background:#332d18}.badge.purple{color:var(--purple);background:#2c2142}.badge.orange{color:var(--orange);background:#3b2819}.badge.gray{color:#aab4c0}.detail-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.detail-card{padding:18px}.detail-title{display:flex;justify-content:space-between}.big-score{font-size:30px;font-weight:900}.metric{display:grid;grid-template-columns:80px 1fr 62px;gap:8px;align-items:center;margin:8px 0;font-size:12px}.metric>div{height:7px;background:#25303e;border-radius:8px;overflow:hidden}.metric i{height:100%;display:block;background:linear-gradient(90deg,var(--blue),var(--green))}.metric b{text-align:right}.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:14px 0}.facts span{background:#0c121a;padding:8px;border-radius:8px;color:var(--muted);font-size:11px}.facts b{display:block;color:var(--text);font-size:13px}.panel{padding:16px}.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px}.empty{padding:22px;color:var(--muted);background:var(--panel);border-radius:12px}.note{color:var(--muted);font-size:12px;margin-top:30px}.legend{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.legend div{background:#101721;border:1px solid var(--line);padding:11px;border-radius:10px;font-size:12px}.legend b{display:block;margin-bottom:3px}
 table{min-width:1220px}.condition{max-width:330px;white-space:normal}.condition small{color:#e38a8a}
-@media(max-width:800px){.page{padding:20px 12px 50px}header{display:block}.stamp{text-align:left;margin-top:8px}.summary{grid-template-columns:repeat(2,1fr)}.hero-grid,.detail-grid,.two-col{grid-template-columns:1fr}.hero-card h3{font-size:20px}.legend{grid-template-columns:1fr}.facts{grid-template-columns:repeat(2,1fr)}h1{font-size:25px}}
+@media(max-width:800px){.page{padding:20px 12px 50px}header{display:block}.stamp{text-align:left;margin-top:8px}.summary{grid-template-columns:repeat(2,1fr)}.hero-grid,.brief-grid,.detail-grid,.two-col{grid-template-columns:1fr}.hero-card h3,.brief-card h3{font-size:20px}.legend{grid-template-columns:1fr}.facts{grid-template-columns:repeat(2,1fr)}h1{font-size:25px}}
+.brief-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:8px}
+.brief-card{background:linear-gradient(145deg,#151c26,#0e141d);border:1px solid var(--line);border-radius:16px;padding:18px}
+.brief-card h3{font-size:22px;margin-top:13px}.brief-card h3 small{display:inline}
+.flow-line{color:#c7d0da;font-size:13px;margin:10px 0}
+.block-line,.next-line{background:#0c121a;border-radius:8px;padding:10px 12px;font-size:13px;margin:8px 0}
+.block-line{border-left:3px solid var(--orange)}.next-line{border-left:3px solid var(--green)}
+.block-line b,.next-line b{display:block;font-size:11px;color:var(--muted);margin-bottom:3px}
 """
+
+
+def _tier_frame(ranked: pd.DataFrame, tier: str, limit: int = 10) -> pd.DataFrame:
+    return ranked[ranked["watch_tier"] == tier].sort_values(
+        ["watch_priority", "discovery_score"], ascending=False
+    ).head(limit)
 
 
 def render_report(
@@ -282,16 +339,18 @@ def render_report(
     top_n: int,
     watchlist: tuple[str, ...],
     generated_at: datetime,
+    brief: BriefConfig | None = None,
+    model: ModelConfig | None = None,
 ) -> RenderedReport:
-    ranked = scored.copy().reset_index(drop=True)
+    brief = brief or BriefConfig()
+    model = model or ModelConfig()
+    ranked = annotate_watch_brief(scored.copy().reset_index(drop=True), model, brief)
     if "decision_bucket" not in ranked:
         ranked["decision_bucket"] = np.where(
             ranked["action"].isin(["강한 신규매수", "초기 분할매수"]),
             "신규매수",
             "관찰",
         )
-    if "action_priority" not in ranked:
-        ranked["action_priority"] = ranked.get("entry_score", pd.Series(0.0, index=ranked.index))
     for column, fallback in (
         ("discovery_score", "entry_score"),
         ("timing_score", "entry_score"),
@@ -299,20 +358,25 @@ def render_report(
     ):
         if column not in ranked:
             ranked[column] = ranked.get(fallback, pd.Series(0.0, index=ranked.index)) if fallback else 0.0
-    queue_sort = ["action_priority", "discovery_score", "timing_score"]
     discovery_sort = ["discovery_score", "campaign_score", "underreaction_score"]
+    wait_sort = ["watch_priority", "discovery_score"]
     discovery_top = ranked[
         (ranked.get("discovery_score", pd.Series(0.0, index=ranked.index)) >= 65.0)
         & (~ranked["stage"].isin(["가격상승", "수익실현", "분산·이탈", "이벤트확인"]))
         & (~ranked["campaign_regime"].isin(["상승진행", "장기매집·휴식", "분산·이탈", "이벤트·구조확인"]))
     ].sort_values(discovery_sort, ascending=False).head(top_n)
-    new_buys = ranked[ranked["decision_bucket"] == "신규매수"].sort_values(queue_sort, ascending=False).head(10)
-    add_buys = ranked[ranked["decision_bucket"] == "추가매수"].sort_values(queue_sort, ascending=False).head(10)
-    wait_candidates = ranked[ranked["decision_bucket"].isin(["눌림·확인대기", "관찰"])].sort_values(queue_sort, ascending=False).head(12)
-    held_management = ranked[ranked["decision_bucket"] == "보유관리"].sort_values(queue_sort, ascending=False).head(10)
-    risk_actions = ranked[ranked["decision_bucket"] == "수익실현·중단"].sort_values(queue_sort, ascending=False).head(12)
-    actionable = pd.concat([new_buys, add_buys, wait_candidates]).drop_duplicates("symbol")
-    top = actionable.head(top_n) if not actionable.empty else discovery_top
+    daily_brief = select_daily_brief(ranked, brief)
+    new_buys = _tier_frame(ranked, "즉시매수")
+    add_buys = ranked[ranked["decision_bucket"] == "추가매수"].sort_values(wait_sort, ascending=False).head(10)
+    interest = _tier_frame(ranked, "관심후보", 12)
+    conviction = _tier_frame(ranked, "고확신눌림", 12)
+    cooling = _tier_frame(ranked, "급락진정", 8)
+    pullbacks = _tier_frame(ranked, "눌림대기", 12)
+    risks = _tier_frame(ranked, "위험확인", 8)
+    held_management = ranked[ranked["decision_bucket"] == "보유관리"].sort_values(wait_sort, ascending=False).head(10)
+    risk_actions = ranked[ranked["decision_bucket"] == "수익실현·중단"].sort_values(
+        ["watch_priority", "discovery_score"], ascending=False
+    ).head(12)
     watched = ranked[ranked["symbol"].astype(str).str.zfill(6).isin(watchlist)]
     falling = ranked[
         (ranked["price_return20"] < 0)
@@ -321,46 +385,75 @@ def render_report(
     ].head(10)
     large_flow = ranked[ranked["large_flow_signal"].fillna(False)].head(15)
 
-    new_count = int((ranked["decision_bucket"] == "신규매수").sum())
-    add_count = int((ranked["decision_bucket"] == "추가매수").sum())
-    wait_count = int(ranked["decision_bucket"].isin(["눌림·확인대기", "관찰"]).sum())
-    risk_count = int((ranked["decision_bucket"] == "수익실현·중단").sum())
+    new_count = int((ranked["watch_tier"] == "즉시매수").sum())
+    interest_count = int((ranked["watch_tier"] == "관심후보").sum())
+    conviction_count = int((ranked["watch_tier"] == "고확신눌림").sum())
+    brief_count = int(len(daily_brief))
     large_flow_count = int(ranked["large_flow_signal"].fillna(False).sum())
     report_date = pd.to_datetime(ranked["as_of"].max()).strftime("%Y-%m-%d") if not ranked.empty else generated_at.strftime("%Y-%m-%d")
 
     html_text = f"""<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>외국인 매집 리포트 {report_date}</title><style>{CSS}</style></head><body><main class="page">
-<header><div><h1>외국인 매집 레이더</h1><div class="muted">많이 샀지만 아직 덜 오른 종목 · KIS 일별 확정 데이터</div></div><div class="stamp">기준일 {report_date}<br>생성 {generated_at.strftime('%Y-%m-%d %H:%M KST')}</div></header>
-<section class="summary"><div><b>{new_count}</b><span>신규매수 후보</span></div><div><b>{add_count}</b><span>추가매수 실행 후보</span></div><div><b>{wait_count}</b><span>눌림·확인 대기</span></div><div><b>{risk_count}</b><span>수익실현·중단</span></div></section>
-<h2>오늘의 우선 확인 3종목</h2>{_hero_cards(top)}
-<h2>① 종목 발견 TOP {top_n}</h2>{_table(discovery_top, empty_message="발견점수 65점 이상이며 매집 초기·눌림 단계인 후보가 없습니다.")}
-<h2>② 오늘 신규매수 후보</h2>{_table(new_buys, empty_message="오늘은 발견·분산위험·가격 게이트를 모두 통과한 종목이 없습니다.")}
-<h2>③ 보유종목 추가매수 후보</h2>{_table(add_buys, empty_message="추가매수 실행 후보가 없습니다. portfolio.csv에 실제 보유정보가 있어야 개인화됩니다.")}
-<h2>④ 좋은 종목·첫 눌림/확인 대기</h2>{_table(wait_candidates)}
-<div class="two-col"><section><h2>⑤ 보유·추가매수 준비</h2>{_table(held_management, empty_message="등록된 보유종목 관리 항목이 없습니다.")}</section><section><h2>⑥ 수익실현·신호 중단</h2>{_table(risk_actions)}</section></div>
-<div class="two-col"><section><h2>20일 외인 500억원 이상 ({large_flow_count})</h2>{_table(large_flow)}</section><section><h2>가격 하락 + 외국인 매수</h2>{_table(falling)}</section></div>
+<header><div><h1>외국인 매집 레이더</h1><div class="muted">외인 수급이 좋고 가격이 아직 덜 오른 종목 · 매일 판단용 숏리스트</div></div><div class="stamp">기준일 {report_date}<br>생성 {generated_at.strftime('%Y-%m-%d %H:%M KST')}</div></header>
+<section class="summary"><div><b>{brief_count}</b><span>오늘 볼 종목</span></div><div><b>{new_count}</b><span>즉시매수</span></div><div><b>{interest_count}</b><span>관심후보 · 거의 준비됨</span></div><div><b>{conviction_count}</b><span>고확신 눌림대기</span></div></section>
+<h2>오늘 볼 종목 {brief.size}</h2>
+<p class="muted">즉시매수 게이트는 그대로입니다. 아래는 사람이 오늘 열어볼 후보입니다. 급락 중 고득점은 뒤로 밀립니다.</p>
+{_brief_cards(daily_brief)}
+<h2>① 즉시매수</h2>{_table(new_buys, empty_message="오늘은 발견·분산위험·가격 게이트를 모두 통과한 종목이 없습니다. 아래 관심후보와 고확신 눌림을 보세요.")}
+<h2>② 관심후보 · 거의 준비됨</h2>{_table(interest, empty_message="완화된 관심 게이트(20일 +6% / 저점반등 +8%)를 통과한 종목이 없습니다.")}
+<h2>③ 고확신 눌림대기 · 발견 80+</h2>{_table(conviction, empty_message="발견 80점 이상인데 가격이 먼저 오른 종목이 없습니다.")}
+<div class="two-col"><section><h2>④ 급락 진정 대기</h2>{_table(cooling, empty_message="급락이 아직 멈추지 않은 매집 후보가 없습니다.")}</section><section><h2>⑤ 눌림·확인 대기</h2>{_table(pullbacks)}</section></div>
+<h2>⑥ 종목 발견 TOP {top_n}</h2>{_table(discovery_top, empty_message="발견점수 65점 이상이며 매집 초기·눌림 단계인 후보가 없습니다.")}
+<h2>⑦ 보유종목 추가매수 후보</h2>{_table(add_buys, empty_message="추가매수 실행 후보가 없습니다. portfolio.csv에 실제 보유정보가 있어야 개인화됩니다.")}
+<div class="two-col"><section><h2>⑧ 보유·추가매수 준비</h2>{_table(held_management, empty_message="등록된 보유종목 관리 항목이 없습니다.")}</section><section><h2>⑨ 수익실현·신호 중단</h2>{_table(risk_actions)}</section></div>
+<div class="two-col"><section><h2>위험확인이 필요한 고득점</h2>{_table(risks, empty_message="급락+매수 구조나 이벤트를 확인할 고득점이 없습니다.")}</section><section><h2>20일 외인 500억원 이상 ({large_flow_count})</h2>{_table(large_flow)}</section></div>
+<h2>가격 하락 + 외국인 매수</h2>{_table(falling)}
 <h2>내 관찰 종목</h2>{_table(watched)}
-<h2>상세 분석</h2>{_detail_cards(pd.concat([new_buys, add_buys, wait_candidates, watched]).drop_duplicates('symbol').head(12))}
-<h2>국면 해석</h2><div class="legend"><div><b>지속매집</b>20일 순매수·매수일 비율·되팔기 비율이 함께 양호</div><div><b>장기매집·휴식</b>60·120일 재고는 남아 있으나 최근 5일은 잠시 매도</div><div><b>신규재진입</b>장기 순매도 뒤 최근 20·5일 외국인이 다시 들어오는 전환</div><div><b>상승진행</b>매집은 유효하지만 가격이 먼저 올라 신규 추격은 제한</div><div><b>기관주도·외인확인</b>기관이 가격을 이끌고 외국인 확인은 아직 부족</div><div><b>이상대량·확인</b>소수 대량 거래가 전체 수급을 왜곡할 수 있어 블록·이벤트 확인 필요</div></div>
-<p class="note">발견점수는 외국인 매집의 질과 가격 미반응을 보되, 이미 가격상승·수익실현 단계이거나 20일 급락이 과도한 종목을 감점한다. 신규매수는 발견 65점, 분산위험 25점 이하, 최근 3일 급락 진정, 20일 상승률 +3% 미만, 20일 저점 반등 +5% 미만을 통과해야 한다. 타이밍점수는 첫 백테스트에서 단조성이 확인되지 않아 커트라인이 아니라 정렬·설명용으로 사용한다. 추가매수는 외국인 3·5일 순매수와 가격 하락 진정을 다시 확인한다. 주문 API는 포함되어 있지 않다.</p>
+<h2>상세 분석</h2>{_detail_cards(pd.concat([daily_brief, new_buys, interest, conviction, watched]).drop_duplicates('symbol').head(12))}
+<h2>국면 해석</h2><div class="legend"><div><b>즉시매수</b>기존 엄격 게이트 통과. 분할 신규를 검토할 수 있음</div><div><b>관심후보</b>수급은 좋은데 20일 +3% 또는 저점반등 +5%를 살짝 넘김. 조금 더 눌리면 즉시매수 후보</div><div><b>고확신 눌림</b>발견 80점 이상. 가격이 먼저 올라 추격은 금지, 눌림을 기다림</div><div><b>급락진정</b>매집은 유효하나 최근 3일이 아직 하락 가속</div><div><b>지속매집</b>20일 순매수·매수일 비율·되팔기 비율이 함께 양호</div><div><b>상승진행</b>매집은 유효하지만 가격이 먼저 올라 신규 추격은 제한</div></div>
+<p class="note">오늘 볼 종목은 즉시매수 액션을 바꾸지 않습니다. 신규매수는 발견 65점, 분산위험 25점 이하, 최근 3일 급락 진정, 20일 상승률 +3% 미만, 20일 저점 반등 +5% 미만을 통과해야 합니다. 관심후보는 사람이 열어보기 위해 20일 +6%·저점반등 +8%까지 표시합니다. 타이밍점수는 커트라인이 아니라 설명용입니다. 주문 API는 포함되어 있지 않습니다.</p>
 </main></body></html>"""
 
     def md_section(title: str, frame: pd.DataFrame) -> str:
-        lines = [f"### {title}", "", "| 순위 | 종목 | 발견 | 진입 | 분산 | 국면 | 외인 20일 | 가격 20일 | 저점반등 20일 | 액션 |", "|---:|---|---:|---:|---:|---|---:|---:|---:|---|"]
+        lines = [f"### {title}", "", "| 순위 | 종목 | 발견 | 구간 | 국면 | 외인 20일 | 가격 20일 | 저점반등 20일 | 막힌 이유 |", "|---:|---|---:|---|---|---:|---:|---:|---|"]
         if frame.empty:
-            lines.append("| - | 해당 없음 | - | - | - | - | - | - | - | - |")
+            lines.append("| - | 해당 없음 | - | - | - | - | - | - | - |")
         else:
             for rank, (_, row) in enumerate(frame.head(10).iterrows(), 1):
-                lines.append(f"| {rank} | {row['name']} ({row['symbol']}) | {row.get('discovery_score', 0):.1f} | {row.get('timing_score', 0):.1f} | {row.get('distribution_score', 0):.1f} | {row['campaign_regime']} | {eok(row['foreign_net20'])} | {pct(row['price_return20'])} | {pct(row.get('rebound_from_low20'))} | {row['action']} |")
+                lines.append(
+                    f"| {rank} | {row['name']} ({row['symbol']}) | {row.get('discovery_score', 0):.1f} | "
+                    f"{row.get('watch_tier', '-')} | {row['campaign_regime']} | {eok(row['foreign_net20'])} | "
+                    f"{pct(row['price_return20'])} | {pct(row.get('rebound_from_low20'))} | "
+                    f"{row.get('block_reason', row.get('action', ''))} |"
+                )
         return "\n".join(lines)
+
+    brief_lines = [f"### 오늘 볼 종목 {brief.size}", ""]
+    if daily_brief.empty:
+        brief_lines.append("해당 없음")
+    else:
+        for rank, (_, row) in enumerate(daily_brief.iterrows(), 1):
+            brief_lines.append(
+                f"{rank}. **{row['name']}** ({row['symbol']}) · {row.get('watch_tier', '')} · "
+                f"발견 {row.get('discovery_score', 0):.1f}"
+            )
+            brief_lines.append(f"   - 수급: {row.get('flow_summary', '')}")
+            brief_lines.append(
+                f"   - 가격: 20일 {pct(row.get('price_return20'))} · 저점반등 {pct(row.get('rebound_from_low20'))}"
+            )
+            brief_lines.append(f"   - 막힘: {row.get('block_reason', '-')}")
+            brief_lines.append(f"   - 다음: {row.get('next_trigger', '-')}")
+            brief_lines.append("")
 
     markdown = "\n\n".join(
         [
             f"## 외국인 매집 액션 리포트 · {report_date}",
-            md_section("① 종목 발견 TOP", discovery_top),
-            md_section("② 신규매수", new_buys),
-            md_section("③ 추가매수", add_buys),
-            md_section("④ 눌림·확인 대기", wait_candidates),
-            md_section("⑤ 수익실현·중단", risk_actions),
+            "\n".join(brief_lines).rstrip(),
+            md_section("① 즉시매수", new_buys),
+            md_section("② 관심후보", interest),
+            md_section("③ 고확신 눌림대기", conviction),
+            md_section("④ 종목 발견 TOP", discovery_top),
+            md_section("⑤ 추가매수", add_buys),
+            md_section("⑥ 수익실현·중단", risk_actions),
         ]
-    ) + "\n\n*발견·진입·분산 점수는 백테스트 검증 전이며, 주문은 실행하지 않습니다.*\n"
+    ) + "\n\n*오늘 볼 종목은 판단용입니다. 즉시매수 게이트와 주문 미실행은 그대로입니다.*\n"
     return RenderedReport(html=html_text, markdown=markdown)

@@ -19,6 +19,7 @@ from .features import (
 )
 from .kis_client import KISAPIError, KISClient
 from .notify import send_telegram
+from .brief import annotate_watch_brief
 from .portfolio import apply_portfolio_actions, load_portfolio
 from .report import render_report
 from .scoring import score_features
@@ -225,7 +226,14 @@ def _write_outputs(
     settings: Settings,
     generated_at: datetime,
 ) -> Path:
-    rendered = render_report(scored, settings.screening.top_n, settings.watchlist, generated_at)
+    rendered = render_report(
+        scored,
+        settings.screening.top_n,
+        settings.watchlist,
+        generated_at,
+        brief=settings.brief,
+        model=settings.model,
+    )
     report_date = pd.to_datetime(scored["as_of"].max()).strftime("%Y-%m-%d")
     latest_html = settings.reports_dir / "latest.html"
     latest_html.write_text(rendered.html, encoding="utf-8")
@@ -261,6 +269,8 @@ def _write_outputs(
         "last_buy_price", "tranche_count", "position_return", "position_drawdown",
         "add_score", "decision_bucket", "action_priority", "promotion_condition",
         "invalidation_condition", "suggested_order_krw",
+        "watch_tier", "watch_priority", "flow_summary", "block_reason",
+        "next_trigger", "high_conviction", "in_daily_brief",
     ]
     write_csv(scored[[column for column in csv_columns if column in scored]], settings.reports_dir / "latest.csv")
     summary_path = os.getenv("GITHUB_STEP_SUMMARY")
@@ -388,6 +398,7 @@ def run_pipeline(
     if scored.empty:
         raise RuntimeError("No securities passed final scoring")
     scored = apply_portfolio_actions(scored, portfolio, settings.model)
+    scored = annotate_watch_brief(scored, settings.model, settings.brief)
 
     write_csv(history, history_path)
     write_csv(snapshots, snapshots_path)
@@ -425,6 +436,7 @@ def rerank_stored_data(settings: Settings, notify: bool = False) -> pd.DataFrame
     if scored.empty:
         raise RuntimeError("No securities passed stored-data scoring")
     scored = apply_portfolio_actions(scored, portfolio, settings.model)
+    scored = annotate_watch_brief(scored, settings.model, settings.brief)
     latest_html = _write_outputs(scored, settings, generated_at)
     report_date = pd.to_datetime(scored["as_of"].max()).strftime("%Y-%m-%d")
     write_state(_new_state(scored, state, report_date), state_path)

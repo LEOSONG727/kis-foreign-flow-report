@@ -77,11 +77,24 @@ class ModelConfig:
 
 
 @dataclass(frozen=True)
+class BriefConfig:
+    """Daily human-review shortlist. Does not change executable buy gates."""
+    size: int = 5
+    high_conviction_score: float = 80.0
+    min_discovery_score: float = 65.0
+    # Slightly looser than entry gates so "almost ready" names still surface.
+    watch_min_return3_pct: float = -4.0
+    watch_max_return20_pct: float = 6.0
+    watch_max_rebound20_pct: float = 8.0
+
+
+@dataclass(frozen=True)
 class Settings:
     root: Path
     screening: ScreeningConfig
     api: APIConfig
     model: ModelConfig
+    brief: BriefConfig
     watchlist: tuple[str, ...]
 
     @property
@@ -113,6 +126,7 @@ def load_settings(root: Path | None = None) -> Settings:
         screening=_build(ScreeningConfig, raw.get("screening", {})),
         api=_build(APIConfig, api_values),
         model=_build(ModelConfig, raw.get("model", {})),
+        brief=_build(BriefConfig, raw.get("brief", {})),
         watchlist=tuple(raw.get("watchlist", {}).get("symbols", [])),
     )
     settings.data_dir.mkdir(parents=True, exist_ok=True)

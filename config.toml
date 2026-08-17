@@ -69,6 +69,15 @@ backtest_horizon_days = 20
 backtest_roundtrip_cost_pct = 0.3
 strategy_trailing_stop_pct = 8.0
 
+[brief]
+# 매일 사람이 볼 숏리스트. 즉시매수 게이트는 바꾸지 않는다.
+size = 5
+high_conviction_score = 80.0
+min_discovery_score = 65.0
+watch_min_return3_pct = -4.0
+watch_max_return20_pct = 6.0
+watch_max_rebound20_pct = 8.0
+
 [watchlist]
 # 기존 관심종목 + 비교 기준 7종목
 # LG에너지솔루션, LG화학, 셀트리온, 현대차, 삼성SDI, 한화에어로스페이스, HD현대중공업
