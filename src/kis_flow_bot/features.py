@@ -182,6 +182,17 @@ def _return(group: pd.DataFrame, n: int) -> float:
     return float(view["close"].iloc[-1] / view["close"].iloc[0] - 1.0)
 
 
+def _lagged_return(group: pd.DataFrame, n: int, end_offset: int) -> float:
+    """Return over n sessions ending end_offset sessions before the latest row."""
+    end = len(group) - end_offset
+    start = end - n - 1
+    if start < 0 or end <= start + 1:
+        return 0.0
+    first = float(group["close"].iloc[start])
+    last = float(group["close"].iloc[end - 1])
+    return last / first - 1.0 if first > 0 else 0.0
+
+
 def _streak(values: pd.Series, threshold: float = 0.001) -> int:
     count = 0
     for value in reversed(values.tolist()):
@@ -288,6 +299,12 @@ def build_base_features(
             (foreign_net5 / 5.0 - foreign_prior15 / max(len(prior15), 1)) / adtv20
             if adtv20 else 0.0
         )
+        prior17 = w20.iloc[:-3] if len(w20) > 3 else w20.iloc[:0]
+        acceleration3 = (
+            (foreign_net3 / 3.0 - float(prior17["foreign_net_amount"].sum()) / max(len(prior17), 1))
+            / adtv20
+            if adtv20 else 0.0
+        )
         absolute_flow20 = float(w20["foreign_net_amount"].abs().sum())
         flow_concentration20 = (
             float(w20["foreign_net_amount"].abs().max() / absolute_flow20)
@@ -323,6 +340,10 @@ def build_base_features(
         rolling_low60 = float(w60["low"].min()) if not w60.empty else float(latest["low"])
         ma20 = float(w20["close"].mean())
         ma60 = float(w60["close"].mean())
+        ma5 = float(w5["close"].mean())
+        ma10 = float(w10["close"].mean())
+        prior_ma5 = float(group.iloc[-8:-3]["close"].mean()) if len(group) >= 8 else ma5
+        ma5_slope = ma5 / prior_ma5 - 1.0 if prior_ma5 > 0 else 0.0
         ma20_distance = float(latest["close"] / ma20 - 1.0) if ma20 > 0 else 0.0
         ma20_atr_distance = ma20_distance / atr20 if atr20 > 0 else 0.0
         rebound_from_low20 = float(latest["close"] / rolling_low20 - 1.0) if rolling_low20 else 0.0
@@ -337,6 +358,15 @@ def build_base_features(
             if pd.notna(rebound_volume) and pd.notna(base_volume) and base_volume > 0
             else 1.0
         )
+        up_volume10 = w10.loc[w10_returns > 0, "volume"].replace(0, np.nan).median()
+        down_volume10 = w10.loc[w10_returns < 0, "volume"].replace(0, np.nan).median()
+        up_down_volume_ratio10 = (
+            float(up_volume10 / down_volume10)
+            if pd.notna(up_volume10) and pd.notna(down_volume10) and down_volume10 > 0
+            else 1.0
+        )
+        price_return3 = _return(group, 3)
+        price_return_prev3 = _lagged_return(group, 3, 3)
 
         previous_close = float(group["close"].iloc[-2]) if len(group) >= 2 else float(latest["close"])
         gap = float(latest["open"] / previous_close - 1.0) if previous_close > 0 else 0.0
@@ -366,7 +396,9 @@ def build_base_features(
                 "high": float(latest["high"]),
                 "low": float(latest["low"]),
                 "price_return1": _return(group, 1),
-                "price_return3": _return(group, 3),
+                "price_return3": price_return3,
+                "price_return_prev3": price_return_prev3,
+                "price_acceleration3": price_return3 - price_return_prev3,
                 "price_return5": _return(group, 5),
                 "price_return10": _return(group, 10),
                 "price_return20": _return(group, 20),
@@ -374,6 +406,11 @@ def build_base_features(
                 "price_return120": _return(group, 120),
                 "ma20": ma20,
                 "ma60": ma60,
+                "ma5": ma5,
+                "ma10": ma10,
+                "above_ma5": bool(float(latest["close"]) >= ma5),
+                "above_ma10": bool(float(latest["close"]) >= ma10),
+                "ma5_slope": ma5_slope,
                 "ma20_distance": ma20_distance,
                 "ma20_atr_distance": ma20_atr_distance,
                 "rebound_from_low10": float(latest["close"] / rolling_low10 - 1.0) if rolling_low10 else 0.0,
@@ -392,6 +429,7 @@ def build_base_features(
                 "adtv20": adtv20,
                 "volume_ratio5_20": volume_ratio5_20,
                 "rebound_volume_ratio20": rebound_volume_ratio20,
+                "up_down_volume_ratio10": up_down_volume_ratio10,
                 "foreign_net3": foreign_net3,
                 "foreign_net5": foreign_net5,
                 "foreign_net1": float(w1["foreign_net_amount"].sum()),
@@ -406,6 +444,7 @@ def build_base_features(
                 "foreign_120_adtv": float(w120["foreign_net_amount"].sum() / adtv20) if adtv20 else 0.0,
                 "foreign_prior15_adtv": float(foreign_prior15 / adtv20) if adtv20 else 0.0,
                 "foreign_acceleration5": acceleration5,
+                "foreign_acceleration3": acceleration3,
                 "foreign_flow_concentration20": flow_concentration20,
                 "foreign_flow_share20": float(w20["foreign_net_amount"].sum() / w20["turnover"].sum()) if w20["turnover"].sum() else 0.0,
                 "foreign_ewm20": float(w120["flow_ratio"].ewm(halflife=20, adjust=False).mean().iloc[-1]),
@@ -443,7 +482,22 @@ def build_base_features(
                 "price_series": group.tail(60)["close"].astype(float).tolist(),
             }
         )
-    return pd.DataFrame(rows)
+    result = pd.DataFrame(rows)
+    if result.empty:
+        return result
+    holding_value = result["foreign_holding_qty"] * result["close"]
+    result["foreign_ownership_days_adtv"] = np.where(
+        (result["adtv20"] > 0) & holding_value.notna(),
+        holding_value / result["adtv20"],
+        np.nan,
+    )
+    holding_change_value = result["foreign_holding_change"] * result["close"]
+    result["foreign_holding_change_adtv"] = np.where(
+        (result["adtv20"] > 0) & holding_change_value.notna(),
+        holding_change_value / result["adtv20"],
+        np.nan,
+    )
+    return result
 
 
 def add_cross_sectional_residuals(features: pd.DataFrame) -> pd.DataFrame:
@@ -462,4 +516,12 @@ def add_cross_sectional_residuals(features: pd.DataFrame) -> pd.DataFrame:
     flow_benchmark = 0.4 * market_flow + 0.6 * sector_flow
     frame["price_residual20"] = frame["price_return20"] - price_benchmark
     frame["flow_residual20"] = frame["foreign_flow_share20"] - flow_benchmark
+    for horizon in (3, 5, 10):
+        market_short = frame.groupby("market")[f"price_return{horizon}"].transform("median")
+        sector_short = frame.groupby(sector_key)[f"price_return{horizon}"].transform("median")
+        sector_short = sector_short.where(sector_count >= 5, market_short)
+        frame[f"price_residual{horizon}"] = frame[f"price_return{horizon}"] - (
+            0.4 * market_short + 0.6 * sector_short
+        )
+    frame["market_return20"] = market_price
     return frame

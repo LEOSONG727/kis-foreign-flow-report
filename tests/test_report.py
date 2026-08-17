@@ -14,7 +14,7 @@ def test_report_contains_ranking_and_action():
     rendered = render_report(scored, 20, ("000010",), datetime(2026, 8, 16, 18, 41))
     assert "외국인 매집 레이더" in rendered.html
     assert "매집후보" in rendered.html
-    assert "초기 분할매수" in rendered.html or "강한 신규매수" in rendered.html
+    assert "외국인 재가속 확인" in rendered.html
     assert "오늘 신규매수 후보" in rendered.html
     assert "보유종목 추가매수 후보" in rendered.html
     assert "가격·단기열기" in rendered.html

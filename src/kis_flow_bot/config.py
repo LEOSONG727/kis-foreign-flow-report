@@ -34,6 +34,9 @@ class ModelConfig:
     entry_buy_score: float = 62.0
     entry_strong_score: float = 72.0
     entry_watch_score: float = 52.0
+    discovery_candidate_score: float = 60.0
+    timing_buy_score: float = 62.0
+    distribution_exit_score: float = 65.0
     large_flow_threshold_krw: int = 50_000_000_000
     gap_take_profit_pct: float = 5.0
     atr_gap_multiple: float = 1.2
@@ -44,6 +47,12 @@ class ModelConfig:
     recent_chase_return10_pct: float = 10.0
     rebound_chase_return10_pct: float = 12.0
     rebound_chase_return20_pct: float = 15.0
+    # A ranking candidate can remain attractive while its *entry* is not ready.
+    # These tighter gates are applied only to fresh/add-on buy actions.
+    entry_min_return3_pct: float = -3.0
+    entry_max_return20_pct: float = 3.0
+    entry_max_rebound20_pct: float = 5.0
+    persistent_entry_requires_reacceleration: bool = True
     ma20_atr_chase_multiple: float = 2.5
     rebound_atr_chase_multiple: float = 4.0
     structural_break_return20_pct: float = -25.0
@@ -56,6 +65,7 @@ class ModelConfig:
     backtest_stop_pct: float = 6.0
     backtest_horizon_days: int = 20
     backtest_roundtrip_cost_pct: float = 0.3
+    strategy_trailing_stop_pct: float = 8.0
 
 
 @dataclass(frozen=True)

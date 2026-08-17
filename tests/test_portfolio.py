@@ -11,6 +11,7 @@ def _scored(close: float = 94_000.0) -> pd.DataFrame:
         [{
             "symbol": "000010", "close": close, "score": 78.0,
             "entry_score": 74.0, "campaign_score": 82.0,
+            "discovery_score": 78.0, "timing_score": 70.0,
             "campaign_regime": "지속매집", "foreign_5_adtv": 0.5,
             "price_return5": -0.02, "price_return20": 0.01,
             "stage": "매집·눌림", "action": "초기 분할매수",
@@ -64,7 +65,7 @@ def test_hot_reentry_is_sorted_into_pullback_wait_queue():
     scored.loc[0, "price_return5"] = 0.12
     result = apply_portfolio_actions(scored, pd.DataFrame(), ModelConfig()).iloc[0]
     assert result["decision_bucket"] == "눌림·확인대기"
-    assert "첫 조정" in result["promotion_condition"]
+    assert "20일 수익률 +3% 미만" in result["promotion_condition"]
 
 
 def test_rising_campaign_requires_both_short_and_monthly_heat_to_cool():
@@ -72,7 +73,7 @@ def test_rising_campaign_requires_both_short_and_monthly_heat_to_cool():
     scored.loc[0, "campaign_regime"] = "상승진행"
     scored.loc[0, "action"] = "추격 금지·보유"
     result = apply_portfolio_actions(scored, pd.DataFrame(), ModelConfig()).iloc[0]
-    assert "20일 상승률 +8% 이하" in result["promotion_condition"]
+    assert "20일 수익률 +3% 미만" in result["promotion_condition"]
 
 
 def test_low_rebound_is_the_binding_pullback_condition():
@@ -81,4 +82,4 @@ def test_low_rebound_is_the_binding_pullback_condition():
     scored.loc[0, "action"] = "추격 금지·보유"
     scored.loc[0, "rebound_from_low20"] = 0.20
     result = apply_portfolio_actions(scored, pd.DataFrame(), ModelConfig()).iloc[0]
-    assert "20일 저점 대비 반등률 +12% 이하" in result["promotion_condition"]
+    assert "20일 저점반등 +5% 미만" in result["promotion_condition"]

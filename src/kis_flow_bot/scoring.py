@@ -19,8 +19,17 @@ def scale(value: float, low: float, high: float) -> float:
     return clamp((float(value) - low) / (high - low), 0.0, 1.0)
 
 
+def _calibration_active(calibration: dict[str, Any] | None) -> bool:
+    """Reject legacy/sample-count-only calibrations after the V1 audit."""
+    return bool(
+        calibration
+        and calibration.get("active")
+        and calibration.get("quality_gate_version") == 2
+    )
+
+
 def _calibrated_probability(score: float, heuristic: float, calibration: dict[str, Any] | None) -> float:
-    if not calibration or not calibration.get("active"):
+    if not _calibration_active(calibration):
         return heuristic
     for band in calibration.get("bands", []):
         if float(band.get("low", 0.0)) <= score < float(band.get("high", 101.0)):
@@ -212,6 +221,77 @@ def _campaign_strength(row: pd.Series, model: ModelConfig) -> tuple[float, bool]
     return clamp(strength, 0.0, 100.0), large_flow
 
 
+def _discovery_score(
+    row: pd.Series,
+    campaign_strength: float,
+    underreaction: float,
+    fundamentals: float,
+) -> float:
+    """Longer-horizon candidate quality, intentionally independent of entry timing."""
+    ownership_days = row.get("foreign_ownership_days_adtv", np.nan)
+    holding_change = row.get("foreign_holding_change_adtv", np.nan)
+    if pd.isna(ownership_days):
+        ownership = 4.0
+    else:
+        ownership = 7.0 * scale(ownership_days, 1.0, 20.0)
+    if pd.isna(holding_change):
+        ownership += 1.5
+    else:
+        ownership += 3.0 * scale(holding_change, -0.5, 2.0)
+    value = (
+        0.65 * campaign_strength
+        + 0.70 * underreaction
+        + 0.45 * fundamentals
+        + ownership
+    )
+    return clamp(value, 0.0, 100.0)
+
+
+def _timing_score(row: pd.Series) -> float:
+    """Measure the transition from absorption to a tradable price/flow turn."""
+    foreign_turn = (
+        15.0 * scale(row.get("foreign_3_adtv", 0.0), -0.05, 0.40)
+        + 10.0 * scale(row.get("foreign_5_adtv", 0.0), -0.10, 0.60)
+        + 10.0 * scale(row.get("foreign_acceleration3", 0.0), -0.05, 0.12)
+    )
+    price_turn = (
+        10.0 * scale(row.get("price_acceleration3", 0.0), -0.03, 0.06)
+        + 7.0 * scale(row.get("price_return3", 0.0), -0.03, 0.025)
+        + (5.0 if bool(row.get("above_ma5", False)) else 0.0)
+        + (3.0 if bool(row.get("above_ma10", False)) else 0.0)
+        + 5.0 * scale(row.get("ma5_slope", 0.0), -0.02, 0.03)
+    )
+    unextended = (
+        12.0 * (1.0 - scale(row.get("price_return20", 0.0), 0.03, 0.12))
+        + 8.0 * (1.0 - scale(row.get("rebound_from_low20", 0.0), 0.05, 0.15))
+    )
+    confirmation = (
+        5.0 * scale(row.get("up_down_volume_ratio10", 1.0), 0.75, 1.60)
+        + 5.0 * scale(row.get("price_residual3", 0.0), -0.03, 0.03)
+        + 5.0 * scale(row.get("market_return20", 0.0), -0.15, 0.02)
+    )
+    return clamp(foreign_turn + price_turn + unextended + confirmation, 0.0, 100.0)
+
+
+def _distribution_score(row: pd.Series) -> float:
+    """Evidence that accumulated inventory is being distributed into strength."""
+    selling = (
+        24.0 * scale(-row.get("foreign_1_adtv", 0.0), 0.0, 0.45)
+        + 20.0 * scale(-row.get("foreign_3_adtv", 0.0), 0.0, 0.65)
+        + 14.0 * scale(row.get("sellback_ratio20", 0.0), 0.65, 1.20)
+    )
+    price_strength = max(
+        12.0 * scale(row.get("gap_pct", 0.0), 0.03, 0.08),
+        12.0 * scale(row.get("price_return10", 0.0), 0.06, 0.18),
+        12.0 * scale(row.get("rebound_from_low20", 0.0), 0.10, 0.25),
+    )
+    tape = (
+        12.0 * scale(row.get("upper_wick", 0.0), 0.25, 0.60)
+        + 8.0 * scale(row.get("foreign_flow_concentration20", 0.0), 0.30, 0.55)
+    )
+    return clamp(selling + price_strength + tape, 0.0, 100.0)
+
+
 def _entry_opportunity(
     row: pd.Series,
     campaign_strength: float,
@@ -316,10 +396,52 @@ def _gap_action(row: pd.Series, threshold: float) -> str | None:
     return "25% 익절 후 보유"
 
 
+def _entry_readiness(row: pd.Series, model: ModelConfig) -> tuple[str, bool, str]:
+    """Separate an attractive accumulation candidate from an executable entry."""
+    price3 = float(row.get("price_return3", 0.0))
+    price20 = float(row.get("price_return20", 0.0))
+    rebound20 = float(row.get("rebound_from_low20", 0.0))
+    campaign = str(row.get("campaign_regime", "중립"))
+    floor3 = model.entry_min_return3_pct / 100.0
+    cap20 = model.entry_max_return20_pct / 100.0
+    rebound_cap = model.entry_max_rebound20_pct / 100.0
+
+    if price3 < floor3:
+        return (
+            "반전확인",
+            False,
+            f"3일 {price3:+.1%}: {floor3:+.1%} 이상으로 급락 진정 필요",
+        )
+    heat = []
+    if price20 >= cap20:
+        heat.append(f"20일 {price20:+.1%}")
+    if rebound20 >= rebound_cap:
+        heat.append(f"저점반등 {rebound20:+.1%}")
+    if heat:
+        return (
+            "눌림대기",
+            False,
+            " · ".join(heat)
+            + f": 20일 {cap20:+.1%} 미만·저점반등 {rebound_cap:+.1%} 미만 필요",
+        )
+    if campaign == "지속매집" and model.persistent_entry_requires_reacceleration:
+        return (
+            "재가속확인",
+            False,
+            "지속매집 단독 신호: 최근 외국인 재가속 국면 확인 필요",
+        )
+    return "진입가능", True, "단기 급락·20일 과열·저점반등 게이트 통과"
+
+
 def _action(row: pd.Series, model: ModelConfig) -> str:
     stage = row.get("stage", "중립")
     campaign = row.get("campaign_regime", "중립")
     entry_score = row.get("entry_score", 0.0)
+    entry_ready = bool(row.get("entry_gate_passed", False))
+    readiness = str(row.get("entry_readiness", "관찰"))
+    discovery_score = float(row.get("discovery_score", 0.0))
+    timing_score = float(row.get("timing_score", 0.0))
+    distribution_score = float(row.get("distribution_score", 0.0))
     if stage == "이벤트확인" or campaign == "이벤트·구조확인":
         return "기업 이벤트·급락 확인 전 매수 금지"
     gap_threshold = max(model.gap_take_profit_pct / 100.0, model.atr_gap_multiple * row.get("atr20_pct", 0.0))
@@ -337,7 +459,17 @@ def _action(row: pd.Series, model: ModelConfig) -> str:
         return "기관 주도·외국인 확인 대기"
     if stage == "수익실현":
         return "절반 익절·잔여 추적"
+    if distribution_score >= model.distribution_exit_score and stage == "가격상승":
+        return "수익실현 신호·절반 익절 검토"
     if campaign == "신규재진입":
+        if not entry_ready:
+            if readiness == "반전확인":
+                return "급락 멈춤 확인·신규매수 대기"
+            return "첫 눌림 대기·추격 금지"
+        if discovery_score < model.discovery_candidate_score:
+            return "매집 후보 강도 부족·대기"
+        if timing_score < model.timing_buy_score:
+            return "가격 반전·수급 재가속 확인 대기"
         if row.get("price_return5", 0.0) >= 0.03:
             return "첫 눌림·외국인 유지 확인"
         if entry_score >= model.entry_buy_score:
@@ -360,17 +492,26 @@ def _action(row: pd.Series, model: ModelConfig) -> str:
         and row.get("foreign_5_adtv", 0.0) <= 0
     ):
         return "외국인 재개 확인 후 분할매수"
-    if (
-        entry_score >= model.entry_strong_score
-        and campaign in {"지속매집", "장기매집·재가속"}
-        and stage in {"매집·눌림", "초기매집", "매집휴식"}
-        and row.get("data_points", 0) >= 60
-    ):
-        return "강한 신규매수"
+    if not entry_ready:
+        if readiness == "반전확인":
+            return "급락 멈춤 확인·신규매수 대기"
+        if readiness == "눌림대기":
+            return "첫 눌림 대기·추격 금지"
+        if readiness == "재가속확인":
+            return "외국인 재가속 확인 후 분할매수"
+        return "진입 조건 확인 대기"
+    if discovery_score < model.discovery_candidate_score:
+        return "매집 후보 강도 부족·대기"
+    if timing_score < model.timing_buy_score:
+        return "가격 반전·수급 재가속 확인 대기"
+    buy_campaigns = {"장기매집·재가속", "장기매집·휴식"}
+    if not model.persistent_entry_requires_reacceleration:
+        buy_campaigns.add("지속매집")
     if (
         entry_score >= model.entry_buy_score
-        and campaign in {"지속매집", "초기매집", "장기매집·재가속", "장기매집·휴식"}
+        and campaign in buy_campaigns
         and stage in {"매집·눌림", "초기매집", "매집휴식"}
+        and row.get("data_points", 0) >= 60
     ):
         return "초기 분할매수"
     if (
@@ -449,6 +590,21 @@ def score_features(
             large_flow_signal,
             model,
         )
+        readiness_row = row.copy()
+        readiness_row["campaign_regime"] = campaign_regime
+        entry_readiness, entry_gate_passed, entry_gate_reason = _entry_readiness(
+            readiness_row, model
+        )
+        discovery_score = _discovery_score(
+            row, campaign_strength, underreaction, fundamentals
+        )
+        timing_score = _timing_score(row)
+        distribution_score = _distribution_score(row)
+        signal_score = clamp(
+            0.55 * discovery_score + 0.45 * timing_score - 0.20 * distribution_score,
+            0.0,
+            100.0,
+        )
         penalty = 0.0
         if row.get("price_return20", 0.0) < -0.20 and absorption_label not in {"강함", "보통"}:
             penalty += 8.0
@@ -483,8 +639,8 @@ def score_features(
             "중립": -0.03,
             "이벤트확인": -0.15,
         }.get(stage, 0.0)
-        heuristic_probability = clamp(0.24 + 0.0052 * score + stage_adjustment, 0.30, 0.78)
-        probability = _calibrated_probability(score, heuristic_probability, calibration)
+        heuristic_probability = clamp(0.22 + 0.0055 * signal_score + stage_adjustment, 0.25, 0.76)
+        probability = _calibrated_probability(signal_score, heuristic_probability, calibration)
         target_return = clamp(max(0.06, 1.5 * row.get("atr20_pct", 0.0)), 0.06, 0.15)
         risk_return = clamp(max(0.04, 1.2 * row.get("atr20_pct", 0.0)), 0.04, 0.10)
         expected_value = probability * target_return - (1.0 - probability) * risk_return
@@ -501,6 +657,10 @@ def score_features(
                 "score": round(score, 1),
                 "campaign_score": round(campaign_strength, 1),
                 "entry_score": round(entry_score, 1),
+                "discovery_score": round(discovery_score, 1),
+                "timing_score": round(timing_score, 1),
+                "distribution_score": round(distribution_score, 1),
+                "signal_score": round(signal_score, 1),
                 "entry_score_delta": round(entry_score_delta, 1),
                 "price_heat_penalty": round(price_heat_penalty, 1),
                 "price_heat_flag": _is_price_hot(row, model),
@@ -508,10 +668,13 @@ def score_features(
                 "score_delta": round(score_delta, 1),
                 "stage": stage,
                 "campaign_regime": campaign_regime,
+                "entry_readiness": entry_readiness,
+                "entry_gate_passed": entry_gate_passed,
+                "entry_gate_reason": entry_gate_reason,
                 "large_flow_signal": large_flow_signal,
                 "absorption_signal": absorption_label,
                 "success_probability": round(probability, 4),
-                "probability_source": "워크포워드 보정" if calibration and calibration.get("active") else "미보정 추정",
+                "probability_source": "워크포워드 보정" if _calibration_active(calibration) else "미보정 추정",
                 "expected_value": round(expected_value, 4),
                 "is_new": symbol not in previous_symbols,
             }
@@ -521,5 +684,6 @@ def score_features(
 
     result = pd.DataFrame(scored_rows)
     return result.sort_values(
-        ["entry_score", "campaign_score", "score"], ascending=[False, False, False]
+        ["discovery_score", "timing_score", "entry_score"],
+        ascending=[False, False, False],
     ).reset_index(drop=True)

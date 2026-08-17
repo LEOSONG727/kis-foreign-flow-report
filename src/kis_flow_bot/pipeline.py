@@ -128,7 +128,7 @@ def _features_and_scores(
     )
     watched = scored["symbol"].isin(settings.watchlist)
     return scored[liquid | watched].sort_values(
-        ["entry_score", "campaign_score", "score"], ascending=[False, False, False]
+        ["discovery_score", "timing_score", "entry_score"], ascending=[False, False, False]
     ).reset_index(drop=True)
 
 
@@ -234,23 +234,27 @@ def _write_outputs(
 
     csv_columns = [
         "symbol", "name", "market", "as_of", "score", "campaign_score", "entry_score",
+        "discovery_score", "timing_score", "distribution_score", "signal_score",
         "price_heat_penalty", "price_heat_flag", "price_heat_reason",
+        "entry_readiness", "entry_gate_passed", "entry_gate_reason",
         "score_delta", "entry_score_delta", "data_points",
         "success_probability", "expected_value", "stage", "action",
         "campaign_regime", "large_flow_signal", "probability_source",
         "foreign_net1", "foreign_net3", "foreign_net5", "foreign_net20", "foreign_net60", "foreign_net120",
-        "foreign_1_adtv", "foreign_3_adtv", "foreign_5_adtv", "foreign_acceleration5",
+        "foreign_1_adtv", "foreign_3_adtv", "foreign_5_adtv", "foreign_acceleration3", "foreign_acceleration5",
         "foreign_flow_concentration20", "foreign_prior15_adtv",
         "foreign_20_adtv", "tolerant_buy_ratio20", "sellback_ratio20",
         "price_return1", "price_return3", "price_return5", "price_return10",
-        "price_return20", "price_return60", "price_return120", "price_residual20",
+        "price_return20", "price_return60", "price_return120", "price_residual3", "price_residual5", "price_residual10", "price_residual20",
         "rebound_from_low10", "rebound_from_low20", "rebound_atr_distance20",
         "distance_high20", "ma20_distance", "ma20_atr_distance",
-        "up_days5", "up_days10", "price_up_streak",
+        "up_days5", "up_days10", "price_up_streak", "up_down_volume_ratio10",
+        "price_acceleration3", "ma5_slope", "above_ma5", "above_ma10", "market_return20",
         "absorption_signal", "volume_ratio5_20", "rebound_volume_ratio20", "atr20_pct",
         "accumulation_score", "underreaction_score", "structure_score",
         "fundamental_score", "institution_overlay", "roe", "per", "pbr",
         "target_price", "target_upside", "foreign_holding_change",
+        "foreign_ownership_days_adtv", "foreign_holding_change_adtv",
         "opinion_coverage", "opinion_recency_days", "opinion_dispersion",
         "history_confidence",
         "model_action", "has_position", "position_quantity", "average_price",
@@ -276,6 +280,9 @@ def _new_state(scored: pd.DataFrame, previous: dict, report_date: str) -> dict:
             "score": float(row["score"]),
             "entry_score": float(row.get("entry_score", 0.0)),
             "campaign_score": float(row.get("campaign_score", 0.0)),
+            "discovery_score": float(row.get("discovery_score", 0.0)),
+            "timing_score": float(row.get("timing_score", 0.0)),
+            "distribution_score": float(row.get("distribution_score", 0.0)),
             "stage": str(row["stage"]),
             "campaign_regime": str(row.get("campaign_regime", "중립")),
             "action": str(row["action"]),

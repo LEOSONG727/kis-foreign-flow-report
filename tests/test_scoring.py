@@ -12,7 +12,8 @@ def test_accumulation_candidate_gets_actionable_stage():
     assert candidate["stage"] == "매집·눌림"
     assert candidate["absorption_signal"] in {"강함", "보통"}
     assert candidate["score"] >= 72
-    assert candidate["action"] in {"초기 분할매수", "강한 신규매수"}
+    assert candidate["action"] == "외국인 재가속 확인 후 분할매수"
+    assert candidate["entry_readiness"] == "재가속확인"
 
 
 def test_distribution_overrides_buy_action():
@@ -154,7 +155,31 @@ def test_new_reentry_after_long_distribution_waits_for_first_pullback_when_hot()
     scored = score_features(features, ModelConfig())
     candidate = scored[scored["symbol"] == "000010"].iloc[0]
     assert candidate["campaign_regime"] == "신규재진입"
-    assert candidate["action"] == "첫 눌림·외국인 유지 확인"
+    assert candidate["action"] == "첫 눌림 대기·추격 금지"
+
+
+def test_recent_three_day_drop_blocks_fresh_buy_until_stable():
+    features, index = _candidate_features()
+    features.loc[index, "price_return3"] = -0.04
+    features.loc[index, "foreign_60_adtv"] = 3.0
+    features.loc[index, "foreign_120_adtv"] = 6.0
+    features.loc[index, "foreign_acceleration5"] = 0.10
+    scored = score_features(features, ModelConfig())
+    candidate = scored[scored["symbol"] == "000010"].iloc[0]
+    assert candidate["entry_readiness"] == "반전확인"
+    assert candidate["action"] == "급락 멈춤 확인·신규매수 대기"
+
+
+def test_low_to_current_five_percent_rebound_waits_for_pullback():
+    features, index = _candidate_features()
+    features.loc[index, "rebound_from_low20"] = 0.06
+    features.loc[index, "foreign_60_adtv"] = 3.0
+    features.loc[index, "foreign_120_adtv"] = 6.0
+    features.loc[index, "foreign_acceleration5"] = 0.10
+    scored = score_features(features, ModelConfig())
+    candidate = scored[scored["symbol"] == "000010"].iloc[0]
+    assert candidate["entry_readiness"] == "눌림대기"
+    assert candidate["action"] == "첫 눌림 대기·추격 금지"
 
 
 def test_institution_led_rally_waits_for_foreign_confirmation():
@@ -223,3 +248,27 @@ def test_recent_three_and_five_day_selling_requires_restart_confirmation():
     candidate = scored[scored["symbol"] == "000010"].iloc[0]
     assert candidate["campaign_regime"] in {"지속매집", "장기매집·재가속"}
     assert candidate["action"] == "외국인 재개 확인 후 분할매수"
+
+
+def test_high_discovery_but_low_timing_is_not_a_buy():
+    features, _ = _candidate_features()
+    model = ModelConfig(persistent_entry_requires_reacceleration=False, timing_buy_score=80.0)
+    candidate = score_features(features, model).query("symbol == '000010'").iloc[0]
+    assert candidate["discovery_score"] >= model.discovery_candidate_score
+    assert candidate["timing_score"] < model.timing_buy_score
+    assert candidate["action"] == "가격 반전·수급 재가속 확인 대기"
+
+
+def test_distribution_score_can_warn_before_full_campaign_exit():
+    features, index = _candidate_features()
+    features.loc[index, "price_return20"] = 0.10
+    features.loc[index, "rebound_from_low20"] = 0.25
+    features.loc[index, "foreign_1_adtv"] = -0.05
+    features.loc[index, "foreign_3_adtv"] = -0.80
+    features.loc[index, "sellback_ratio20"] = 1.20
+    features.loc[index, "upper_wick"] = 0.60
+    features.loc[index, "foreign_flow_concentration20"] = 0.55
+    candidate = score_features(features, ModelConfig()).query("symbol == '000010'").iloc[0]
+    assert candidate["stage"] == "가격상승"
+    assert candidate["distribution_score"] >= ModelConfig().distribution_exit_score
+    assert candidate["action"] == "수익실현 신호·절반 익절 검토"
