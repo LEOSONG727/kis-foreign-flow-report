@@ -248,7 +248,9 @@ def _write_outputs(
         "target_price", "target_upside", "foreign_holding_change",
         "history_confidence",
         "model_action", "has_position", "position_quantity", "average_price",
-        "last_buy_price", "tranche_count", "position_return", "suggested_order_krw",
+        "last_buy_price", "tranche_count", "position_return", "position_drawdown",
+        "add_score", "decision_bucket", "action_priority", "promotion_condition",
+        "invalidation_condition", "suggested_order_krw",
     ]
     write_csv(scored[[column for column in csv_columns if column in scored]], settings.reports_dir / "latest.csv")
     summary_path = os.getenv("GITHUB_STEP_SUMMARY")
@@ -387,6 +389,38 @@ def run_pipeline(
         except Exception as exc:
             LOGGER.error("Telegram delivery failed without invalidating the report: %s", exc)
     LOGGER.info("Report complete: %s (%d ranked securities)", latest_html, len(scored))
+    return scored
+
+
+def rerank_stored_data(settings: Settings, notify: bool = False) -> pd.DataFrame:
+    """Rebuild scores and reports from stored market data without calling KIS."""
+    generated_at = datetime.now(ZoneInfo("Asia/Seoul"))
+    history = read_csv(settings.data_dir / "history.csv")
+    universe = read_csv(settings.data_dir / "universe.csv")
+    snapshots = read_csv(settings.data_dir / "holdings.csv")
+    opinions = read_csv(settings.data_dir / "opinions.csv")
+    state_path = settings.data_dir / "state.json"
+    state = read_state(state_path)
+    calibration = read_state(settings.data_dir / "calibration.json")
+    portfolio = load_portfolio(settings.data_dir / "portfolio.csv")
+    if history.empty or universe.empty:
+        raise RuntimeError("Stored history.csv or universe.csv is empty; run the daily pipeline first")
+
+    scored = _features_and_scores(
+        history, universe, snapshots, opinions, settings, state, calibration
+    )
+    if scored.empty:
+        raise RuntimeError("No securities passed stored-data scoring")
+    scored = apply_portfolio_actions(scored, portfolio, settings.model)
+    latest_html = _write_outputs(scored, settings, generated_at)
+    report_date = pd.to_datetime(scored["as_of"].max()).strftime("%Y-%m-%d")
+    write_state(_new_state(scored, state, report_date), state_path)
+    if notify:
+        try:
+            send_telegram(scored, latest_html)
+        except Exception as exc:
+            LOGGER.error("Telegram delivery failed without invalidating the report: %s", exc)
+    LOGGER.info("Stored-data rerank complete: %s (%d ranked securities)", latest_html, len(scored))
     return scored
 
 
