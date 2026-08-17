@@ -259,8 +259,10 @@ def build_base_features(
             continue
         m = meta.loc[symbol]
         latest = group.iloc[-1]
-        w1, w3, w5, w20, w60, w120 = (_window(group, n) for n in (1, 3, 5, 20, 60, 120))
-        for window in (w1, w3, w5, w20, w60, w120):
+        w1, w3, w5, w10, w20, w60, w120 = (
+            _window(group, n) for n in (1, 3, 5, 10, 20, 60, 120)
+        )
+        for window in (w1, w3, w5, w10, w20, w60, w120):
             window["flow_ratio"] = np.where(
                 window["turnover"] > 0,
                 window["foreign_net_amount"] / window["turnover"],
@@ -304,6 +306,8 @@ def build_base_features(
         ).max(axis=1)
         atr20 = float(true_range.tail(20).mean() / latest["close"]) if latest["close"] > 0 else 0.0
         day_return = group["close"].pct_change().fillna(0.0)
+        w5_returns = day_return.loc[w5.index]
+        w10_returns = day_return.loc[w10.index]
         w20_returns = day_return.loc[w20.index]
         max_abs_daily_return20 = float(w20_returns.abs().max()) if not w20_returns.empty else 0.0
         absorption_mask = (w20_returns < 0) & (w20["foreign_net_amount"] > 0)
@@ -312,10 +316,27 @@ def build_base_features(
 
         volume20 = w20["volume"].replace(0, np.nan)
         volume_ratio5_20 = float(w5["volume"].median() / volume20.median()) if volume20.median() > 0 else 1.0
+        rolling_high20 = float(w20["high"].max()) if not w20.empty else float(latest["high"])
+        rolling_low20 = float(w20["low"].min()) if not w20.empty else float(latest["low"])
+        rolling_low10 = float(w10["low"].min()) if not w10.empty else float(latest["low"])
         rolling_high60 = float(w60["high"].max()) if not w60.empty else float(latest["high"])
         rolling_low60 = float(w60["low"].min()) if not w60.empty else float(latest["low"])
         ma20 = float(w20["close"].mean())
         ma60 = float(w60["close"].mean())
+        ma20_distance = float(latest["close"] / ma20 - 1.0) if ma20 > 0 else 0.0
+        ma20_atr_distance = ma20_distance / atr20 if atr20 > 0 else 0.0
+        rebound_from_low20 = float(latest["close"] / rolling_low20 - 1.0) if rolling_low20 else 0.0
+        rebound_atr_distance20 = rebound_from_low20 / atr20 if atr20 > 0 else 0.0
+        low_position20 = int(np.argmin(w20["low"].to_numpy()))
+        base_window20 = w20.iloc[: low_position20 + 1]
+        rebound_window20 = w20.iloc[low_position20 + 1 :]
+        rebound_volume = rebound_window20["volume"].replace(0, np.nan).median()
+        base_volume = base_window20["volume"].replace(0, np.nan).median()
+        rebound_volume_ratio20 = (
+            float(rebound_volume / base_volume)
+            if pd.notna(rebound_volume) and pd.notna(base_volume) and base_volume > 0
+            else 1.0
+        )
 
         previous_close = float(group["close"].iloc[-2]) if len(group) >= 2 else float(latest["close"])
         gap = float(latest["open"] / previous_close - 1.0) if previous_close > 0 else 0.0
@@ -344,21 +365,33 @@ def build_base_features(
                 "open": float(latest["open"]),
                 "high": float(latest["high"]),
                 "low": float(latest["low"]),
-                "price_return5": _return(group, 5),
                 "price_return1": _return(group, 1),
+                "price_return3": _return(group, 3),
+                "price_return5": _return(group, 5),
+                "price_return10": _return(group, 10),
                 "price_return20": _return(group, 20),
                 "price_return60": _return(group, 60),
                 "price_return120": _return(group, 120),
                 "ma20": ma20,
                 "ma60": ma60,
+                "ma20_distance": ma20_distance,
+                "ma20_atr_distance": ma20_atr_distance,
+                "rebound_from_low10": float(latest["close"] / rolling_low10 - 1.0) if rolling_low10 else 0.0,
+                "rebound_from_low20": rebound_from_low20,
+                "rebound_atr_distance20": rebound_atr_distance20,
+                "distance_high20": float(latest["close"] / rolling_high20 - 1.0) if rolling_high20 else 0.0,
                 "distance_high60": float(latest["close"] / rolling_high60 - 1.0) if rolling_high60 else 0.0,
                 "distance_low60": float(latest["close"] / rolling_low60 - 1.0) if rolling_low60 else 0.0,
                 "atr20_pct": atr20,
+                "up_days5": int((w5_returns > 0).sum()),
+                "up_days10": int((w10_returns > 0).sum()),
+                "price_up_streak": _streak(w20_returns, threshold=0.0),
                 "gap_pct": gap,
                 "upper_wick": upper_wick,
                 "max_abs_daily_return20": max_abs_daily_return20,
                 "adtv20": adtv20,
                 "volume_ratio5_20": volume_ratio5_20,
+                "rebound_volume_ratio20": rebound_volume_ratio20,
                 "foreign_net3": foreign_net3,
                 "foreign_net5": foreign_net5,
                 "foreign_net1": float(w1["foreign_net_amount"].sum()),
