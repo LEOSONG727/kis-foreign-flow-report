@@ -302,7 +302,9 @@ def render_report(
     queue_sort = ["action_priority", "discovery_score", "timing_score"]
     discovery_sort = ["discovery_score", "campaign_score", "underreaction_score"]
     discovery_top = ranked[
-        ranked.get("discovery_score", pd.Series(0.0, index=ranked.index)) >= 60.0
+        (ranked.get("discovery_score", pd.Series(0.0, index=ranked.index)) >= 65.0)
+        & (~ranked["stage"].isin(["가격상승", "수익실현", "분산·이탈", "이벤트확인"]))
+        & (~ranked["campaign_regime"].isin(["상승진행", "장기매집·휴식", "분산·이탈", "이벤트·구조확인"]))
     ].sort_values(discovery_sort, ascending=False).head(top_n)
     new_buys = ranked[ranked["decision_bucket"] == "신규매수"].sort_values(queue_sort, ascending=False).head(10)
     add_buys = ranked[ranked["decision_bucket"] == "추가매수"].sort_values(queue_sort, ascending=False).head(10)
@@ -330,8 +332,8 @@ def render_report(
 <header><div><h1>외국인 매집 레이더</h1><div class="muted">많이 샀지만 아직 덜 오른 종목 · KIS 일별 확정 데이터</div></div><div class="stamp">기준일 {report_date}<br>생성 {generated_at.strftime('%Y-%m-%d %H:%M KST')}</div></header>
 <section class="summary"><div><b>{new_count}</b><span>신규매수 후보</span></div><div><b>{add_count}</b><span>추가매수 실행 후보</span></div><div><b>{wait_count}</b><span>눌림·확인 대기</span></div><div><b>{risk_count}</b><span>수익실현·중단</span></div></section>
 <h2>오늘의 우선 확인 3종목</h2>{_hero_cards(top)}
-<h2>① 종목 발견 TOP {top_n}</h2>{_table(discovery_top, empty_message="발견점수 60점 이상인 후보가 없습니다.")}
-<h2>② 오늘 신규매수 후보</h2>{_table(new_buys, empty_message="오늘은 발견·타이밍·과열 기준을 모두 통과한 종목이 없습니다.")}
+<h2>① 종목 발견 TOP {top_n}</h2>{_table(discovery_top, empty_message="발견점수 65점 이상이며 매집 초기·눌림 단계인 후보가 없습니다.")}
+<h2>② 오늘 신규매수 후보</h2>{_table(new_buys, empty_message="오늘은 발견·분산위험·가격 게이트를 모두 통과한 종목이 없습니다.")}
 <h2>③ 보유종목 추가매수 후보</h2>{_table(add_buys, empty_message="추가매수 실행 후보가 없습니다. portfolio.csv에 실제 보유정보가 있어야 개인화됩니다.")}
 <h2>④ 좋은 종목·첫 눌림/확인 대기</h2>{_table(wait_candidates)}
 <div class="two-col"><section><h2>⑤ 보유·추가매수 준비</h2>{_table(held_management, empty_message="등록된 보유종목 관리 항목이 없습니다.")}</section><section><h2>⑥ 수익실현·신호 중단</h2>{_table(risk_actions)}</section></div>
@@ -339,7 +341,7 @@ def render_report(
 <h2>내 관찰 종목</h2>{_table(watched)}
 <h2>상세 분석</h2>{_detail_cards(pd.concat([new_buys, add_buys, wait_candidates, watched]).drop_duplicates('symbol').head(12))}
 <h2>국면 해석</h2><div class="legend"><div><b>지속매집</b>20일 순매수·매수일 비율·되팔기 비율이 함께 양호</div><div><b>장기매집·휴식</b>60·120일 재고는 남아 있으나 최근 5일은 잠시 매도</div><div><b>신규재진입</b>장기 순매도 뒤 최근 20·5일 외국인이 다시 들어오는 전환</div><div><b>상승진행</b>매집은 유효하지만 가격이 먼저 올라 신규 추격은 제한</div><div><b>기관주도·외인확인</b>기관이 가격을 이끌고 외국인 확인은 아직 부족</div><div><b>이상대량·확인</b>소수 대량 거래가 전체 수급을 왜곡할 수 있어 블록·이벤트 확인 필요</div></div>
-<p class="note">발견점수는 앞으로 볼 후보의 질, 진입점수는 가격 반전·수급 재가속, 분산점수는 외국인 매도 전환과 가격 강세 속 수익실현 위험이다. 신규·추가매수는 발견 60점·진입 62점과 최근 3일 급락 진정, 20일 상승률 +3% 미만, 20일 저점 반등 +5% 미만을 함께 통과해야 한다. 20거래일 외국인 500억원 이상에는 대형 매집 신호를 부여한다. 백테스트 검증 전에는 이 점수들을 수익 확률로 읽으면 안 되며 주문 API는 포함되어 있지 않다.</p>
+<p class="note">발견점수는 외국인 매집의 질과 가격 미반응을 보되, 이미 가격상승·수익실현 단계이거나 20일 급락이 과도한 종목을 감점한다. 신규매수는 발견 65점, 분산위험 25점 이하, 최근 3일 급락 진정, 20일 상승률 +3% 미만, 20일 저점 반등 +5% 미만을 통과해야 한다. 타이밍점수는 첫 백테스트에서 단조성이 확인되지 않아 커트라인이 아니라 정렬·설명용으로 사용한다. 추가매수는 외국인 3·5일 순매수와 가격 하락 진정을 다시 확인한다. 주문 API는 포함되어 있지 않다.</p>
 </main></body></html>"""
 
     def md_section(title: str, frame: pd.DataFrame) -> str:

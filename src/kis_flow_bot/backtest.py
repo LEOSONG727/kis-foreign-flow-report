@@ -63,6 +63,7 @@ def simulate_scaled_strategy(
     proceeds = 0.0
     tranches = 0
     last_buy = 0.0
+    last_buy_day = -10_000
     pending_add = True
     pending_exit = False
     gap_half_sold = False
@@ -85,6 +86,7 @@ def simulate_scaled_strategy(
                 shares += quantity
                 tranches += 1
                 last_buy = open_price
+                last_buy_day = future_day
             pending_add = False
 
         if shares <= 0:
@@ -123,6 +125,13 @@ def simulate_scaled_strategy(
         flow5 = float(close_slice.tail(5)["foreign_net_amount"].fillna(0.0).sum())
         base_close = float(close_slice["close"].iloc[0]) if not close_slice.empty else float(row["close"])
         price20 = float(row["close"]) / base_close - 1.0 if base_close > 0 else 0.0
+        close3 = close_slice.tail(4)
+        price3 = (
+            float(close3["close"].iloc[-1]) / float(close3["close"].iloc[0]) - 1.0
+            if len(close3) >= 2 and float(close3["close"].iloc[0]) > 0 else 0.0
+        )
+        prior_close = float(frame.loc[idx - 1, "close"]) if idx > 0 else float(row["close"])
+        price1 = float(row["close"]) / prior_close - 1.0 if prior_close > 0 else 0.0
         signal_alive = (
             flow20 > 0
             and sellback < 1.0
@@ -131,10 +140,24 @@ def simulate_scaled_strategy(
         )
         if not signal_alive:
             pending_exit = True
-        elif (
+        else:
+            add_confirmed = (
+                not model.strict_add_confirmation
+                or (
+                    flow3 > 0
+                    and flow5 > 0
+                    and sellback <= 0.80
+                    and price3 >= model.add_min_return3_pct / 100.0
+                    and price1 >= model.add_min_return1_pct / 100.0
+                    and price20 >= model.add_min_return20_pct / 100.0
+                    and future_day - last_buy_day >= model.add_cooldown_days
+                )
+            )
+        if signal_alive and (
             tranches < model.max_tranches
             and last_buy > 0
             and float(row["close"]) <= last_buy * (1.0 - trigger)
+            and add_confirmed
         ):
             pending_add = True
 
@@ -232,6 +255,37 @@ def evaluate_forward_ohlc(
     )
 
 
+def market_forward_benchmarks(
+    history: pd.DataFrame,
+    as_of: pd.Timestamp,
+    end_date: pd.Timestamp,
+    roundtrip_cost: float = 0.0,
+) -> dict[str, float]:
+    """Median next-open to horizon-close return by market for an excess-return check."""
+    future = history[
+        (history["date"] > pd.Timestamp(as_of))
+        & (history["date"] <= pd.Timestamp(end_date))
+    ].sort_values(["symbol", "date"])
+    if future.empty:
+        return {}
+    rows = []
+    for symbol, group in future.groupby("symbol", sort=False):
+        entry = pd.to_numeric(group["open"].iloc[0], errors="coerce")
+        close = pd.to_numeric(group["close"].iloc[-1], errors="coerce")
+        if pd.isna(entry) or pd.isna(close) or float(entry) <= 0:
+            continue
+        rows.append(
+            {
+                "market": str(group["market"].iloc[-1]),
+                "return": float(close) / float(entry) - 1.0 - roundtrip_cost,
+            }
+        )
+    frame = pd.DataFrame(rows)
+    if frame.empty:
+        return {}
+    return frame.groupby("market")["return"].median().astype(float).to_dict()
+
+
 def build_calibration(
     results: pd.DataFrame,
     target: float = 0.08,
@@ -283,6 +337,14 @@ def build_calibration(
         float(pd.to_numeric(holdout["realized_return"], errors="coerce").mean())
         if not holdout.empty and "realized_return" in holdout else float("nan")
     )
+    overall_mean_excess = (
+        float(pd.to_numeric(results["excess_forward_return"], errors="coerce").mean())
+        if not results.empty and "excess_forward_return" in results else float("nan")
+    )
+    holdout_mean_excess = (
+        float(pd.to_numeric(holdout["excess_forward_return"], errors="coerce").mean())
+        if not holdout.empty and "excess_forward_return" in holdout else float("nan")
+    )
     sampled_rates = [item["win_rate"] for item in summaries if item["samples"] >= 30]
     roughly_monotonic = all(
         later + 0.03 >= earlier for earlier, later in zip(sampled_rates, sampled_rates[1:])
@@ -292,6 +354,8 @@ def build_calibration(
         "holdout_samples": len(holdout_resolved) >= 75,
         "overall_positive_expectancy": overall_mean_return > 0,
         "holdout_positive_expectancy": holdout_mean_return > 0,
+        "overall_positive_excess_return": overall_mean_excess > 0,
+        "holdout_positive_excess_return": holdout_mean_excess > 0,
         "overall_above_breakeven": overall_win_rate >= breakeven_win_rate,
         "holdout_above_breakeven": holdout_win_rate >= breakeven_win_rate,
         "score_ordering": roughly_monotonic and len(sampled_rates) >= 2,
@@ -310,6 +374,8 @@ def build_calibration(
         "holdout_win_rate": holdout_win_rate,
         "overall_mean_realized_return": overall_mean_return,
         "holdout_mean_realized_return": holdout_mean_return,
+        "overall_mean_excess_return": overall_mean_excess,
+        "holdout_mean_excess_return": holdout_mean_excess,
         "activation_checks": checks,
         "bands": summaries,
     }
@@ -332,6 +398,9 @@ def summarize_variants(results: pd.DataFrame) -> pd.DataFrame:
                 "entry_max_rebound20_pct": float(group["entry_max_rebound20_pct"].iloc[0]),
                 "requires_reacceleration": bool(group["requires_reacceleration"].iloc[0]),
                 "timing_buy_score": float(group.get("timing_buy_score", pd.Series([0.0])).iloc[0]),
+                "strict_add_confirmation": bool(
+                    group.get("strict_add_confirmation", pd.Series([False])).iloc[0]
+                ),
                 "signals": len(group),
                 "resolved": len(resolved),
                 "targets": wins,
@@ -340,6 +409,20 @@ def summarize_variants(results: pd.DataFrame) -> pd.DataFrame:
                 "target_rate_all": wins / len(group),
                 "positive_20d_rate": float((group["forward_return"] > 0).mean()),
                 "mean_20d_return": float(group["forward_return"].mean()),
+                "mean_excess_20d_return": float(
+                    pd.to_numeric(
+                        group.get("excess_forward_return", pd.Series(np.nan, index=group.index)),
+                        errors="coerce",
+                    ).mean()
+                ),
+                "positive_excess_20d_rate": float(
+                    (
+                        pd.to_numeric(
+                            group.get("excess_forward_return", pd.Series(np.nan, index=group.index)),
+                            errors="coerce",
+                        ) > 0
+                    ).mean()
+                ),
                 "median_20d_return": float(group["forward_return"].median()),
                 "mean_strategy_return": float(group["realized_return"].mean()),
                 "median_strategy_return": float(group["realized_return"].median()),
@@ -366,8 +449,8 @@ def summarize_score_bands(results: pd.DataFrame) -> pd.DataFrame:
         return pd.DataFrame()
     rows: list[dict] = []
     definitions = [
-        ("discovery_v1", "discovery_score", [60.0, 65.0, 70.0, 75.0, 80.0, 101.0]),
-        ("v1_balanced", "signal_score", [0.0, 60.0, 65.0, 70.0, 75.0, 80.0, 101.0]),
+        ("discovery_v2", "discovery_score", [65.0, 70.0, 75.0, 80.0, 101.0]),
+        ("flow_price_v2", "signal_score", [0.0, 60.0, 65.0, 70.0, 75.0, 80.0, 101.0]),
     ]
     for variant, score_column, edges in definitions:
         group = results[results["variant"] == variant].copy()
@@ -390,6 +473,12 @@ def summarize_score_bands(results: pd.DataFrame) -> pd.DataFrame:
                     "signals": len(band),
                     "positive_20d_rate": float((band["forward_return"] > 0).mean()),
                     "mean_20d_return": float(band["forward_return"].mean()),
+                    "mean_excess_20d_return": float(
+                        pd.to_numeric(
+                            band.get("excess_forward_return", pd.Series(np.nan, index=band.index)),
+                            errors="coerce",
+                        ).mean()
+                    ),
                     "mean_scaled_strategy_return": float(scaled.mean()),
                     "positive_scaled_strategy_rate": float((scaled > 0).mean()),
                 }
@@ -423,11 +512,11 @@ def _write_backtest_report(
             f"저점 +{item['entry_max_rebound20_pct']:.0f}%"
         )
         comparison.append(
-            f"| {item['variant']}{' (현재)' if item['production'] else ''} | {gate} | {item['timing_buy_score']:.0f} | {'예' if item['requires_reacceleration'] else '아니오'} | "
+            f"| {item['variant']}{' (현재)' if item['production'] else ''} | {gate} | {item['timing_buy_score']:.0f} | {'예' if item['requires_reacceleration'] else '아니오'} | {'예' if item['strict_add_confirmation'] else '아니오'} | "
             f"{int(item['signals'])} | {int(item['resolved'])} | {item['resolved_win_rate'] * 100:.1f}% | "
             f"{item['positive_20d_rate'] * 100:.1f}% | {item['mean_scaled_strategy_return'] * 100:+.2f}% | "
             f"{item['positive_scaled_strategy_rate'] * 100:.1f}% | {item['mean_tranches']:.1f} | "
-            f"{item['mean_20d_return'] * 100:+.2f}% | "
+            f"{item['mean_20d_return'] * 100:+.2f}% | {item['mean_excess_20d_return'] * 100:+.2f}% | "
             f"{item['mean_max_drawdown'] * 100:+.2f}% |"
         )
     band_rows = []
@@ -436,7 +525,7 @@ def _write_backtest_report(
         band_rows.append(
             f"| {item['variant']} | {score_label} {item['band']} | {int(item['signals'])} | "
             f"{item['positive_20d_rate'] * 100:.1f}% | {item['mean_20d_return'] * 100:+.2f}% | "
-            f"{item['mean_scaled_strategy_return'] * 100:+.2f}% |"
+            f"{item['mean_excess_20d_return'] * 100:+.2f}% | {item['mean_scaled_strategy_return'] * 100:+.2f}% |"
         )
     text = (
         "# 워크포워드 백테스트\n\n"
@@ -448,18 +537,19 @@ def _write_backtest_report(
         f"- 목표/손절 판정 완료: {calibration['resolved_samples']:,}건\n"
         f"- 손익분기 승률: {calibration['breakeven_win_rate'] * 100:.1f}%\n"
         f"- 홀드아웃 승률/실현수익: {calibration['holdout_win_rate'] * 100:.1f}% / {calibration['holdout_mean_realized_return'] * 100:+.2f}%\n"
+        f"- 전체/홀드아웃 시장초과수익: {calibration['overall_mean_excess_return'] * 100:+.2f}% / {calibration['holdout_mean_excess_return'] * 100:+.2f}%\n"
         f"- 확률 보정 활성화: {'예' if calibration['active'] else '아니오'}\n\n"
-        "## V1 진입정책 비교\n\n"
-        "| 변형 | 3일 하한/20일 상한/저점반등 상한 | 타이밍 하한 | 재가속 필수 | 신호 | 판정 | 목표 선도달 | 20일 수익 양수 | 분할전략 평균 | 분할전략 양수 | 평균 차수 | 평균 20일 수익 | 평균 최대낙폭 |\n"
-        "|---|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n"
+        "## V2 진입정책 비교\n\n"
+        "| 변형 | 3일 하한/20일 상한/저점반등 상한 | 타이밍 하한 | 재가속 필수 | 추가확인 | 신호 | 판정 | 목표 선도달 | 20일 수익 양수 | 분할전략 평균 | 분할전략 양수 | 평균 차수 | 평균 20일 수익 | 시장초과 | 평균 최대낙폭 |\n"
+        "|---|---|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n"
         + "\n".join(comparison)
         + "\n\n## 현재 모델 점수대 확인\n\n"
         "| 점수대 | 판정표본 | 목표 선도달 | 승률 |\n|---|---:|---:|---:|\n"
         + "\n".join(rows)
         + "\n\n## 발견·진입 점수대 성과\n\n"
-        "| 대상 | 점수대 | 신호 | 20일 양수 | 평균 20일 | 분할전략 평균 |\n"
-        "|---|---|---:|---:|---:|---:|\n"
-        + ("\n".join(band_rows) if band_rows else "| - | 표본 부족 | 0 | - | - | - |")
+        "| 대상 | 점수대 | 신호 | 20일 양수 | 평균 20일 | 시장초과 | 분할전략 평균 |\n"
+        "|---|---|---:|---:|---:|---:|---:|\n"
+        + ("\n".join(band_rows) if band_rows else "| - | 표본 부족 | 0 | - | - | - | - |")
         + "\n\n현재 유니버스와 재무 마스터를 사용하므로 생존편향·재무시점 편향이 남아 있습니다. "
         "따라서 절대 승률보다 임계값 간 상대 비교를 우선 사용해야 합니다. 분할전략은 1천만원 최초 진입, "
         "마지막 매수가 대비 하락 시 500만원 추가, 갭 5% 이상 절반 익절 후 8% 추적손절을 근사합니다.\n"
@@ -471,31 +561,45 @@ def _policy_variants(settings: Settings) -> list[dict]:
     model = settings.model
     return [
         {
-            "variant": "discovery_v1", "mode": "discovery", "min3": -99.0,
+            "variant": "discovery_v2", "mode": "discovery", "min3": -99.0,
             "max20": 99.0, "max_rebound20": 99.0, "reacceleration": False,
-            "discovery": model.discovery_candidate_score, "timing": 0.0, "production": False,
+            "discovery": model.discovery_candidate_score, "timing": 0.0,
+            "strict_add": True, "production": False,
         },
         {
             "variant": "legacy_v0", "mode": "entry", "min3": -99.0,
             "max20": 99.0, "max_rebound20": 99.0, "reacceleration": False,
-            "discovery": 0.0, "timing": 0.0, "production": False,
+            "discovery": 0.0, "timing": 0.0, "strict_add": False, "production": False,
         },
         {
             "variant": "price_gate_only", "mode": "entry", "min3": model.entry_min_return3_pct,
             "max20": model.entry_max_return20_pct, "max_rebound20": model.entry_max_rebound20_pct,
-            "reacceleration": False, "discovery": 0.0, "timing": 0.0, "production": False,
+            "reacceleration": False, "discovery": 0.0, "timing": 0.0,
+            "strict_add": False, "production": False,
         },
         {
             "variant": "v1_relaxed", "mode": "entry", "min3": -3.0,
             "max20": 6.0, "max_rebound20": 8.0, "reacceleration": True,
-            "discovery": 55.0, "timing": 55.0, "production": False,
+            "discovery": 55.0, "timing": 55.0, "strict_add": False, "production": False,
         },
         {
-            "variant": "v1_balanced", "mode": "entry", "min3": model.entry_min_return3_pct,
+            "variant": "v1_balanced", "mode": "entry", "min3": -3.0,
+            "max20": 3.0, "max_rebound20": 5.0, "reacceleration": True,
+            "discovery": 60.0, "timing": 62.0, "strict_add": False, "production": False,
+        },
+        {
+            "variant": "flow_price_v2_old_add", "mode": "entry", "min3": model.entry_min_return3_pct,
             "max20": model.entry_max_return20_pct, "max_rebound20": model.entry_max_rebound20_pct,
             "reacceleration": model.persistent_entry_requires_reacceleration,
             "discovery": model.discovery_candidate_score, "timing": model.timing_buy_score,
-            "production": True,
+            "strict_add": False, "production": False,
+        },
+        {
+            "variant": "flow_price_v2", "mode": "entry", "min3": model.entry_min_return3_pct,
+            "max20": model.entry_max_return20_pct, "max_rebound20": model.entry_max_rebound20_pct,
+            "reacceleration": model.persistent_entry_requires_reacceleration,
+            "discovery": model.discovery_candidate_score, "timing": model.timing_buy_score,
+            "strict_add": True, "production": True,
         },
     ]
 
@@ -519,6 +623,12 @@ def run_backtest(settings: Settings) -> pd.DataFrame:
             for date_index in range(59, len(dates) - horizon):
                 as_of = pd.Timestamp(dates[date_index])
                 history_view = history[history["date"] <= as_of]
+                market_benchmarks = market_forward_benchmarks(
+                    history,
+                    as_of,
+                    pd.Timestamp(dates[date_index + horizon]),
+                    settings.model.backtest_roundtrip_cost_pct / 100.0,
+                )
                 snapshot_view = snapshots
                 if not snapshots.empty and "date" in snapshots:
                     snapshot_view = snapshots[pd.to_datetime(snapshots["date"], errors="coerce") <= as_of]
@@ -542,15 +652,18 @@ def run_backtest(settings: Settings) -> pd.DataFrame:
                         persistent_entry_requires_reacceleration=require_reacceleration,
                         discovery_candidate_score=float(policy["discovery"]),
                         timing_buy_score=float(policy["timing"]),
+                        strict_add_confirmation=bool(policy["strict_add"]),
                     )
                     scored = score_features(features, variant_model)
                     if policy["mode"] == "discovery":
                         candidates = scored[
                             (scored["discovery_score"] >= variant_model.discovery_candidate_score)
-                            & (~scored["stage"].isin(["분산·이탈", "이벤트확인"]))
+                            & (~scored["stage"].isin([
+                                "가격상승", "수익실현", "분산·이탈", "이벤트확인",
+                            ]))
                             & (~scored["campaign_regime"].isin([
                                 "분산·이탈", "이벤트·구조확인", "이상대량·확인",
-                                "기관주도·외인확인",
+                                "기관주도·외인확인", "상승진행", "장기매집·휴식",
                             ]))
                             & (scored["data_points"] >= 60)
                         ]
@@ -579,6 +692,13 @@ def run_backtest(settings: Settings) -> pd.DataFrame:
                             variant_model.backtest_stop_pct / 100.0,
                             variant_model.backtest_roundtrip_cost_pct / 100.0,
                         )
+                        market = str(row.get("market", ""))
+                        market_forward = float(
+                            market_benchmarks.get(
+                                market,
+                                np.median(list(market_benchmarks.values())) if market_benchmarks else 0.0,
+                            )
+                        )
                         context = history[
                             (history["symbol"] == symbol)
                             & (history["date"] <= future["date"].iloc[-1])
@@ -593,10 +713,12 @@ def run_backtest(settings: Settings) -> pd.DataFrame:
                                 "entry_max_rebound20_pct": max_rebound20,
                                 "requires_reacceleration": require_reacceleration,
                                 "timing_buy_score": variant_model.timing_buy_score,
+                                "strict_add_confirmation": variant_model.strict_add_confirmation,
                                 "as_of": as_of,
                                 "entry_date": future["date"].iloc[0],
                                 "symbol": symbol,
                                 "name": row.get("name", symbol),
+                                "market": market,
                                 "score": row["score"],
                                 "entry_score": row["entry_score"],
                                 "campaign_score": row["campaign_score"],
@@ -617,6 +739,8 @@ def run_backtest(settings: Settings) -> pd.DataFrame:
                                 "outcome": path.outcome,
                                 "days_to_event": path.days_to_event,
                                 "forward_return": path.forward_return,
+                                "market_forward_return": market_forward,
+                                "excess_forward_return": path.forward_return - market_forward,
                                 "realized_return": path.realized_return,
                                 "max_upside": path.max_upside,
                                 "max_drawdown": path.max_drawdown,

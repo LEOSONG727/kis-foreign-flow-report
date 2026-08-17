@@ -12,8 +12,15 @@ def test_accumulation_candidate_gets_actionable_stage():
     assert candidate["stage"] == "매집·눌림"
     assert candidate["absorption_signal"] in {"강함", "보통"}
     assert candidate["score"] >= 72
+    assert candidate["action"] == "초기 분할매수"
+    assert candidate["entry_readiness"] == "진입가능"
+
+
+def test_persistent_campaign_can_still_be_forced_to_wait_for_reacceleration():
+    candidate = score_features(
+        synthetic_features(), ModelConfig(persistent_entry_requires_reacceleration=True)
+    ).query("symbol == '000010'").iloc[0]
     assert candidate["action"] == "외국인 재가속 확인 후 분할매수"
-    assert candidate["entry_readiness"] == "재가속확인"
 
 
 def test_distribution_overrides_buy_action():
@@ -39,6 +46,19 @@ def test_fast_absolute_rise_is_not_called_pressed_accumulation():
     candidate = scored[scored["symbol"] == "000010"].iloc[0]
     assert candidate["stage"] == "가격상승"
     assert candidate["action"] == "추격 금지·보유"
+
+
+def test_late_price_stage_is_penalized_in_discovery_ranking():
+    baseline = score_features(synthetic_features(), ModelConfig()).query("symbol == '000010'").iloc[0]
+    features = synthetic_features()
+    index = features[features["symbol"] == "000010"].index[0]
+    features.loc[index, "price_return20"] = 0.11
+    features.loc[index, "price_return5"] = 0.06
+    features.loc[index, "price_residual20"] = 0.01
+    features.loc[index, "foreign_1_adtv"] = 0.10
+    rising = score_features(features, ModelConfig()).query("symbol == '000010'").iloc[0]
+    assert rising["stage"] == "가격상승"
+    assert rising["discovery_score"] <= baseline["discovery_score"] - 20
 
 
 def test_low_to_current_rebound_blocks_buy_even_when_endpoint_return_is_small():

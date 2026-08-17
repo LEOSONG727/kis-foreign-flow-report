@@ -226,8 +226,11 @@ def _discovery_score(
     campaign_strength: float,
     underreaction: float,
     fundamentals: float,
+    stage: str,
+    campaign_regime: str,
+    distribution_score: float,
 ) -> float:
-    """Longer-horizon candidate quality, intentionally independent of entry timing."""
+    """Foreign accumulation quality before timing, without rewarding falling knives."""
     ownership_days = row.get("foreign_ownership_days_adtv", np.nan)
     holding_change = row.get("foreign_holding_change_adtv", np.nan)
     if pd.isna(ownership_days):
@@ -244,7 +247,39 @@ def _discovery_score(
         + 0.45 * fundamentals
         + ownership
     )
-    return clamp(value, 0.0, 100.0)
+    stage_adjustment = {
+        "초기매집": 6.0,
+        "매집·눌림": 3.0,
+        "매집휴식": 3.0,
+        "가격상승": -18.0,
+        "수익실현": -25.0,
+        "분산·이탈": -30.0,
+        "이벤트확인": -30.0,
+    }.get(stage, 0.0)
+    regime_adjustment = {
+        "지속매집": 2.0,
+        "장기매집·재가속": 4.0,
+        "장기매집·휴식": -8.0,
+        "상승진행": -12.0,
+        "분산·이탈": -20.0,
+        "이벤트·구조확인": -25.0,
+    }.get(campaign_regime, 0.0)
+    # Price weakness is useful only while it remains controlled. The model
+    # still rewards absorption, but a 20-day collapse beyond -15% no longer
+    # creates an ever-higher "underreaction" score.
+    falling_knife_penalty = (
+        14.0 * scale(-row.get("price_return20", 0.0), 0.15, 0.25)
+        + 8.0 * scale(-row.get("price_return3", 0.0), 0.03, 0.08)
+    )
+    return clamp(
+        value
+        + stage_adjustment
+        + regime_adjustment
+        - falling_knife_penalty
+        - 0.20 * distribution_score,
+        0.0,
+        100.0,
+    )
 
 
 def _timing_score(row: pd.Series) -> float:
@@ -468,7 +503,9 @@ def _action(row: pd.Series, model: ModelConfig) -> str:
             return "첫 눌림 대기·추격 금지"
         if discovery_score < model.discovery_candidate_score:
             return "매집 후보 강도 부족·대기"
-        if timing_score < model.timing_buy_score:
+        if distribution_score > model.entry_max_distribution_score:
+            return "외국인 매도 압력 완화 대기"
+        if model.timing_buy_score > 0 and timing_score < model.timing_buy_score:
             return "가격 반전·수급 재가속 확인 대기"
         if row.get("price_return5", 0.0) >= 0.03:
             return "첫 눌림·외국인 유지 확인"
@@ -502,9 +539,11 @@ def _action(row: pd.Series, model: ModelConfig) -> str:
         return "진입 조건 확인 대기"
     if discovery_score < model.discovery_candidate_score:
         return "매집 후보 강도 부족·대기"
-    if timing_score < model.timing_buy_score:
+    if distribution_score > model.entry_max_distribution_score:
+        return "외국인 매도 압력 완화 대기"
+    if model.timing_buy_score > 0 and timing_score < model.timing_buy_score:
         return "가격 반전·수급 재가속 확인 대기"
-    buy_campaigns = {"장기매집·재가속", "장기매집·휴식"}
+    buy_campaigns = {"장기매집·재가속"}
     if not model.persistent_entry_requires_reacceleration:
         buy_campaigns.add("지속매집")
     if (
@@ -595,13 +634,19 @@ def score_features(
         entry_readiness, entry_gate_passed, entry_gate_reason = _entry_readiness(
             readiness_row, model
         )
-        discovery_score = _discovery_score(
-            row, campaign_strength, underreaction, fundamentals
-        )
         timing_score = _timing_score(row)
         distribution_score = _distribution_score(row)
+        discovery_score = _discovery_score(
+            row,
+            campaign_strength,
+            underreaction,
+            fundamentals,
+            stage,
+            campaign_regime,
+            distribution_score,
+        )
         signal_score = clamp(
-            0.55 * discovery_score + 0.45 * timing_score - 0.20 * distribution_score,
+            0.70 * discovery_score + 0.30 * timing_score - 0.20 * distribution_score,
             0.0,
             100.0,
         )
