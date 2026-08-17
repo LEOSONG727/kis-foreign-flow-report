@@ -37,8 +37,15 @@ class ModelConfig:
     large_flow_threshold_krw: int = 50_000_000_000
     gap_take_profit_pct: float = 5.0
     atr_gap_multiple: float = 1.2
+    recent_chase_return1_pct: float = 4.0
+    recent_chase_return3_pct: float = 6.0
     absolute_chase_return20_pct: float = 8.0
     recent_chase_return5_pct: float = 5.0
+    recent_chase_return10_pct: float = 10.0
+    rebound_chase_return10_pct: float = 12.0
+    rebound_chase_return20_pct: float = 15.0
+    ma20_atr_chase_multiple: float = 2.5
+    rebound_atr_chase_multiple: float = 4.0
     structural_break_return20_pct: float = -25.0
     corporate_action_daily_return_pct: float = 33.0
     initial_order_krw: int = 10_000_000
