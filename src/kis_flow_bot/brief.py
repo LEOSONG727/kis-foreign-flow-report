@@ -76,6 +76,12 @@ def format_pct(value: float, digits: int = 1) -> str:
     return f"{value * 100:+.{digits}f}%"
 
 
+def _scale(value: float, low: float, high: float) -> float:
+    if not np.isfinite(value) or high <= low:
+        return 0.0
+    return float(np.clip((value - low) / (high - low), 0.0, 1.0))
+
+
 def infer_decision_bucket(row: pd.Series | dict) -> str:
     bucket = _text(row, "decision_bucket")
     if bucket:
@@ -158,8 +164,36 @@ def classify_watch_tier(
     return "제외"
 
 
+def flow_freshness(row: pd.Series | dict) -> float:
+    """Prefer still-alive foreign buying over a stale 20-day total."""
+    net1 = _float(row, "foreign_net1")
+    net3 = _float(row, "foreign_net3")
+    net5 = _float(row, "foreign_net5")
+    score = 0.0
+    if net3 > 0 and net5 > 0:
+        score += 6.0
+    elif net3 > 0:
+        score += 3.0
+    if net1 > 0:
+        score += 2.0
+    elif net1 < 0 and net3 < 0:
+        score -= 6.0
+    score += 4.0 * _scale(_float(row, "foreign_3_adtv"), 0.0, 0.40)
+    score += 3.0 * _scale(_float(row, "buy_days20"), 6.0, 14.0)
+    if _float(row, "current_buy_streak") >= 2:
+        score += 2.0
+    score -= 8.0 * _scale(_float(row, "sellback_ratio20"), 0.40, 1.00)
+    score += 3.0 * _scale(_float(row, "foreign_acceleration3"), -0.03, 0.10)
+    score += 3.0 * _scale(_float(row, "foreign_20_adtv"), 0.30, 2.00)
+    return score
+
+
 def flow_summary(row: pd.Series | dict) -> str:
-    parts = [f'외인 20일 {format_eok(_float(row, "foreign_net20"))}']
+    parts = [
+        f'외인 20일 {format_eok(_float(row, "foreign_net20"))}',
+        f'3일 {format_eok(_float(row, "foreign_net3"))}',
+        f'당일 {format_eok(_float(row, "foreign_net1"))}',
+    ]
     if _bool(row, "large_flow_signal"):
         parts.append("500억+")
     campaign = _text(row, "campaign_regime", "중립")
@@ -242,7 +276,8 @@ def watch_priority(
     return (
         TIER_BASE.get(tier, 0.0)
         + _float(row, "discovery_score")
-        + (8.0 if _bool(row, "large_flow_signal") else 0.0)
+        + flow_freshness(row)
+        + (5.0 if _bool(row, "large_flow_signal") else 0.0)
         + closeness
         - knife
     )
@@ -265,6 +300,7 @@ def annotate_watch_brief(
     frame["watch_tier"] = tiers
     frame["high_conviction"] = frame["discovery_score"].fillna(0.0) >= brief.high_conviction_score
     frame["flow_summary"] = [_summary_from_row(row) for _, row in frame.iterrows()]
+    frame["flow_freshness"] = [flow_freshness(row) for _, row in frame.iterrows()]
     frame["block_reason"] = [block_reason(row, model) for _, row in frame.iterrows()]
     frame["next_trigger"] = [next_trigger(row, model) for _, row in frame.iterrows()]
     frame["watch_priority"] = [watch_priority(row, model, brief) for _, row in frame.iterrows()]
@@ -288,6 +324,8 @@ def select_daily_brief(
     frame = scored.copy()
     if "watch_tier" not in frame:
         frame = annotate_watch_brief(frame, brief=brief)
+    if "flow_freshness" not in frame:
+        frame["flow_freshness"] = [flow_freshness(row) for _, row in frame.iterrows()]
     frame["symbol"] = frame["symbol"].astype("string").str.zfill(6)
     picked: list[pd.DataFrame] = []
 
@@ -300,7 +338,7 @@ def select_daily_brief(
         if pool.empty:
             return
         pool = pool.sort_values(
-            ["watch_priority", "discovery_score"],
+            ["watch_priority", "flow_freshness", "discovery_score"],
             ascending=False,
         ).head(min(limit, remaining))
         if not pool.empty:
@@ -317,7 +355,7 @@ def select_daily_brief(
 
     if not picked:
         fallback = frame[frame["watch_tier"] != "제외"].sort_values(
-            ["watch_priority", "discovery_score"], ascending=False
+            ["watch_priority", "flow_freshness", "discovery_score"], ascending=False
         ).head(brief.size)
         return fallback.reset_index(drop=True)
     return (
@@ -333,6 +371,8 @@ def iter_brief_rows(scored: pd.DataFrame, brief: BriefConfig | None = None) -> I
     if selected.empty:
         selected = select_daily_brief(scored, brief)
     else:
-        selected = selected.sort_values(["watch_priority", "discovery_score"], ascending=False)
+        selected = selected.sort_values(
+            ["watch_priority", "flow_freshness", "discovery_score"], ascending=False
+        )
     for _, row in selected.iterrows():
         yield row

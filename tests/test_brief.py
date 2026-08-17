@@ -5,7 +5,9 @@ import pandas as pd
 from kis_flow_bot.brief import (
     annotate_watch_brief,
     classify_watch_tier,
+    flow_summary,
     select_daily_brief,
+    watch_priority,
 )
 from kis_flow_bot.config import BriefConfig, ModelConfig
 from kis_flow_bot.notify import build_telegram_text
@@ -30,7 +32,16 @@ def _row(**overrides) -> pd.Series:
         "price_return3": 0.0,
         "price_return20": 0.045,
         "rebound_from_low20": 0.06,
+        "foreign_net1": 400_000_000,
+        "foreign_net3": 1_200_000_000,
+        "foreign_net5": 1_800_000_000,
         "foreign_net20": 3_100_000_000,
+        "foreign_3_adtv": 0.18,
+        "foreign_20_adtv": 0.80,
+        "buy_days20": 11,
+        "current_buy_streak": 3,
+        "sellback_ratio20": 0.15,
+        "foreign_acceleration3": 0.04,
         "absorption_signal": "없음",
         "large_flow_signal": False,
         "promotion_condition": "20일 수익률 +3% 미만·20일 저점반등 +5% 미만 + 외국인 매집 유지",
@@ -106,6 +117,36 @@ def test_daily_brief_prefers_ready_then_conviction_over_crash():
     ]))
     brief = select_daily_brief(frame, BriefConfig(size=3))
     assert list(brief["name"]) == ["매수주", "관심", "고확신"]
+
+
+def test_live_flow_ranks_above_stale_twenty_day_total():
+    live = _row(name="살아있는수급", symbol="000021")
+    stale = _row(
+        name="식은수급",
+        symbol="000022",
+        foreign_net1=-800_000_000,
+        foreign_net3=-1_500_000_000,
+        foreign_net5=-400_000_000,
+        foreign_net20=8_000_000_000,
+        foreign_3_adtv=-0.20,
+        foreign_20_adtv=1.40,
+        buy_days20=6,
+        current_buy_streak=0,
+        sellback_ratio20=0.95,
+        foreign_acceleration3=-0.06,
+        large_flow_signal=True,
+    )
+    assert watch_priority(live) > watch_priority(stale)
+    frame = annotate_watch_brief(pd.DataFrame([stale, live]))
+    brief = select_daily_brief(frame, BriefConfig(size=1))
+    assert list(brief["name"]) == ["살아있는수급"]
+
+
+def test_flow_summary_shows_recent_windows():
+    text = flow_summary(_row())
+    assert "20일" in text
+    assert "3일" in text
+    assert "당일" in text
 
 
 def test_telegram_explains_why_not_to_buy():

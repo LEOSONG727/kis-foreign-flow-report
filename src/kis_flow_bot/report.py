@@ -329,8 +329,9 @@ table{min-width:1220px}.condition{max-width:330px;white-space:normal}.condition 
 
 
 def _tier_frame(ranked: pd.DataFrame, tier: str, limit: int = 10) -> pd.DataFrame:
+    sort_cols = [column for column in ("watch_priority", "flow_freshness", "discovery_score") if column in ranked]
     return ranked[ranked["watch_tier"] == tier].sort_values(
-        ["watch_priority", "discovery_score"], ascending=False
+        sort_cols, ascending=False
     ).head(limit)
 
 
@@ -358,8 +359,12 @@ def render_report(
     ):
         if column not in ranked:
             ranked[column] = ranked.get(fallback, pd.Series(0.0, index=ranked.index)) if fallback else 0.0
-    discovery_sort = ["discovery_score", "campaign_score", "underreaction_score"]
-    wait_sort = ["watch_priority", "discovery_score"]
+    discovery_sort = [
+        column
+        for column in ("discovery_score", "flow_freshness", "campaign_score", "underreaction_score")
+        if column in ranked
+    ]
+    wait_sort = [column for column in ("watch_priority", "flow_freshness", "discovery_score") if column in ranked]
     discovery_top = ranked[
         (ranked.get("discovery_score", pd.Series(0.0, index=ranked.index)) >= 65.0)
         & (~ranked["stage"].isin(["가격상승", "수익실현", "분산·이탈", "이벤트확인"]))
@@ -375,7 +380,7 @@ def render_report(
     risks = _tier_frame(ranked, "위험확인", 8)
     held_management = ranked[ranked["decision_bucket"] == "보유관리"].sort_values(wait_sort, ascending=False).head(10)
     risk_actions = ranked[ranked["decision_bucket"] == "수익실현·중단"].sort_values(
-        ["watch_priority", "discovery_score"], ascending=False
+        wait_sort, ascending=False
     ).head(12)
     watched = ranked[ranked["symbol"].astype(str).str.zfill(6).isin(watchlist)]
     falling = ranked[

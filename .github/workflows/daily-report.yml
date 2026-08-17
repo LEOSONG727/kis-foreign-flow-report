@@ -18,8 +18,9 @@ on:
         default: false
         type: boolean
   schedule:
-    # 평일 18:41 KST. 정각 혼잡으로 인한 GitHub 스케줄 지연을 줄이기 위해 41분 사용.
-    - cron: "41 9 * * 1-5"
+    # 평일 20:35 KST. 18시 대는 당일 외인 확정 데이터가 아직 안 나오는 경우가 많다.
+    # 정각 혼잡을 피하려고 35분을 쓴다.
+    - cron: "35 11 * * 1-5"
 
 permissions:
   contents: write
@@ -38,6 +39,12 @@ jobs:
       KIS_CALLS_PER_SECOND: ${{ vars.KIS_CALLS_PER_SECOND || '5' }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      EMAIL_SMTP_HOST: ${{ secrets.EMAIL_SMTP_HOST }}
+      EMAIL_SMTP_PORT: ${{ secrets.EMAIL_SMTP_PORT }}
+      EMAIL_SMTP_USER: ${{ secrets.EMAIL_SMTP_USER }}
+      EMAIL_SMTP_PASSWORD: ${{ secrets.EMAIL_SMTP_PASSWORD }}
+      EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+      EMAIL_TO: ${{ secrets.EMAIL_TO }}
       PYTHONUNBUFFERED: "1"
 
     steps:

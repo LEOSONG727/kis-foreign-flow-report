@@ -22,7 +22,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--universe-limit", type=int, help="개발용 종목 수 제한")
     parser.add_argument("--skip-backfill", action="store_true", help="장기 이력 초기화를 생략")
     parser.add_argument("--full-history-bootstrap", action="store_true", help="전체 유니버스 장기 이력 초기화")
-    parser.add_argument("--no-notify", action="store_true", help="텔레그램 알림 생략")
+    parser.add_argument("--no-notify", action="store_true", help="텔레그램·이메일 알림 생략")
     parser.add_argument("--root", type=Path, default=Path.cwd())
     return parser
 
