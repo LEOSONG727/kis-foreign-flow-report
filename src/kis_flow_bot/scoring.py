@@ -58,8 +58,8 @@ def _long_inventory20(row: pd.Series) -> float:
     return 0.6 * flow60 + 0.4 * flow120
 
 
-def _price_heat_flags(row: pd.Series, model: ModelConfig) -> list[tuple[str, float]]:
-    """Return active chase-risk signals, with price path prioritized over endpoints."""
+def _hard_price_heat_flags(row: pd.Series, model: ModelConfig) -> list[tuple[str, float]]:
+    """Return price moves large enough to block a fresh entry on their own."""
     candidates = [
         (
             "20일 저점반등",
@@ -71,6 +71,21 @@ def _price_heat_flags(row: pd.Series, model: ModelConfig) -> list[tuple[str, flo
             row.get("rebound_from_low10", 0.0),
             model.rebound_chase_return10_pct / 100.0,
         ),
+        ("10일 상승", row.get("price_return10", 0.0), model.recent_chase_return10_pct / 100.0),
+        ("5일 상승", row.get("price_return5", 0.0), model.recent_chase_return5_pct / 100.0),
+        ("3일 상승", row.get("price_return3", 0.0), model.recent_chase_return3_pct / 100.0),
+        ("1일 상승", row.get("price_return1", 0.0), model.recent_chase_return1_pct / 100.0),
+        ("20일 상승", row.get("price_return20", 0.0), model.absolute_chase_return20_pct / 100.0),
+    ]
+    return [(label, float(value)) for label, value, threshold in candidates if float(value) >= threshold]
+
+
+def _price_heat_flags(row: pd.Series, model: ModelConfig) -> list[tuple[str, float]]:
+    """Add ATR confirmations only after an absolute price-path gate is active."""
+    flags = _hard_price_heat_flags(row, model)
+    if not flags:
+        return flags
+    confirmations = [
         (
             "저점반등 ATR",
             row.get("rebound_atr_distance20", 0.0),
@@ -81,17 +96,17 @@ def _price_heat_flags(row: pd.Series, model: ModelConfig) -> list[tuple[str, flo
             row.get("ma20_atr_distance", 0.0),
             model.ma20_atr_chase_multiple,
         ),
-        ("10일 상승", row.get("price_return10", 0.0), model.recent_chase_return10_pct / 100.0),
-        ("5일 상승", row.get("price_return5", 0.0), model.recent_chase_return5_pct / 100.0),
-        ("3일 상승", row.get("price_return3", 0.0), model.recent_chase_return3_pct / 100.0),
-        ("1일 상승", row.get("price_return1", 0.0), model.recent_chase_return1_pct / 100.0),
-        ("20일 상승", row.get("price_return20", 0.0), model.absolute_chase_return20_pct / 100.0),
     ]
-    return [(label, float(value)) for label, value, threshold in candidates if float(value) >= threshold]
+    flags.extend(
+        (label, float(value))
+        for label, value, threshold in confirmations
+        if float(value) >= threshold
+    )
+    return flags
 
 
 def _is_price_hot(row: pd.Series, model: ModelConfig) -> bool:
-    return bool(_price_heat_flags(row, model))
+    return bool(_hard_price_heat_flags(row, model))
 
 
 def _price_heat_reason(row: pd.Series, model: ModelConfig) -> str:
