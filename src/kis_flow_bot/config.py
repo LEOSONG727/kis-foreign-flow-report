@@ -55,6 +55,7 @@ class ModelConfig:
     backtest_target_pct: float = 8.0
     backtest_stop_pct: float = 6.0
     backtest_horizon_days: int = 20
+    backtest_roundtrip_cost_pct: float = 0.3
 
 
 @dataclass(frozen=True)
