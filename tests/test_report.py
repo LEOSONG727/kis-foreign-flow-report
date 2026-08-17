@@ -17,7 +17,10 @@ def test_report_contains_ranking_and_action():
     assert "초기 분할매수" in rendered.html or "강한 신규매수" in rendered.html
     assert "오늘 신규매수 후보" in rendered.html
     assert "보유종목 추가매수 후보" in rendered.html
+    assert "가격·단기열기" in rendered.html
+    assert "20일 저점반등" in rendered.html
     assert "외국인 매집 액션 리포트" in rendered.markdown
+    assert "저점반등 20일" in rendered.markdown
 
 
 def test_eok_does_not_render_negative_zero():
