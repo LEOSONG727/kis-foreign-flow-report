@@ -248,3 +248,27 @@ def test_recent_three_and_five_day_selling_requires_restart_confirmation():
     candidate = scored[scored["symbol"] == "000010"].iloc[0]
     assert candidate["campaign_regime"] in {"지속매집", "장기매집·재가속"}
     assert candidate["action"] == "외국인 재개 확인 후 분할매수"
+
+
+def test_high_discovery_but_low_timing_is_not_a_buy():
+    features, _ = _candidate_features()
+    model = ModelConfig(persistent_entry_requires_reacceleration=False, timing_buy_score=80.0)
+    candidate = score_features(features, model).query("symbol == '000010'").iloc[0]
+    assert candidate["discovery_score"] >= model.discovery_candidate_score
+    assert candidate["timing_score"] < model.timing_buy_score
+    assert candidate["action"] == "가격 반전·수급 재가속 확인 대기"
+
+
+def test_distribution_score_can_warn_before_full_campaign_exit():
+    features, index = _candidate_features()
+    features.loc[index, "price_return20"] = 0.10
+    features.loc[index, "rebound_from_low20"] = 0.25
+    features.loc[index, "foreign_1_adtv"] = -0.05
+    features.loc[index, "foreign_3_adtv"] = -0.80
+    features.loc[index, "sellback_ratio20"] = 1.20
+    features.loc[index, "upper_wick"] = 0.60
+    features.loc[index, "foreign_flow_concentration20"] = 0.55
+    candidate = score_features(features, ModelConfig()).query("symbol == '000010'").iloc[0]
+    assert candidate["stage"] == "가격상승"
+    assert candidate["distribution_score"] >= ModelConfig().distribution_exit_score
+    assert candidate["action"] == "수익실현 신호·절반 익절 검토"
