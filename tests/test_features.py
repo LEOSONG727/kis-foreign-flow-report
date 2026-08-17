@@ -196,4 +196,8 @@ def test_short_price_path_and_low_rebound_features_are_calculated():
     assert row["rebound_atr_distance20"] > 0
     assert row["rebound_volume_ratio20"] > 1.0
     assert row["distance_high20"] <= 0
-    assert {"price_return1", "price_return3", "price_return5"}.issubset(row.index)
+    assert {
+        "price_return1", "price_return3", "price_return5", "price_acceleration3",
+        "ma5_slope", "above_ma5", "above_ma10", "up_down_volume_ratio10",
+        "foreign_acceleration3",
+    }.issubset(row.index)
