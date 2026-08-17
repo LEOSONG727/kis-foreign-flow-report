@@ -11,6 +11,7 @@ def _scored(close: float = 94_000.0) -> pd.DataFrame:
         [{
             "symbol": "000010", "close": close, "score": 78.0,
             "entry_score": 74.0, "campaign_score": 82.0,
+            "discovery_score": 78.0, "timing_score": 70.0,
             "campaign_regime": "지속매집", "foreign_5_adtv": 0.5,
             "price_return5": -0.02, "price_return20": 0.01,
             "stage": "매집·눌림", "action": "초기 분할매수",
