@@ -24,9 +24,11 @@ watch_score = 64.0
 entry_buy_score = 62.0
 entry_strong_score = 72.0
 entry_watch_score = 52.0
-discovery_candidate_score = 60.0
-timing_buy_score = 62.0
+discovery_candidate_score = 65.0
+# 첫 백테스트에서 단일 타이밍 커트라인의 단조성이 확인되지 않아 순위 참고용으로만 사용
+timing_buy_score = 0.0
 distribution_exit_score = 65.0
+entry_max_distribution_score = 25.0
 # 대형주 매집 표시: 최근 20거래일 외국인 누적 순매수 500억원 이상
 large_flow_threshold_krw = 50000000000
 gap_take_profit_pct = 5.0
@@ -43,7 +45,7 @@ rebound_chase_return20_pct = 15.0
 entry_min_return3_pct = -3.0
 entry_max_return20_pct = 3.0
 entry_max_rebound20_pct = 5.0
-persistent_entry_requires_reacceleration = true
+persistent_entry_requires_reacceleration = false
 ma20_atr_chase_multiple = 2.5
 rebound_atr_chase_multiple = 4.0
 # 급락·권리락·분할 가능성이 있는 가격구조는 신규매수를 차단
@@ -54,6 +56,12 @@ initial_order_krw = 10000000
 add_order_krw = 5000000
 add_trigger_pct = 3.0
 max_tranches = 4
+# 추가매수는 단순 하락이 아니라 외국인 3·5일 순매수와 가격 하락 진정을 함께 확인
+strict_add_confirmation = true
+add_min_return3_pct = -1.5
+add_min_return1_pct = -0.5
+add_min_return20_pct = -15.0
+add_cooldown_days = 3
 # 워크포워드 백테스트 목표/손절/평가기간
 backtest_target_pct = 8.0
 backtest_stop_pct = 6.0
