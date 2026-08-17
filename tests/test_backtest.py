@@ -6,6 +6,7 @@ from kis_flow_bot.backtest import (
     build_calibration,
     evaluate_forward_ohlc,
     evaluate_forward_path,
+    market_forward_benchmarks,
     summarize_variants,
     simulate_scaled_strategy,
 )
@@ -64,6 +65,30 @@ def test_backtest_enters_next_open_and_uses_intraday_path_conservatively():
     assert round(result.forward_return, 3) == 0.087
 
 
+def test_market_benchmark_uses_same_market_median_and_next_open():
+    history = pd.DataFrame(
+        [
+            {"date": "2026-01-02", "symbol": "A", "market": "KOSPI", "open": 100, "close": 100},
+            {"date": "2026-01-05", "symbol": "A", "market": "KOSPI", "open": 100, "close": 105},
+            {"date": "2026-01-06", "symbol": "A", "market": "KOSPI", "open": 105, "close": 110},
+            {"date": "2026-01-02", "symbol": "B", "market": "KOSPI", "open": 200, "close": 200},
+            {"date": "2026-01-05", "symbol": "B", "market": "KOSPI", "open": 200, "close": 210},
+            {"date": "2026-01-06", "symbol": "B", "market": "KOSPI", "open": 210, "close": 240},
+            {"date": "2026-01-05", "symbol": "C", "market": "KOSDAQ", "open": 50, "close": 55},
+            {"date": "2026-01-06", "symbol": "C", "market": "KOSDAQ", "open": 55, "close": 60},
+        ]
+    )
+    history["date"] = pd.to_datetime(history["date"])
+    result = market_forward_benchmarks(
+        history,
+        pd.Timestamp("2026-01-02"),
+        pd.Timestamp("2026-01-06"),
+        roundtrip_cost=0.003,
+    )
+    assert round(result["KOSPI"], 3) == 0.147
+    assert round(result["KOSDAQ"], 3) == 0.197
+
+
 def test_variant_summary_reports_signal_quality():
     results = pd.DataFrame(
         [
@@ -104,10 +129,27 @@ def test_scaled_strategy_adds_only_on_next_open_while_flow_is_alive():
             {"open": 95.0, "high": 101.0, "low": 94.0, "close": 100.0},
         ]
     )
-    result = simulate_scaled_strategy(context, signal_date, ModelConfig())
+    result = simulate_scaled_strategy(
+        context, signal_date, ModelConfig(strict_add_confirmation=False)
+    )
     assert result.tranches == 2
     assert result.invested_krw > 10_000_000
     assert result.return_rate > 0
+
+
+def test_strict_add_waits_until_flow_and_price_stabilize():
+    context, signal_date = _strategy_context(
+        [
+            {"open": 100.0, "high": 101.0, "low": 94.0, "close": 95.0},
+            {"open": 95.0, "high": 96.0, "low": 92.0, "close": 93.0},
+            {"open": 94.0, "high": 96.0, "low": 93.0, "close": 95.0},
+            {"open": 95.0, "high": 98.0, "low": 94.0, "close": 97.0},
+            {"open": 97.0, "high": 99.0, "low": 96.0, "close": 98.0},
+        ]
+    )
+    result = simulate_scaled_strategy(context, signal_date, ModelConfig())
+    assert result.tranches == 2
+    assert result.invested_krw > 10_000_000
 
 
 def test_scaled_strategy_takes_gap_half_and_trails_the_rest():
