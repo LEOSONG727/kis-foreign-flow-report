@@ -24,6 +24,9 @@ watch_score = 64.0
 entry_buy_score = 62.0
 entry_strong_score = 72.0
 entry_watch_score = 52.0
+discovery_candidate_score = 60.0
+timing_buy_score = 62.0
+distribution_exit_score = 65.0
 # 대형주 매집 표시: 최근 20거래일 외국인 누적 순매수 500억원 이상
 large_flow_threshold_krw = 50000000000
 gap_take_profit_pct = 5.0
@@ -56,6 +59,7 @@ backtest_target_pct = 8.0
 backtest_stop_pct = 6.0
 backtest_horizon_days = 20
 backtest_roundtrip_cost_pct = 0.3
+strategy_trailing_stop_pct = 8.0
 
 [watchlist]
 # 기존 관심종목 + 비교 기준 7종목
