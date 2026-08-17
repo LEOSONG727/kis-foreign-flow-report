@@ -36,6 +36,11 @@ def _promotion_condition(row: dict, action: str, has_position: bool, model: Mode
         )
     if "재가속 확인" in action:
         return "외국인 3·5일 순매수 동시 전환 + 매집강도 유지"
+    if "추가매수 재확인" in action:
+        return (
+            f"외국인 3·5일 순매수 + 3일 가격 {model.add_min_return3_pct:+.1f}% 이상 + "
+            f"당일 {model.add_min_return1_pct:+.1f}% 이상으로 하락 진정"
+        )
     if has_position and action == "보유·다음 눌림 대기":
         return f"마지막 매수가 대비 -{model.add_trigger_pct:.0f}% 도달 + 매집 신호 유지"
     if campaign == "신규재진입":
@@ -121,6 +126,19 @@ def _add_opportunity_score(row: dict, has_position: bool, position_drawdown: flo
     return round(_clamp(score), 1)
 
 
+def _add_confirmation(row: dict, model: ModelConfig) -> bool:
+    if not model.strict_add_confirmation:
+        return True
+    return (
+        float(row.get("foreign_3_adtv", 0.0)) > 0
+        and float(row.get("foreign_5_adtv", 0.0)) > 0
+        and float(row.get("price_return3", -1.0)) >= model.add_min_return3_pct / 100.0
+        and float(row.get("price_return1", -1.0)) >= model.add_min_return1_pct / 100.0
+        and float(row.get("price_return20", -1.0)) >= model.add_min_return20_pct / 100.0
+        and float(row.get("distribution_score", 100.0)) <= model.entry_max_distribution_score
+    )
+
+
 def load_portfolio(path: Path) -> pd.DataFrame:
     if not path.exists() or path.stat().st_size == 0:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -193,19 +211,21 @@ def apply_portfolio_actions(
             entry_ready = bool(row.get("entry_gate_passed", True))
             signal_alive = (
                 stage in {"매집·눌림", "초기매집", "매집휴식"}
-                and score >= model.initial_buy_score
                 and entry_ready
                 and float(row.get("discovery_score", model.discovery_candidate_score))
                 >= model.discovery_candidate_score
-                and float(row.get("timing_score", model.timing_buy_score))
-                >= model.timing_buy_score
+                and float(row.get("distribution_score", 0.0))
+                <= model.entry_max_distribution_score
             )
+            add_confirmed = _add_confirmation(row, model)
             if stage == "가격상승":
                 action = "보유·추격매수 금지"
             elif str(row.get("entry_readiness", "")) == "반전확인":
                 action = "보유·급락 멈춤 확인 후 추가매수"
             elif str(row.get("entry_readiness", "")) == "눌림대기":
                 action = "보유·과열 진정 후 추가매수"
+            elif signal_alive and trigger > 0 and close <= trigger and not add_confirmed:
+                action = "보유·추가매수 재확인 대기"
             elif signal_alive and trigger > 0 and close <= trigger and tranche_count < model.max_tranches:
                 action = f"{tranche_count + 1}차 분할 추가매수 검토"
                 suggested_order = model.add_order_krw
