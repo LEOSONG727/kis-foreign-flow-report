@@ -72,6 +72,21 @@ def test_low_to_current_rebound_blocks_buy_even_when_endpoint_return_is_small():
     assert candidate["entry_score"] < baseline_entry
 
 
+def test_atr_distance_alone_confirms_heat_but_does_not_block_entry():
+    features, index = _candidate_features()
+    for column in ("price_return1", "price_return3", "price_return5", "price_return10", "price_return20"):
+        features.loc[index, column] = 0.01
+    features.loc[index, "rebound_from_low10"] = 0.05
+    features.loc[index, "rebound_from_low20"] = 0.10
+    features.loc[index, "rebound_atr_distance20"] = 5.0
+    features.loc[index, "ma20_atr_distance"] = 3.0
+    scored = score_features(features, ModelConfig())
+    candidate = scored[scored["symbol"] == "000010"].iloc[0]
+    assert candidate["stage"] != "가격상승"
+    assert not bool(candidate["price_heat_flag"])
+    assert candidate["price_heat_reason"] == "과열 없음"
+
+
 def test_today_flow_drives_profit_taking_instead_of_five_day_flow():
     features = synthetic_features()
     index = features[features["symbol"] == "000010"].index[0]
