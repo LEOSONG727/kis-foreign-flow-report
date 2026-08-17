@@ -143,7 +143,9 @@ def _table(frame: pd.DataFrame, start_rank: int = 1, empty_message: str = "해�
             f'<td>{number(row.get("campaign_score"))}</td>'
             f'<td>{badge(campaign, CAMPAIGN_CLASS.get(campaign, "gray"))}<small>가격 {esc(row.get("stage", "중립"))}</small></td>'
             f'<td>{eok(row.get("foreign_net20"))} {large_badge}<small>{number(row.get("foreign_20_adtv"))}일 ADTV</small></td>'
-            f'<td>{pct(row.get("price_return20"))}<small>5일 {pct(row.get("price_return5"))}</small></td>'
+            f'<td>{pct(row.get("price_return20"))}'
+            f'<small>3일 {pct(row.get("price_return3"))} · 10일 {pct(row.get("price_return10"))}</small>'
+            f'<small>20일 저점반등 {pct(row.get("rebound_from_low20"))}</small></td>'
             f'<td class="action">{esc(row.get("action", ""))}'
             f'<small>{won(row.get("suggested_order_krw")) if row.get("suggested_order_krw", 0) else ""}</small></td>'
             f'<td class="condition">{esc(row.get("promotion_condition", "-"))}'
@@ -153,7 +155,7 @@ def _table(frame: pd.DataFrame, start_rank: int = 1, empty_message: str = "해�
     return (
         '<div class="table-wrap"><table><thead><tr>'
         '<th>#</th><th>종목</th><th>진입점수</th><th>매집강도</th><th>매집 국면</th>'
-        '<th>20일 외인</th><th>가격</th><th>액션</th><th>다음 조건</th>'
+        '<th>20일 외인</th><th>가격·단기열기</th><th>액션</th><th>다음 조건</th>'
         f'</tr></thead><tbody>{"".join(rows)}</tbody></table></div>'
     )
 
@@ -168,7 +170,18 @@ def _reason_list(row: pd.Series) -> str:
     reasons.append(
         f'매수일 {int(row.get("buy_days20", 0))}일·매도일 {int(row.get("sell_days20", 0))}일, 되팔기 비율 {number(row.get("sellback_ratio20") * 100, 0)}%'
     )
-    reasons.append(f'가격 {pct(row.get("price_return20"))}, 시장·업종 대비 {pct(row.get("price_residual20"))}')
+    reasons.append(
+        f'가격 1·3·5·10·20일 {pct(row.get("price_return1"))}·{pct(row.get("price_return3"))}·'
+        f'{pct(row.get("price_return5"))}·{pct(row.get("price_return10"))}·{pct(row.get("price_return20"))}'
+    )
+    reasons.append(
+        f'20일 저점 대비 {pct(row.get("rebound_from_low20"))}·20일선 대비 {pct(row.get("ma20_distance"))}·'
+        f'20일 고점 대비 {pct(row.get("distance_high20"))}'
+    )
+    if bool(row.get("price_heat_flag", False)):
+        reasons.append(
+            f'단기 가격과열: {row.get("price_heat_reason", "-")} (진입 벌점 {number(row.get("price_heat_penalty"))}점)'
+        )
     if row.get("absorption_signal") in {"강함", "보통", "주의"}:
         reasons.append(f'가격 하락 중 외국인 위험흡수 신호: {row.get("absorption_signal")}')
     if row.get("opinion_coverage", 0):
@@ -229,6 +242,11 @@ def _detail_cards(frame: pd.DataFrame) -> str:
             f'<span>외인 20일 <b>{eok(row.get("foreign_net20"))}</b></span>'
             f'<span>당일 외인 <b>{eok(row.get("foreign_net1"))}</b></span>'
             f'<span>외인 60일 <b>{eok(row.get("foreign_net60"))}</b></span>'
+            f'<span>가격 3일 <b>{pct(row.get("price_return3"))}</b></span>'
+            f'<span>가격 10일 <b>{pct(row.get("price_return10"))}</b></span>'
+            f'<span>저점반등 20일 <b>{pct(row.get("rebound_from_low20"))}</b></span>'
+            f'<span>20일선 이격 <b>{number(row.get("ma20_atr_distance"))} ATR</b></span>'
+            f'<span>반등 거래량 <b>{number(row.get("rebound_volume_ratio20"))}배</b></span>'
             f'<span>기관 보조 <b>{number(row.get("institution_overlay"))}</b></span>'
             f'<span>ROE <b>{number(row.get("roe"))}%</b></span>'
             f'<span>PER <b>{number(row.get("per"))}</b></span>'
@@ -304,16 +322,16 @@ def render_report(
 <h2>내 관찰 종목</h2>{_table(watched)}
 <h2>상세 분석</h2>{_detail_cards(pd.concat([new_buys, add_buys, wait_candidates, watched]).drop_duplicates('symbol').head(12))}
 <h2>국면 해석</h2><div class="legend"><div><b>지속매집</b>20일 순매수·매수일 비율·되팔기 비율이 함께 양호</div><div><b>장기매집·휴식</b>60·120일 재고는 남아 있으나 최근 5일은 잠시 매도</div><div><b>신규재진입</b>장기 순매도 뒤 최근 20·5일 외국인이 다시 들어오는 전환</div><div><b>상승진행</b>매집은 유효하지만 가격이 먼저 올라 신규 추격은 제한</div><div><b>기관주도·외인확인</b>기관이 가격을 이끌고 외국인 확인은 아직 부족</div><div><b>이상대량·확인</b>소수 대량 거래가 전체 수급을 왜곡할 수 있어 블록·이벤트 확인 필요</div></div>
-<p class="note">진입점수는 매집 강도와 가격 미반응을 분리해 계산하며, 20거래일 외국인 500억원 이상에는 대형 매집 신호를 부여한다. 확률은 백테스트 보정 전이므로 표에서는 제외했다. 주문 API는 포함되어 있지 않다.</p>
+<p class="note">진입점수는 매집 강도와 가격 미반응을 분리한다. 가격 과열은 1·3·5·10·20일 수익률, 10·20일 저점 반등, 20일선·ATR 이격, 상승일 수, 반등 거래량과 20일 고점 접근도를 함께 본다. 20거래일 외국인 500억원 이상에는 대형 매집 신호를 부여한다. 확률은 백테스트 보정 전이므로 표에서는 제외했다. 주문 API는 포함되어 있지 않다.</p>
 </main></body></html>"""
 
     def md_section(title: str, frame: pd.DataFrame) -> str:
-        lines = [f"### {title}", "", "| 순위 | 종목 | 진입 | 매집 | 국면 | 외인 20일 | 가격 20일 | 액션 |", "|---:|---|---:|---:|---|---:|---:|---|"]
+        lines = [f"### {title}", "", "| 순위 | 종목 | 진입 | 매집 | 국면 | 외인 20일 | 가격 20일 | 저점반등 20일 | 액션 |", "|---:|---|---:|---:|---|---:|---:|---:|---|"]
         if frame.empty:
-            lines.append("| - | 해당 없음 | - | - | - | - | - | - |")
+            lines.append("| - | 해당 없음 | - | - | - | - | - | - | - |")
         else:
             for rank, (_, row) in enumerate(frame.head(10).iterrows(), 1):
-                lines.append(f"| {rank} | {row['name']} ({row['symbol']}) | {row['entry_score']:.1f} | {row['campaign_score']:.1f} | {row['campaign_regime']} | {eok(row['foreign_net20'])} | {pct(row['price_return20'])} | {row['action']} |")
+                lines.append(f"| {rank} | {row['name']} ({row['symbol']}) | {row['entry_score']:.1f} | {row['campaign_score']:.1f} | {row['campaign_regime']} | {eok(row['foreign_net20'])} | {pct(row['price_return20'])} | {pct(row.get('rebound_from_low20'))} | {row['action']} |")
         return "\n".join(lines)
 
     markdown = "\n\n".join(
