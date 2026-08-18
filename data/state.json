@@ -13,7 +13,7 @@
       "name": "하이트진로",
       "score": 74.8,
       "stage": "매집·눌림",
-      "timing_score": 78.3
+      "timing_score": 81.3
     },
     "000100": {
       "action": "수익실현 신호·신규 추격 금지",
@@ -41,7 +41,7 @@
       "name": "CJ대한통운",
       "score": 29.8,
       "stage": "분산·이탈",
-      "timing_score": 35.1
+      "timing_score": 41.1
     },
     "000150": {
       "action": "비중 축소·신규매수 금지",
@@ -83,7 +83,7 @@
       "name": "한국앤컴퍼니",
       "score": 41.8,
       "stage": "중립",
-      "timing_score": 82.6
+      "timing_score": 85.6
     },
     "000250": {
       "action": "비중 축소·신규매수 금지",
@@ -111,7 +111,7 @@
       "name": "기아",
       "score": 75.4,
       "stage": "가격상승",
-      "timing_score": 86.4
+      "timing_score": 89.4
     },
     "000370": {
       "action": "추격 금지·첫 눌림 대기",
@@ -139,7 +139,7 @@
       "name": "롯데손해보험",
       "score": 17.4,
       "stage": "분산·이탈",
-      "timing_score": 65.6
+      "timing_score": 71.6
     },
     "000500": {
       "action": "비중 축소·신규매수 금지",
@@ -153,20 +153,20 @@
       "name": "가온전선",
       "score": 38.0,
       "stage": "분산·이탈",
-      "timing_score": 70.7
+      "timing_score": 76.7
     },
     "000640": {
-      "action": "추격 금지·첫 눌림 대기",
-      "campaign_regime": "상승진행",
+      "action": "매집 중 하락흡수·20일선 접촉 대기",
+      "campaign_regime": "지속매집",
       "campaign_score": 67.4,
-      "discovery_score": 26.2,
+      "discovery_score": 66.5,
       "distribution_score": 14.2,
-      "entry_score": 39.5,
+      "entry_score": 43.5,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "동아쏘시오홀딩스",
-      "score": 58.7,
-      "stage": "가격상승",
+      "score": 63.7,
+      "stage": "매집·눌림",
       "timing_score": 23.0
     },
     "000660": {
@@ -181,7 +181,7 @@
       "name": "SK하이닉스",
       "score": 49.0,
       "stage": "가격상승",
-      "timing_score": 81.6
+      "timing_score": 87.6
     },
     "000670": {
       "action": "비중 축소·신규매수 금지",
@@ -223,7 +223,7 @@
       "name": "삼성화재",
       "score": 41.6,
       "stage": "중립",
-      "timing_score": 34.7
+      "timing_score": 40.7
     },
     "000990": {
       "action": "추격 금지·첫 눌림 대기",
@@ -237,7 +237,7 @@
       "name": "DB하이텍",
       "score": 47.0,
       "stage": "중립",
-      "timing_score": 53.1
+      "timing_score": 56.1
     },
     "001040": {
       "action": "추격 금지·첫 눌림 대기",
@@ -251,7 +251,7 @@
       "name": "CJ",
       "score": 76.8,
       "stage": "가격상승",
-      "timing_score": 72.7
+      "timing_score": 78.7
     },
     "001120": {
       "action": "비중 축소·신규매수 금지",
@@ -265,7 +265,7 @@
       "name": "LX인터내셔널",
       "score": 27.6,
       "stage": "분산·이탈",
-      "timing_score": 51.1
+      "timing_score": 57.1
     },
     "001200": {
       "action": "기관 주도·외국인 확인 대기",
@@ -363,7 +363,7 @@
       "name": "안국약품",
       "score": 57.9,
       "stage": "가격상승",
-      "timing_score": 50.9
+      "timing_score": 56.9
     },
     "001680": {
       "action": "비중 축소·신규매수 금지",
@@ -377,7 +377,7 @@
       "name": "대상",
       "score": 29.0,
       "stage": "분산·이탈",
-      "timing_score": 39.9
+      "timing_score": 45.9
     },
     "001720": {
       "action": "첫 눌림 대기·추격 금지",
@@ -405,7 +405,7 @@
       "name": "SK네트웍스",
       "score": 60.1,
       "stage": "매집·눌림",
-      "timing_score": 23.1
+      "timing_score": 29.1
     },
     "001800": {
       "action": "급락 멈춤 확인·신규매수 대기",
@@ -461,7 +461,7 @@
       "name": "아세아",
       "score": 26.1,
       "stage": "분산·이탈",
-      "timing_score": 51.5
+      "timing_score": 57.5
     },
     "002380": {
       "action": "추격 금지·첫 눌림 대기",
@@ -545,7 +545,7 @@
       "name": "세아제강지주",
       "score": 35.5,
       "stage": "가격상승",
-      "timing_score": 34.7
+      "timing_score": 40.7
     },
     "003160": {
       "action": "기관 흡수 후 외국인 재확인",
@@ -573,7 +573,7 @@
       "name": "삼양식품",
       "score": 69.0,
       "stage": "가격상승",
-      "timing_score": 63.1
+      "timing_score": 69.1
     },
     "003240": {
       "action": "수익실현 신호·신규 추격 금지",
@@ -601,7 +601,7 @@
       "name": "흥아해운",
       "score": 39.9,
       "stage": "중립",
-      "timing_score": 41.5
+      "timing_score": 47.5
     },
     "003350": {
       "action": "수익실현 신호·신규 추격 금지",
@@ -657,7 +657,7 @@
       "name": "대한항공",
       "score": 67.5,
       "stage": "매집·눌림",
-      "timing_score": 39.8
+      "timing_score": 45.8
     },
     "003530": {
       "action": "기관 주도·외국인 확인 대기",
@@ -713,7 +713,7 @@
       "name": "SNT다이내믹스",
       "score": 67.4,
       "stage": "가격상승",
-      "timing_score": 68.4
+      "timing_score": 74.4
     },
     "003620": {
       "action": "추격 금지·첫 눌림 대기",
@@ -783,7 +783,7 @@
       "name": "롯데정밀화학",
       "score": 58.8,
       "stage": "매집·눌림",
-      "timing_score": 58.4
+      "timing_score": 64.4
     },
     "004020": {
       "action": "비중 축소·신규매수 금지",
@@ -811,7 +811,7 @@
       "name": "한국석유",
       "score": 51.0,
       "stage": "매집·눌림",
-      "timing_score": 40.0
+      "timing_score": 46.0
     },
     "004170": {
       "action": "기업 이벤트·급락 확인 전 매수 금지",
@@ -839,7 +839,7 @@
       "name": "현대약품",
       "score": 29.2,
       "stage": "중립",
-      "timing_score": 50.5
+      "timing_score": 56.5
     },
     "004370": {
       "action": "추격 금지·첫 눌림 대기",
@@ -867,7 +867,7 @@
       "name": "송원산업",
       "score": 38.1,
       "stage": "중립",
-      "timing_score": 25.0
+      "timing_score": 31.0
     },
     "004490": {
       "action": "추격 금지·첫 눌림 대기",
@@ -895,7 +895,7 @@
       "name": "한솔테크닉스",
       "score": 26.9,
       "stage": "분산·이탈",
-      "timing_score": 42.4
+      "timing_score": 48.4
     },
     "004800": {
       "action": "비중 축소·신규매수 금지",
@@ -993,7 +993,7 @@
       "name": "롯데칠성",
       "score": 54.3,
       "stage": "매집·눌림",
-      "timing_score": 48.1
+      "timing_score": 54.1
     },
     "005380": {
       "action": "첫 눌림 대기·추격 금지",
@@ -1035,7 +1035,7 @@
       "name": "한국공항",
       "score": 71.5,
       "stage": "가격상승",
-      "timing_score": 17.0
+      "timing_score": 23.0
     },
     "005440": {
       "action": "비중 축소·신규매수 금지",
@@ -1049,7 +1049,7 @@
       "name": "현대지에프홀딩스",
       "score": 27.4,
       "stage": "분산·이탈",
-      "timing_score": 38.8
+      "timing_score": 44.8
     },
     "005490": {
       "action": "추격 금지·첫 눌림 대기",
@@ -1105,7 +1105,7 @@
       "name": "DB손해보험",
       "score": 25.9,
       "stage": "분산·이탈",
-      "timing_score": 56.7
+      "timing_score": 59.7
     },
     "005850": {
       "action": "비중 축소·신규매수 금지",
@@ -1147,7 +1147,7 @@
       "name": "삼성전자",
       "score": 42.0,
       "stage": "중립",
-      "timing_score": 78.2
+      "timing_score": 81.2
     },
     "005940": {
       "action": "추격 금지·첫 눌림 대기",
@@ -1161,7 +1161,7 @@
       "name": "NH투자증권",
       "score": 66.7,
       "stage": "가격상승",
-      "timing_score": 68.3
+      "timing_score": 74.3
     },
     "005950": {
       "action": "추격 금지·첫 눌림 대기",
@@ -1217,7 +1217,7 @@
       "name": "SK디스커버리",
       "score": 58.4,
       "stage": "가격상승",
-      "timing_score": 43.6
+      "timing_score": 49.6
     },
     "006220": {
       "action": "추격 금지·첫 눌림 대기",
@@ -1315,7 +1315,7 @@
       "name": "대한유화",
       "score": 66.8,
       "stage": "매집·눌림",
-      "timing_score": 79.3
+      "timing_score": 85.3
     },
     "006730": {
       "action": "비중 축소·신규매수 금지",
@@ -1329,7 +1329,7 @@
       "name": "서부T&D",
       "score": 28.9,
       "stage": "분산·이탈",
-      "timing_score": 25.0
+      "timing_score": 31.0
     },
     "006800": {
       "action": "추격 금지·첫 눌림 대기",
@@ -1343,7 +1343,7 @@
       "name": "미래에셋증권",
       "score": 71.8,
       "stage": "가격상승",
-      "timing_score": 51.9
+      "timing_score": 54.9
     },
     "006910": {
       "action": "비중 축소·신규매수 금지",
@@ -1385,7 +1385,7 @@
       "name": "오뚜기",
       "score": 62.0,
       "stage": "초기매집",
-      "timing_score": 37.7
+      "timing_score": 40.7
     },
     "007340": {
       "action": "비중 축소·신규매수 금지",
@@ -1413,7 +1413,7 @@
       "name": "네이처셀",
       "score": 18.6,
       "stage": "분산·이탈",
-      "timing_score": 65.0
+      "timing_score": 71.0
     },
     "007660": {
       "action": "비중 축소·신규매수 금지",
@@ -1441,7 +1441,7 @@
       "name": "국도화학",
       "score": 71.4,
       "stage": "매집·눌림",
-      "timing_score": 25.8
+      "timing_score": 31.8
     },
     "007810": {
       "action": "비중 축소·신규매수 금지",
@@ -1483,7 +1483,7 @@
       "name": "호텔신라",
       "score": 76.8,
       "stage": "가격상승",
-      "timing_score": 68.7
+      "timing_score": 74.7
     },
     "008930": {
       "action": "기관 주도·외국인 확인 대기",
@@ -1525,20 +1525,20 @@
       "name": "한샘",
       "score": 26.7,
       "stage": "분산·이탈",
-      "timing_score": 15.0
+      "timing_score": 21.0
     },
     "009420": {
       "action": "첫 눌림 대기·추격 금지",
       "campaign_regime": "신규재진입",
       "campaign_score": 42.4,
-      "discovery_score": 20.1,
+      "discovery_score": 44.8,
       "distribution_score": 16.0,
-      "entry_score": 21.3,
+      "entry_score": 25.6,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "한올바이오파마",
-      "score": 43.5,
-      "stage": "가격상승",
+      "score": 48.9,
+      "stage": "매집·눌림",
       "timing_score": 72.5
     },
     "009450": {
@@ -1553,7 +1553,7 @@
       "name": "경동나비엔",
       "score": 25.3,
       "stage": "분산·이탈",
-      "timing_score": 7.9
+      "timing_score": 13.9
     },
     "009470": {
       "action": "첫 눌림 대기·추격 금지",
@@ -1595,7 +1595,7 @@
       "name": "HD한국조선해양",
       "score": 37.9,
       "stage": "분산·이탈",
-      "timing_score": 46.7
+      "timing_score": 49.7
     },
     "009830": {
       "action": "비중 축소·신규매수 금지",
@@ -1612,18 +1612,18 @@
       "timing_score": 34.6
     },
     "009970": {
-      "action": "급락 멈춤 확인·신규매수 대기",
+      "action": "매집 중 하락흡수 확인·신규매수 대기",
       "campaign_regime": "초기매집",
       "campaign_score": 40.9,
-      "discovery_score": 55.4,
+      "discovery_score": 57.4,
       "distribution_score": 12.0,
-      "entry_score": 50.8,
+      "entry_score": 54.8,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "영원무역홀딩스",
-      "score": 57.7,
-      "stage": "초기매집",
-      "timing_score": 65.3
+      "score": 62.8,
+      "stage": "매집·눌림",
+      "timing_score": 68.3
     },
     "010060": {
       "action": "비중 축소·신규매수 금지",
@@ -1679,7 +1679,7 @@
       "name": "삼성중공업",
       "score": 45.0,
       "stage": "가격상승",
-      "timing_score": 61.6
+      "timing_score": 67.6
     },
     "010170": {
       "action": "비중 축소·신규매수 금지",
@@ -1721,7 +1721,7 @@
       "name": "아이에스동서",
       "score": 62.0,
       "stage": "매집·눌림",
-      "timing_score": 33.0
+      "timing_score": 36.0
     },
     "010820": {
       "action": "비중 축소·신규매수 금지",
@@ -1763,7 +1763,7 @@
       "name": "LG이노텍",
       "score": 44.8,
       "stage": "가격상승",
-      "timing_score": 54.4
+      "timing_score": 57.4
     },
     "011170": {
       "action": "첫 눌림 대기·추격 금지",
@@ -1777,7 +1777,7 @@
       "name": "롯데케미칼",
       "score": 41.2,
       "stage": "중립",
-      "timing_score": 27.1
+      "timing_score": 33.1
     },
     "011200": {
       "action": "첫 눌림 대기·추격 금지",
@@ -1791,7 +1791,7 @@
       "name": "HMM",
       "score": 84.9,
       "stage": "매집·눌림",
-      "timing_score": 50.5
+      "timing_score": 56.5
     },
     "011210": {
       "action": "추격 금지·첫 눌림 대기",
@@ -1864,17 +1864,17 @@
       "timing_score": 77.1
     },
     "012450": {
-      "action": "추격 금지·첫 눌림 대기",
-      "campaign_regime": "상승진행",
+      "action": "매집 중 하락흡수·20일선 접촉 대기",
+      "campaign_regime": "장기매집·재가속",
       "campaign_score": 51.5,
-      "discovery_score": 18.6,
+      "discovery_score": 57.4,
       "distribution_score": 14.1,
-      "entry_score": 31.6,
+      "entry_score": 33.6,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "한화에어로스페이스",
-      "score": 41.1,
-      "stage": "가격상승",
+      "score": 43.7,
+      "stage": "매집·눌림",
       "timing_score": 61.6
     },
     "012630": {
@@ -1959,21 +1959,21 @@
       "name": "성광벤드",
       "score": 40.7,
       "stage": "중립",
-      "timing_score": 24.8
+      "timing_score": 30.8
     },
     "014680": {
-      "action": "추격 금지·첫 눌림 대기",
-      "campaign_regime": "상승진행",
+      "action": "위험흡수 구조 확인 대기",
+      "campaign_regime": "장기매집·재가속",
       "campaign_score": 55.7,
-      "discovery_score": 19.5,
+      "discovery_score": 65.0,
       "distribution_score": 11.9,
       "entry_score": 36.2,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "한솔케미칼",
       "score": 57.6,
-      "stage": "가격상승",
-      "timing_score": 54.6
+      "stage": "매집·눌림",
+      "timing_score": 60.6
     },
     "014940": {
       "action": "추격 금지·첫 눌림 대기",
@@ -2015,7 +2015,7 @@
       "name": "한국전력",
       "score": 70.4,
       "stage": "매집·눌림",
-      "timing_score": 27.0
+      "timing_score": 30.0
     },
     "016360": {
       "action": "위험흡수 구조 확인 대기",
@@ -2071,7 +2071,7 @@
       "name": "SK텔레콤",
       "score": 24.5,
       "stage": "분산·이탈",
-      "timing_score": 54.3
+      "timing_score": 57.3
     },
     "017800": {
       "action": "수익실현 신호·신규 추격 금지",
@@ -2183,7 +2183,7 @@
       "name": "SK가스",
       "score": 32.6,
       "stage": "분산·이탈",
-      "timing_score": 34.2
+      "timing_score": 37.2
     },
     "018880": {
       "action": "추격 금지·첫 눌림 대기",
@@ -2211,7 +2211,7 @@
       "name": "와이지-원",
       "score": 32.9,
       "stage": "매집휴식",
-      "timing_score": 69.0
+      "timing_score": 75.0
     },
     "020000": {
       "action": "위험흡수 구조 확인 대기",
@@ -2281,7 +2281,7 @@
       "name": "태광",
       "score": 28.1,
       "stage": "분산·이탈",
-      "timing_score": 20.7
+      "timing_score": 26.7
     },
     "023410": {
       "action": "첫 눌림 대기·추격 금지",
@@ -2351,7 +2351,7 @@
       "name": "기업은행",
       "score": 42.5,
       "stage": "중립",
-      "timing_score": 72.9
+      "timing_score": 78.9
     },
     "024840": {
       "action": "추격 금지·첫 눌림 대기",
@@ -2421,7 +2421,7 @@
       "name": "미래산업",
       "score": 41.4,
       "stage": "가격상승",
-      "timing_score": 64.1
+      "timing_score": 67.1
     },
     "025860": {
       "action": "비중 축소·신규매수 금지",
@@ -2463,7 +2463,7 @@
       "name": "동서",
       "score": 46.6,
       "stage": "매집휴식",
-      "timing_score": 54.5
+      "timing_score": 60.5
     },
     "027360": {
       "action": "비중 축소·신규매수 금지",
@@ -2547,7 +2547,7 @@
       "name": "삼성카드",
       "score": 36.6,
       "stage": "중립",
-      "timing_score": 79.6
+      "timing_score": 85.6
     },
     "030000": {
       "action": "매집 후보 강도 부족·대기",
@@ -2561,7 +2561,7 @@
       "name": "제일기획",
       "score": 38.2,
       "stage": "중립",
-      "timing_score": 71.5
+      "timing_score": 77.5
     },
     "030190": {
       "action": "비중 축소·신규매수 금지",
@@ -2589,7 +2589,7 @@
       "name": "KT",
       "score": 44.4,
       "stage": "중립",
-      "timing_score": 58.4
+      "timing_score": 64.4
     },
     "030520": {
       "action": "추격 금지·첫 눌림 대기",
@@ -2645,7 +2645,7 @@
       "name": "에스에이엠티",
       "score": 28.7,
       "stage": "분산·이탈",
-      "timing_score": 26.3
+      "timing_score": 32.3
     },
     "031980": {
       "action": "추격 금지·첫 눌림 대기",
@@ -2659,7 +2659,7 @@
       "name": "피에스케이홀딩스",
       "score": 38.6,
       "stage": "가격상승",
-      "timing_score": 40.9
+      "timing_score": 46.9
     },
     "032190": {
       "action": "추격 금지·첫 눌림 대기",
@@ -2715,7 +2715,7 @@
       "name": "피델릭스",
       "score": 21.7,
       "stage": "분산·이탈",
-      "timing_score": 18.2
+      "timing_score": 24.2
     },
     "032640": {
       "action": "비중 축소·신규매수 금지",
@@ -2729,7 +2729,7 @@
       "name": "LG유플러스",
       "score": 31.8,
       "stage": "분산·이탈",
-      "timing_score": 62.5
+      "timing_score": 68.5
     },
     "032820": {
       "action": "추격 금지·첫 눌림 대기",
@@ -2757,7 +2757,7 @@
       "name": "삼성생명",
       "score": 60.9,
       "stage": "매집·눌림",
-      "timing_score": 53.1
+      "timing_score": 59.1
     },
     "033100": {
       "action": "추격 금지·첫 눌림 대기",
@@ -2785,7 +2785,7 @@
       "name": "엠케이전자",
       "score": 26.0,
       "stage": "분산·이탈",
-      "timing_score": 19.4
+      "timing_score": 25.4
     },
     "033240": {
       "action": "비중 축소·신규매수 금지",
@@ -2841,7 +2841,7 @@
       "name": "KT&G",
       "score": 43.9,
       "stage": "매집휴식",
-      "timing_score": 42.6
+      "timing_score": 45.6
     },
     "033790": {
       "action": "비중 축소·신규매수 금지",
@@ -2883,7 +2883,7 @@
       "name": "LG디스플레이",
       "score": 29.6,
       "stage": "분산·이탈",
-      "timing_score": 49.2
+      "timing_score": 52.2
     },
     "034230": {
       "action": "외국인 재개 확인 후 분할매수",
@@ -2897,7 +2897,7 @@
       "name": "파라다이스",
       "score": 69.7,
       "stage": "매집·눌림",
-      "timing_score": 47.8
+      "timing_score": 53.8
     },
     "034730": {
       "action": "추격 금지·첫 눌림 대기",
@@ -2911,7 +2911,7 @@
       "name": "SK",
       "score": 53.7,
       "stage": "가격상승",
-      "timing_score": 74.8
+      "timing_score": 77.8
     },
     "035250": {
       "action": "기관 주도·외국인 확인 대기",
@@ -2925,7 +2925,7 @@
       "name": "강원랜드",
       "score": 44.5,
       "stage": "중립",
-      "timing_score": 65.7
+      "timing_score": 71.7
     },
     "035420": {
       "action": "기관 주도·외국인 확인 대기",
@@ -2981,7 +2981,7 @@
       "name": "JYP Ent.",
       "score": 29.3,
       "stage": "분산·이탈",
-      "timing_score": 26.2
+      "timing_score": 29.2
     },
     "036200": {
       "action": "비중 축소·신규매수 금지",
@@ -3051,7 +3051,7 @@
       "name": "감성코퍼레이션",
       "score": 33.6,
       "stage": "분산·이탈",
-      "timing_score": 35.5
+      "timing_score": 41.5
     },
     "036710": {
       "action": "비중 축소·신규매수 금지",
@@ -3163,7 +3163,7 @@
       "name": "삼지전자",
       "score": 30.9,
       "stage": "분산·이탈",
-      "timing_score": 23.8
+      "timing_score": 26.8
     },
     "037710": {
       "action": "급락 멈춤 확인·신규매수 대기",
@@ -3247,7 +3247,7 @@
       "name": "키움증권",
       "score": 84.7,
       "stage": "가격상승",
-      "timing_score": 57.2
+      "timing_score": 63.2
     },
     "039830": {
       "action": "수익실현 신호·신규 추격 금지",
@@ -3303,7 +3303,7 @@
       "name": "에스엠",
       "score": 56.0,
       "stage": "매집·눌림",
-      "timing_score": 49.6
+      "timing_score": 55.6
     },
     "041830": {
       "action": "비중 축소·신규매수 금지",
@@ -3373,7 +3373,7 @@
       "name": "한스바이오메드",
       "score": 47.7,
       "stage": "초기매집",
-      "timing_score": 24.1
+      "timing_score": 30.1
     },
     "042660": {
       "action": "추격 금지·첫 눌림 대기",
@@ -3446,17 +3446,17 @@
       "timing_score": 58.3
     },
     "046890": {
-      "action": "추격 금지·첫 눌림 대기",
-      "campaign_regime": "상승진행",
+      "action": "매집 중 하락흡수·20일선 접촉 대기",
+      "campaign_regime": "장기매집·재가속",
       "campaign_score": 62.3,
-      "discovery_score": 24.2,
+      "discovery_score": 61.2,
       "distribution_score": 12.8,
       "entry_score": 29.6,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "서울반도체",
       "score": 46.5,
-      "stage": "가격상승",
+      "stage": "매집·눌림",
       "timing_score": 69.8
     },
     "046970": {
@@ -3499,7 +3499,7 @@
       "name": "포스코인터내셔널",
       "score": 34.0,
       "stage": "분산·이탈",
-      "timing_score": 47.3
+      "timing_score": 53.3
     },
     "047810": {
       "action": "비중 축소·신규매수 금지",
@@ -3513,7 +3513,7 @@
       "name": "한국항공우주",
       "score": 30.3,
       "stage": "분산·이탈",
-      "timing_score": 56.4
+      "timing_score": 62.4
     },
     "047920": {
       "action": "추격 금지·첫 눌림 대기",
@@ -3625,7 +3625,7 @@
       "name": "한전KPS",
       "score": 32.4,
       "stage": "분산·이탈",
-      "timing_score": 40.4
+      "timing_score": 43.4
     },
     "051900": {
       "action": "추격 금지·첫 눌림 대기",
@@ -3681,7 +3681,7 @@
       "name": "코나아이",
       "score": 48.8,
       "stage": "초기매집",
-      "timing_score": 25.2
+      "timing_score": 31.2
     },
     "052460": {
       "action": "수익실현 신호·신규 추격 금지",
@@ -3723,7 +3723,7 @@
       "name": "아모텍",
       "score": 29.3,
       "stage": "분산·이탈",
-      "timing_score": 42.6
+      "timing_score": 48.6
     },
     "053610": {
       "action": "추격 금지·첫 눌림 대기",
@@ -3793,7 +3793,7 @@
       "name": "신한지주",
       "score": 58.9,
       "stage": "매집·눌림",
-      "timing_score": 73.9
+      "timing_score": 76.9
     },
     "056080": {
       "action": "비중 축소·신규매수 금지",
@@ -3975,7 +3975,7 @@
       "name": "LB세미콘",
       "score": 18.6,
       "stage": "분산·이탈",
-      "timing_score": 66.6
+      "timing_score": 72.6
     },
     "062040": {
       "action": "추격 금지·첫 눌림 대기",
@@ -4017,7 +4017,7 @@
       "name": "인텍플러스",
       "score": 27.8,
       "stage": "가격상승",
-      "timing_score": 29.7
+      "timing_score": 35.7
     },
     "064350": {
       "action": "추격 금지·첫 눌림 대기",
@@ -4031,7 +4031,7 @@
       "name": "현대로템",
       "score": 77.9,
       "stage": "가격상승",
-      "timing_score": 73.3
+      "timing_score": 79.3
     },
     "064400": {
       "action": "비중 축소·신규매수 금지",
@@ -4115,7 +4115,7 @@
       "name": "스모트로닉",
       "score": 24.3,
       "stage": "분산·이탈",
-      "timing_score": 45.3
+      "timing_score": 51.3
     },
     "066970": {
       "action": "비중 축소·신규매수 금지",
@@ -4157,7 +4157,7 @@
       "name": "JW신약",
       "score": 45.7,
       "stage": "가격상승",
-      "timing_score": 24.7
+      "timing_score": 30.7
     },
     "067310": {
       "action": "첫 눌림 대기·추격 금지",
@@ -4174,17 +4174,17 @@
       "timing_score": 44.5
     },
     "068270": {
-      "action": "추격 금지·첫 눌림 대기",
-      "campaign_regime": "상승진행",
+      "action": "매집 중 하락흡수·20일선 접촉 대기",
+      "campaign_regime": "장기매집·재가속",
       "campaign_score": 88.3,
-      "discovery_score": 41.2,
+      "discovery_score": 81.3,
       "distribution_score": 17.7,
-      "entry_score": 62.4,
+      "entry_score": 63.2,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "셀트리온",
-      "score": 70.0,
-      "stage": "가격상승",
+      "score": 71.0,
+      "stage": "매집·눌림",
       "timing_score": 49.7
     },
     "068760": {
@@ -4213,7 +4213,7 @@
       "name": "DMS",
       "score": 26.3,
       "stage": "분산·이탈",
-      "timing_score": 36.0
+      "timing_score": 39.0
     },
     "069080": {
       "action": "비중 축소·신규매수 금지",
@@ -4227,7 +4227,7 @@
       "name": "웹젠",
       "score": 28.8,
       "stage": "분산·이탈",
-      "timing_score": 30.9
+      "timing_score": 36.9
     },
     "069540": {
       "action": "추격 금지·첫 눌림 대기",
@@ -4255,7 +4255,7 @@
       "name": "대웅제약",
       "score": 77.4,
       "stage": "가격상승",
-      "timing_score": 53.1
+      "timing_score": 59.1
     },
     "069960": {
       "action": "기업 이벤트·급락 확인 전 매수 금지",
@@ -4283,7 +4283,7 @@
       "name": "한국금융지주",
       "score": 76.0,
       "stage": "가격상승",
-      "timing_score": 83.0
+      "timing_score": 89.0
     },
     "071320": {
       "action": "첫 눌림 대기·추격 금지",
@@ -4311,7 +4311,7 @@
       "name": "HD현대마린엔진",
       "score": 33.1,
       "stage": "분산·이탈",
-      "timing_score": 71.3
+      "timing_score": 77.3
     },
     "073240": {
       "action": "추격 금지·첫 눌림 대기",
@@ -4367,7 +4367,7 @@
       "name": "세진중공업",
       "score": 37.8,
       "stage": "분산·이탈",
-      "timing_score": 85.8
+      "timing_score": 88.8
     },
     "077360": {
       "action": "비중 축소·신규매수 금지",
@@ -4510,17 +4510,17 @@
       "timing_score": 68.7
     },
     "079550": {
-      "action": "추격 금지·첫 눌림 대기",
-      "campaign_regime": "상승진행",
+      "action": "매집 중 하락흡수·20일선 접촉 대기",
+      "campaign_regime": "장기매집·재가속",
       "campaign_score": 75.0,
-      "discovery_score": 38.6,
+      "discovery_score": 77.3,
       "distribution_score": 15.3,
-      "entry_score": 51.1,
+      "entry_score": 53.1,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "LIG디펜스앤에어로스페이스",
-      "score": 63.1,
-      "stage": "가격상승",
+      "score": 65.5,
+      "stage": "매집·눌림",
       "timing_score": 62.9
     },
     "079650": {
@@ -4563,7 +4563,7 @@
       "name": "가비아",
       "score": 56.9,
       "stage": "가격상승",
-      "timing_score": 58.5
+      "timing_score": 61.5
     },
     "080220": {
       "action": "비중 축소·신규매수 금지",
@@ -4633,7 +4633,7 @@
       "name": "한화엔진",
       "score": 28.4,
       "stage": "분산·이탈",
-      "timing_score": 53.2
+      "timing_score": 56.2
     },
     "082920": {
       "action": "비중 축소·신규매수 금지",
@@ -4647,20 +4647,20 @@
       "name": "비츠로셀",
       "score": 32.6,
       "stage": "분산·이탈",
-      "timing_score": 17.5
+      "timing_score": 23.5
     },
     "083450": {
-      "action": "추격 금지·첫 눌림 대기",
-      "campaign_regime": "상승진행",
+      "action": "매집 중 하락흡수·20일선 접촉 대기",
+      "campaign_regime": "장기매집·재가속",
       "campaign_score": 50.2,
-      "discovery_score": 20.1,
+      "discovery_score": 60.3,
       "distribution_score": 12.2,
-      "entry_score": 32.1,
+      "entry_score": 35.8,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "GST",
-      "score": 55.1,
-      "stage": "가격상승",
+      "score": 59.6,
+      "stage": "매집·눌림",
       "timing_score": 51.0
     },
     "083650": {
@@ -4801,7 +4801,7 @@
       "name": "하나금융지주",
       "score": 46.6,
       "stage": "중립",
-      "timing_score": 81.9
+      "timing_score": 84.9
     },
     "086900": {
       "action": "추격 금지·첫 눌림 대기",
@@ -4913,7 +4913,7 @@
       "name": "브이엠",
       "score": 25.8,
       "stage": "이벤트확인",
-      "timing_score": 30.0
+      "timing_score": 36.0
     },
     "090360": {
       "action": "비중 축소·신규매수 금지",
@@ -5000,17 +5000,17 @@
       "timing_score": 54.5
     },
     "092730": {
-      "action": "추격 금지·첫 눌림 대기",
-      "campaign_regime": "상승진행",
+      "action": "매집 중 하락흡수·20일선 접촉 대기",
+      "campaign_regime": "장기매집·재가속",
       "campaign_score": 86.3,
-      "discovery_score": 35.4,
+      "discovery_score": 80.0,
       "distribution_score": 21.4,
-      "entry_score": 38.6,
+      "entry_score": 44.1,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "네오팜",
-      "score": 62.0,
-      "stage": "가격상승",
+      "score": 68.9,
+      "stage": "매집·눌림",
       "timing_score": 48.5
     },
     "092790": {
@@ -5151,7 +5151,7 @@
       "name": "테스",
       "score": 21.5,
       "stage": "분산·이탈",
-      "timing_score": 41.2
+      "timing_score": 44.2
     },
     "095660": {
       "action": "첫 눌림 대기·추격 금지",
@@ -5319,7 +5319,7 @@
       "name": "SK오션플랜트",
       "score": 49.3,
       "stage": "가격상승",
-      "timing_score": 64.0
+      "timing_score": 70.0
     },
     "100790": {
       "action": "비중 축소·신규매수 금지",
@@ -5361,7 +5361,7 @@
       "name": "월덱스",
       "score": 50.9,
       "stage": "초기매집",
-      "timing_score": 45.0
+      "timing_score": 51.0
     },
     "101490": {
       "action": "비중 축소·신규매수 금지",
@@ -5403,20 +5403,20 @@
       "name": "코오롱생명과학",
       "score": 21.6,
       "stage": "이벤트확인",
-      "timing_score": 78.3
+      "timing_score": 81.3
     },
     "103140": {
-      "action": "추격 금지·첫 눌림 대기",
-      "campaign_regime": "상승진행",
+      "action": "매집 중 하락흡수·20일선 접촉 대기",
+      "campaign_regime": "지속매집",
       "campaign_score": 40.9,
-      "discovery_score": 5.7,
+      "discovery_score": 42.4,
       "distribution_score": 12.0,
-      "entry_score": 16.6,
+      "entry_score": 18.5,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "풍산",
-      "score": 43.5,
-      "stage": "가격상승",
+      "score": 46.0,
+      "stage": "매집·눌림",
       "timing_score": 41.3
     },
     "103590": {
@@ -5459,7 +5459,7 @@
       "name": "KB금융",
       "score": 45.3,
       "stage": "중립",
-      "timing_score": 74.7
+      "timing_score": 80.7
     },
     "105840": {
       "action": "수익실현 신호·신규 추격 금지",
@@ -5473,7 +5473,7 @@
       "name": "우진",
       "score": 60.2,
       "stage": "수익실현",
-      "timing_score": 19.7
+      "timing_score": 25.7
     },
     "107640": {
       "action": "추격 금지·첫 눌림 대기",
@@ -5557,7 +5557,7 @@
       "name": "영원무역",
       "score": 47.9,
       "stage": "초기매집",
-      "timing_score": 62.2
+      "timing_score": 68.2
     },
     "112040": {
       "action": "비중 축소·신규매수 금지",
@@ -5613,7 +5613,7 @@
       "name": "GKL",
       "score": 64.1,
       "stage": "매집·눌림",
-      "timing_score": 34.3
+      "timing_score": 40.3
     },
     "114810": {
       "action": "급락 멈춤 확인·신규매수 대기",
@@ -5739,21 +5739,21 @@
       "name": "와이지엔터테인먼트",
       "score": 29.3,
       "stage": "분산·이탈",
-      "timing_score": 39.4
+      "timing_score": 45.4
     },
     "123330": {
       "action": "급락 멈춤 확인·신규매수 대기",
       "campaign_regime": "신규재진입",
       "campaign_score": 25.9,
-      "discovery_score": 8.9,
+      "discovery_score": 44.1,
       "distribution_score": 11.2,
-      "entry_score": 21.8,
+      "entry_score": 25.4,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "제닉",
-      "score": 53.0,
-      "stage": "가격상승",
-      "timing_score": 47.4
+      "score": 57.6,
+      "stage": "매집·눌림",
+      "timing_score": 53.4
     },
     "124500": {
       "action": "비중 축소·신규매수 금지",
@@ -5840,31 +5840,31 @@
       "timing_score": 39.2
     },
     "127120": {
-      "action": "추격 금지·첫 눌림 대기",
-      "campaign_regime": "상승진행",
+      "action": "매집 중 하락흡수·20일선 접촉 대기",
+      "campaign_regime": "장기매집·재가속",
       "campaign_score": 73.6,
-      "discovery_score": 27.8,
+      "discovery_score": 64.8,
       "distribution_score": 12.1,
       "entry_score": 31.7,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "제이에스링크",
       "score": 55.4,
-      "stage": "가격상승",
+      "stage": "매집·눌림",
       "timing_score": 55.5
     },
     "128940": {
-      "action": "추격 금지·첫 눌림 대기",
-      "campaign_regime": "상승진행",
+      "action": "매집 중 하락흡수·20일선 접촉 대기",
+      "campaign_regime": "지속매집",
       "campaign_score": 56.6,
-      "discovery_score": 30.8,
+      "discovery_score": 66.7,
       "distribution_score": 13.2,
       "entry_score": 43.9,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "한미약품",
       "score": 76.7,
-      "stage": "가격상승",
+      "stage": "매집·눌림",
       "timing_score": 46.3
     },
     "130660": {
@@ -5907,7 +5907,7 @@
       "name": "두산테스나",
       "score": 32.4,
       "stage": "가격상승",
-      "timing_score": 53.1
+      "timing_score": 56.1
     },
     "137400": {
       "action": "비중 축소·신규매수 금지",
@@ -5935,7 +5935,7 @@
       "name": "메리츠금융지주",
       "score": 58.5,
       "stage": "초기매집",
-      "timing_score": 57.1
+      "timing_score": 60.1
     },
     "138080": {
       "action": "비중 축소·신규매수 금지",
@@ -5991,7 +5991,7 @@
       "name": "iM금융지주",
       "score": 33.1,
       "stage": "분산·이탈",
-      "timing_score": 53.5
+      "timing_score": 59.5
     },
     "139480": {
       "action": "비중 축소·신규매수 금지",
@@ -6005,7 +6005,7 @@
       "name": "이마트",
       "score": 32.5,
       "stage": "분산·이탈",
-      "timing_score": 31.7
+      "timing_score": 37.7
     },
     "140410": {
       "action": "비중 축소·신규매수 금지",
@@ -6022,31 +6022,31 @@
       "timing_score": 30.7
     },
     "140860": {
-      "action": "추격 금지·첫 눌림 대기",
-      "campaign_regime": "상승진행",
+      "action": "매집 중 하락흡수·20일선 접촉 대기",
+      "campaign_regime": "장기매집·재가속",
       "campaign_score": 88.9,
-      "discovery_score": 52.5,
+      "discovery_score": 94.4,
       "distribution_score": 17.5,
-      "entry_score": 59.3,
+      "entry_score": 64.9,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "파크시스템스",
-      "score": 79.3,
-      "stage": "가격상승",
+      "score": 86.3,
+      "stage": "매집·눌림",
       "timing_score": 56.1
     },
     "141080": {
       "action": "첫 눌림 대기·추격 금지",
       "campaign_regime": "신규재진입",
       "campaign_score": 58.2,
-      "discovery_score": 31.2,
+      "discovery_score": 52.2,
       "distribution_score": 23.8,
       "entry_score": 39.3,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "리가켐바이오",
       "score": 50.9,
-      "stage": "가격상승",
+      "stage": "매집·눌림",
       "timing_score": 51.3
     },
     "144960": {
@@ -6075,7 +6075,7 @@
       "name": "휴젤",
       "score": 74.5,
       "stage": "가격상승",
-      "timing_score": 47.7
+      "timing_score": 53.7
     },
     "153890": {
       "action": "비중 축소·신규매수 금지",
@@ -6131,7 +6131,7 @@
       "name": "싸이맥스",
       "score": 27.1,
       "stage": "분산·이탈",
-      "timing_score": 70.1
+      "timing_score": 73.1
     },
     "161390": {
       "action": "기관 주도·외국인 확인 대기",
@@ -6145,7 +6145,7 @@
       "name": "한국타이어앤테크놀로지",
       "score": 43.7,
       "stage": "가격상승",
-      "timing_score": 88.0
+      "timing_score": 91.0
     },
     "161580": {
       "action": "추격 금지·첫 눌림 대기",
@@ -6201,7 +6201,7 @@
       "name": "펨트론",
       "score": 39.1,
       "stage": "초기매집",
-      "timing_score": 51.2
+      "timing_score": 54.2
     },
     "170920": {
       "action": "기업 이벤트·급락 확인 전 매수 금지",
@@ -6215,7 +6215,7 @@
       "name": "엘티씨",
       "score": 4.0,
       "stage": "이벤트확인",
-      "timing_score": 23.5
+      "timing_score": 29.5
     },
     "171090": {
       "action": "비중 축소·신규매수 금지",
@@ -6257,7 +6257,7 @@
       "name": "JB금융지주",
       "score": 62.3,
       "stage": "매집·눌림",
-      "timing_score": 58.6
+      "timing_score": 64.6
     },
     "178320": {
       "action": "비중 축소·신규매수 금지",
@@ -6271,7 +6271,7 @@
       "name": "서진시스템",
       "score": 19.2,
       "stage": "분산·이탈",
-      "timing_score": 30.7
+      "timing_score": 36.7
     },
     "178920": {
       "action": "비중 축소·신규매수 금지",
@@ -6327,7 +6327,7 @@
       "name": "종근당",
       "score": 38.0,
       "stage": "중립",
-      "timing_score": 29.5
+      "timing_score": 35.5
     },
     "187660": {
       "action": "비중 축소·신규매수 금지",
@@ -6341,7 +6341,7 @@
       "name": "페니트리움바이오",
       "score": 15.7,
       "stage": "분산·이탈",
-      "timing_score": 29.6
+      "timing_score": 35.6
     },
     "187870": {
       "action": "추격 금지·첫 눌림 대기",
@@ -6397,7 +6397,7 @@
       "name": "더블유게임즈",
       "score": 71.6,
       "stage": "매집·눌림",
-      "timing_score": 36.4
+      "timing_score": 42.4
     },
     "192650": {
       "action": "비중 축소·신규매수 금지",
@@ -6431,14 +6431,14 @@
       "action": "급락 멈춤 확인·신규매수 대기",
       "campaign_regime": "신규재진입",
       "campaign_score": 58.7,
-      "discovery_score": 37.5,
+      "discovery_score": 61.4,
       "distribution_score": 7.1,
-      "entry_score": 42.2,
+      "entry_score": 45.0,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "제이에스코퍼레이션",
-      "score": 61.1,
-      "stage": "가격상승",
+      "score": 64.6,
+      "stage": "매집·눌림",
       "timing_score": 33.2
     },
     "194480": {
@@ -6456,18 +6456,18 @@
       "timing_score": 15.4
     },
     "194700": {
-      "action": "추격 금지·첫 눌림 대기",
-      "campaign_regime": "상승진행",
+      "action": "매집 중 하락흡수 확인·신규매수 대기",
+      "campaign_regime": "지속매집",
       "campaign_score": 44.6,
-      "discovery_score": 11.4,
+      "discovery_score": 60.9,
       "distribution_score": 6.3,
-      "entry_score": 37.4,
+      "entry_score": 41.4,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "노바렉스",
-      "score": 58.3,
-      "stage": "가격상승",
-      "timing_score": 47.8
+      "score": 63.3,
+      "stage": "매집·눌림",
+      "timing_score": 53.8
     },
     "195870": {
       "action": "기관 주도·외국인 확인 대기",
@@ -6655,14 +6655,14 @@
       "action": "첫 눌림 대기·추격 금지",
       "campaign_regime": "신규재진입",
       "campaign_score": 47.4,
-      "discovery_score": 34.4,
+      "discovery_score": 58.8,
       "distribution_score": 12.1,
-      "entry_score": 43.3,
+      "entry_score": 47.2,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "인카금융서비스",
-      "score": 69.8,
-      "stage": "가격상승",
+      "score": 74.7,
+      "stage": "매집·눌림",
       "timing_score": 56.1
     },
     "213420": {
@@ -6691,7 +6691,7 @@
       "name": "클래시스",
       "score": 30.8,
       "stage": "분산·이탈",
-      "timing_score": 25.0
+      "timing_score": 28.0
     },
     "214320": {
       "action": "첫 눌림 대기·추격 금지",
@@ -6705,21 +6705,21 @@
       "name": "이노션",
       "score": 75.9,
       "stage": "매집·눌림",
-      "timing_score": 51.0
+      "timing_score": 57.0
     },
     "214370": {
-      "action": "추격 금지·첫 눌림 대기",
-      "campaign_regime": "상승진행",
+      "action": "매집 중 하락흡수 확인·신규매수 대기",
+      "campaign_regime": "장기매집·재가속",
       "campaign_score": 76.9,
-      "discovery_score": 37.2,
+      "discovery_score": 82.3,
       "distribution_score": 15.5,
       "entry_score": 47.0,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "케어젠",
       "score": 66.3,
-      "stage": "가격상승",
-      "timing_score": 54.7
+      "stage": "매집·눌림",
+      "timing_score": 60.7
     },
     "214430": {
       "action": "비중 축소·신규매수 금지",
@@ -6887,7 +6887,7 @@
       "name": "올릭스",
       "score": 28.9,
       "stage": "초기매집",
-      "timing_score": 43.1
+      "timing_score": 49.1
     },
     "228760": {
       "action": "비중 축소·신규매수 금지",
@@ -6929,7 +6929,7 @@
       "name": "에치에프알",
       "score": 15.8,
       "stage": "분산·이탈",
-      "timing_score": 31.3
+      "timing_score": 37.3
     },
     "232140": {
       "action": "비중 축소·신규매수 금지",
@@ -6988,18 +6988,18 @@
       "timing_score": 44.1
     },
     "237690": {
-      "action": "추격 금지·첫 눌림 대기",
-      "campaign_regime": "상승진행",
+      "action": "매집 중 하락흡수·첫 눌림 대기",
+      "campaign_regime": "지속매집",
       "campaign_score": 67.7,
-      "discovery_score": 40.6,
+      "discovery_score": 78.6,
       "distribution_score": 17.5,
       "entry_score": 50.9,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "에스티팜",
       "score": 76.4,
-      "stage": "가격상승",
-      "timing_score": 60.8
+      "stage": "매집·눌림",
+      "timing_score": 66.8
     },
     "240810": {
       "action": "첫 눌림 대기·추격 금지",
@@ -7013,7 +7013,7 @@
       "name": "원익IPS",
       "score": 42.1,
       "stage": "중립",
-      "timing_score": 64.7
+      "timing_score": 67.7
     },
     "241520": {
       "action": "추격 금지·첫 눌림 대기",
@@ -7128,17 +7128,17 @@
       "timing_score": 27.4
     },
     "251970": {
-      "action": "추격 금지·첫 눌림 대기",
-      "campaign_regime": "상승진행",
+      "action": "매집 중 하락흡수·20일선 접촉 대기",
+      "campaign_regime": "초기매집",
       "campaign_score": 53.2,
-      "discovery_score": 14.7,
+      "discovery_score": 52.6,
       "distribution_score": 12.7,
-      "entry_score": 22.5,
+      "entry_score": 28.1,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "펌텍코리아",
-      "score": 47.8,
-      "stage": "가격상승",
+      "score": 54.8,
+      "stage": "매집·눌림",
       "timing_score": 66.3
     },
     "252990": {
@@ -7223,20 +7223,20 @@
       "name": "크래프톤",
       "score": 40.4,
       "stage": "매집휴식",
-      "timing_score": 61.3
+      "timing_score": 67.3
     },
     "260970": {
-      "action": "추격 금지·첫 눌림 대기",
-      "campaign_regime": "상승진행",
+      "action": "매집 중 하락흡수·20일선 접촉 대기",
+      "campaign_regime": "지속매집",
       "campaign_score": 58.1,
-      "discovery_score": 24.3,
+      "discovery_score": 62.9,
       "distribution_score": 24.0,
-      "entry_score": 38.9,
+      "entry_score": 42.6,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "에스앤디",
-      "score": 62.8,
-      "stage": "가격상승",
+      "score": 67.4,
+      "stage": "매집·눌림",
       "timing_score": 27.3
     },
     "263750": {
@@ -7251,7 +7251,7 @@
       "name": "펄어비스",
       "score": 35.3,
       "stage": "분산·이탈",
-      "timing_score": 25.0
+      "timing_score": 28.0
     },
     "264850": {
       "action": "첫 눌림 대기·추격 금지",
@@ -7349,7 +7349,7 @@
       "name": "오리온",
       "score": 78.4,
       "stage": "매집·눌림",
-      "timing_score": 61.1
+      "timing_score": 67.1
     },
     "272110": {
       "action": "비중 축소·신규매수 금지",
@@ -7363,7 +7363,7 @@
       "name": "케이엔제이",
       "score": 26.4,
       "stage": "분산·이탈",
-      "timing_score": 21.6
+      "timing_score": 27.6
     },
     "272210": {
       "action": "추격 금지·첫 눌림 대기",
@@ -7422,17 +7422,17 @@
       "timing_score": 73.3
     },
     "278470": {
-      "action": "추격 금지·첫 눌림 대기",
-      "campaign_regime": "상승진행",
+      "action": "매집 중 하락흡수·20일선 접촉 대기",
+      "campaign_regime": "장기매집·재가속",
       "campaign_score": 53.2,
-      "discovery_score": 25.9,
+      "discovery_score": 65.3,
       "distribution_score": 22.0,
-      "entry_score": 44.1,
+      "entry_score": 46.9,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "에이피알",
-      "score": 58.5,
-      "stage": "가격상승",
+      "score": 61.9,
+      "stage": "매집·눌림",
       "timing_score": 73.8
     },
     "279570": {
@@ -7447,7 +7447,7 @@
       "name": "케이뱅크",
       "score": 57.7,
       "stage": "매집·눌림",
-      "timing_score": 67.4
+      "timing_score": 73.4
     },
     "280360": {
       "action": "수익실현 신호·신규 추격 금지",
@@ -7489,7 +7489,7 @@
       "name": "케이씨텍",
       "score": 6.2,
       "stage": "이벤트확인",
-      "timing_score": 47.5
+      "timing_score": 53.5
     },
     "282330": {
       "action": "추격 금지·첫 눌림 대기",
@@ -7531,7 +7531,7 @@
       "name": "디케이티",
       "score": 44.4,
       "stage": "가격상승",
-      "timing_score": 31.5
+      "timing_score": 37.5
     },
     "290650": {
       "action": "추격 금지·첫 눌림 대기",
@@ -7545,7 +7545,7 @@
       "name": "엘앤씨바이오",
       "score": 57.1,
       "stage": "가격상승",
-      "timing_score": 24.2
+      "timing_score": 27.2
     },
     "290690": {
       "action": "첫 눌림 대기·추격 금지",
@@ -7559,7 +7559,7 @@
       "name": "아리바이오홀딩스",
       "score": 32.7,
       "stage": "중립",
-      "timing_score": 36.3
+      "timing_score": 42.3
     },
     "293490": {
       "action": "비중 축소·신규매수 금지",
@@ -7629,7 +7629,7 @@
       "name": "효성티앤씨",
       "score": 36.8,
       "stage": "가격상승",
-      "timing_score": 62.0
+      "timing_score": 68.0
     },
     "298040": {
       "action": "추격 금지·첫 눌림 대기",
@@ -7839,7 +7839,7 @@
       "name": "피에스케이",
       "score": 21.0,
       "stage": "이벤트확인",
-      "timing_score": 54.6
+      "timing_score": 60.6
     },
     "322000": {
       "action": "비중 축소·신규매수 금지",
@@ -7853,7 +7853,7 @@
       "name": "HD현대에너지솔루션",
       "score": 27.3,
       "stage": "분산·이탈",
-      "timing_score": 53.3
+      "timing_score": 59.3
     },
     "322310": {
       "action": "추격 금지·첫 눌림 대기",
@@ -7867,7 +7867,7 @@
       "name": "오로스테크놀로지",
       "score": 32.8,
       "stage": "초기매집",
-      "timing_score": 56.7
+      "timing_score": 59.7
     },
     "323280": {
       "action": "비중 축소·신규매수 금지",
@@ -7895,7 +7895,7 @@
       "name": "카카오뱅크",
       "score": 64.8,
       "stage": "매집·눌림",
-      "timing_score": 52.3
+      "timing_score": 58.3
     },
     "326030": {
       "action": "수익실현 신호·신규 추격 금지",
@@ -7965,7 +7965,7 @@
       "name": "네패스아크",
       "score": 42.4,
       "stage": "가격상승",
-      "timing_score": 47.0
+      "timing_score": 50.0
     },
     "332570": {
       "action": "기관 주도·외국인 확인 대기",
@@ -8063,7 +8063,7 @@
       "name": "디앤디파마텍",
       "score": 36.0,
       "stage": "중립",
-      "timing_score": 58.5
+      "timing_score": 64.5
     },
     "348210": {
       "action": "추격 금지·첫 눌림 대기",
@@ -8133,7 +8133,7 @@
       "name": "대덕전자",
       "score": 29.8,
       "stage": "분산·이탈",
-      "timing_score": 59.5
+      "timing_score": 62.5
     },
     "354320": {
       "action": "비중 축소·신규매수 금지",
@@ -8189,7 +8189,7 @@
       "name": "티엘비",
       "score": 33.8,
       "stage": "분산·이탈",
-      "timing_score": 53.6
+      "timing_score": 56.6
     },
     "357780": {
       "action": "기관 흡수 후 외국인 재확인",
@@ -8315,7 +8315,7 @@
       "name": "디어유",
       "score": 27.4,
       "stage": "분산·이탈",
-      "timing_score": 54.5
+      "timing_score": 60.5
     },
     "376900": {
       "action": "기업 이벤트·급락 확인 전 매수 금지",
@@ -8413,7 +8413,7 @@
       "name": "씨엠티엑스",
       "score": 28.5,
       "stage": "분산·이탈",
-      "timing_score": 31.5
+      "timing_score": 37.5
     },
     "388720": {
       "action": "첫 눌림 대기·추격 금지",
@@ -8497,7 +8497,7 @@
       "name": "넥스트바이오메디컬",
       "score": 53.5,
       "stage": "초기매집",
-      "timing_score": 55.8
+      "timing_score": 61.8
     },
     "393890": {
       "action": "비중 축소·신규매수 금지",
@@ -8525,7 +8525,7 @@
       "name": "리센스메디컬",
       "score": 47.5,
       "stage": "매집·눌림",
-      "timing_score": 54.9
+      "timing_score": 57.9
     },
     "396300": {
       "action": "비중 축소·신규매수 금지",
@@ -8609,7 +8609,7 @@
       "name": "씨피시스템",
       "score": 36.1,
       "stage": "가격상승",
-      "timing_score": 16.3
+      "timing_score": 22.3
     },
     "417200": {
       "action": "추격 금지·첫 눌림 대기",
@@ -8679,7 +8679,7 @@
       "name": "기가비스",
       "score": 28.9,
       "stage": "이벤트확인",
-      "timing_score": 49.1
+      "timing_score": 55.1
     },
     "425040": {
       "action": "추격 금지·첫 눌림 대기",
@@ -8707,7 +8707,7 @@
       "name": "티에프이",
       "score": 38.8,
       "stage": "분산·이탈",
-      "timing_score": 49.5
+      "timing_score": 52.5
     },
     "437730": {
       "action": "비중 축소·신규매수 금지",
@@ -8763,7 +8763,7 @@
       "name": "코스모로보틱스",
       "score": 4.9,
       "stage": "중립",
-      "timing_score": 30.9
+      "timing_score": 36.9
     },
     "440110": {
       "action": "추격 금지·첫 눌림 대기",
@@ -8777,7 +8777,7 @@
       "name": "파두",
       "score": 50.4,
       "stage": "가격상승",
-      "timing_score": 68.9
+      "timing_score": 74.9
     },
     "441270": {
       "action": "비중 축소·신규매수 금지",
@@ -8805,7 +8805,7 @@
       "name": "HD현대마린솔루션",
       "score": 78.5,
       "stage": "매집·눌림",
-      "timing_score": 31.0
+      "timing_score": 37.0
     },
     "445680": {
       "action": "비중 축소·신규매수 금지",
@@ -8819,7 +8819,7 @@
       "name": "큐리옥스바이오시스템즈",
       "score": 6.4,
       "stage": "분산·이탈",
-      "timing_score": 40.9
+      "timing_score": 43.9
     },
     "446540": {
       "action": "비중 축소·신규매수 금지",
@@ -8987,7 +8987,7 @@
       "name": "씨어스",
       "score": 24.3,
       "stage": "분산·이탈",
-      "timing_score": 18.4
+      "timing_score": 21.4
     },
     "459510": {
       "action": "비중 축소·신규매수 금지",
@@ -9057,7 +9057,7 @@
       "name": "시프트업",
       "score": 63.7,
       "stage": "매집·눌림",
-      "timing_score": 23.2
+      "timing_score": 29.2
     },
     "466100": {
       "action": "비중 축소·신규매수 금지",
@@ -9113,7 +9113,7 @@
       "name": "SK이터닉스",
       "score": 37.5,
       "stage": "가격상승",
-      "timing_score": 56.9
+      "timing_score": 62.9
     },
     "475400": {
       "action": "비중 축소·신규매수 금지",
@@ -9155,7 +9155,7 @@
       "name": "토모큐브",
       "score": 40.5,
       "stage": "중립",
-      "timing_score": 22.6
+      "timing_score": 28.6
     },
     "476060": {
       "action": "비중 축소·신규매수 금지",
@@ -9225,7 +9225,7 @@
       "name": "달바글로벌",
       "score": 55.1,
       "stage": "가격상승",
-      "timing_score": 15.7
+      "timing_score": 21.7
     },
     "484590": {
       "action": "추격 금지·첫 눌림 대기",
@@ -9267,7 +9267,7 @@
       "name": "엠앤씨솔루션",
       "score": 17.7,
       "stage": "분산·이탈",
-      "timing_score": 48.6
+      "timing_score": 54.6
     },
     "486990": {
       "action": "첫 눌림 대기·추격 금지",
@@ -9298,17 +9298,17 @@
       "timing_score": 33.7
     },
     "489790": {
-      "action": "추격 금지·첫 눌림 대기",
-      "campaign_regime": "상승진행",
+      "action": "매집 중 하락흡수·20일선 접촉 대기",
+      "campaign_regime": "장기매집·재가속",
       "campaign_score": 64.8,
-      "discovery_score": 21.6,
+      "discovery_score": 58.6,
       "distribution_score": 12.0,
       "entry_score": 28.2,
       "first_seen": "2026-08-14",
       "last_seen": "2026-08-14",
       "name": "한화비전",
       "score": 43.8,
-      "stage": "가격상승",
+      "stage": "매집·눌림",
       "timing_score": 50.1
     },
     "490470": {
