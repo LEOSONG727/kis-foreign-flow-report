@@ -10,6 +10,7 @@ import pandas as pd
 
 from .brief import annotate_watch_brief, select_daily_brief
 from .config import BriefConfig, ModelConfig
+from .notify import build_headline, render_headline_html, render_headline_markdown
 
 
 @dataclass(frozen=True)
@@ -337,6 +338,14 @@ table{min-width:1220px}.condition{max-width:330px;white-space:normal}.condition 
 .block-line,.next-line{background:#0c121a;border-radius:8px;padding:10px 12px;font-size:13px;margin:8px 0}
 .block-line{border-left:3px solid var(--orange)}.next-line{border-left:3px solid var(--green)}
 .block-line b,.next-line b{display:block;font-size:11px;color:var(--muted);margin-bottom:3px}
+.headline{background:linear-gradient(145deg,#151c26,#0e141d);border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin:0 0 18px}
+.headline-kicker{color:var(--yellow);font-size:12px;font-weight:800;letter-spacing:.04em}
+.headline h2{margin:6px 0 8px;font-size:22px}
+.headline-verdict{color:var(--muted);margin:0 0 10px}
+.headline ol{margin:0;padding-left:22px}
+.headline li{margin:6px 0;font-size:16px}
+.headline li span{color:var(--muted);font-size:13px;margin-left:8px}
+.headline-funnel{color:var(--muted);font-size:12px;margin:12px 0 0}
 """
 
 
@@ -408,9 +417,11 @@ def render_report(
     brief_count = int(len(daily_brief))
     large_flow_count = int(ranked["large_flow_signal"].fillna(False).sum())
     report_date = pd.to_datetime(ranked["as_of"].max()).strftime("%Y-%m-%d") if not ranked.empty else generated_at.strftime("%Y-%m-%d")
+    headline = build_headline(ranked, brief, model)
 
     html_text = f"""<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>외국인 매집 리포트 {report_date}</title><style>{CSS}</style></head><body><main class="page">
 <header><div><h1>외국인 매집 레이더</h1><div class="muted">외인 수급이 좋고 가격이 아직 덜 오른 종목 · 매일 판단용 숏리스트</div></div><div class="stamp">기준일 {report_date}<br>생성 {generated_at.strftime('%Y-%m-%d %H:%M KST')}</div></header>
+{render_headline_html(headline)}
 <section class="summary"><div><b>{brief_count}</b><span>오늘 볼 종목</span></div><div><b>{new_count}</b><span>즉시매수</span></div><div><b>{interest_count}</b><span>관심후보 · 거의 준비됨</span></div><div><b>{conviction_count}</b><span>고확신 눌림대기</span></div></section>
 <h2>오늘 볼 종목 {brief.size}</h2>
 <p class="muted">즉시매수 게이트는 그대로입니다. 아래는 사람이 오늘 열어볼 후보입니다. 급락 중 고득점은 뒤로 밀립니다.</p>
@@ -444,7 +455,7 @@ def render_report(
                 )
         return "\n".join(lines)
 
-    brief_lines = [f"### 오늘 볼 종목 {brief.size}", ""]
+    brief_lines = [render_headline_markdown(headline), "", f"### 오늘 볼 종목 {brief.size}", ""]
     if daily_brief.empty:
         brief_lines.append("해당 없음")
     else:

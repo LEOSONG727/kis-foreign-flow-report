@@ -4,6 +4,7 @@ import html
 import logging
 import os
 import smtplib
+from dataclasses import dataclass
 from email.message import EmailMessage
 from pathlib import Path
 
@@ -22,6 +23,22 @@ from .brief import (
 from .config import BriefConfig, ModelConfig
 
 LOGGER = logging.getLogger(__name__)
+LARGE_FLOW_KRW = 50_000_000_000
+
+
+@dataclass(frozen=True)
+class HeadlineItem:
+    rank: int
+    name: str
+    symbol: str
+    timing: str
+
+
+@dataclass(frozen=True)
+class Headline:
+    verdict: str
+    items: tuple[HeadlineItem, ...]
+    funnel: str
 
 
 def _telegram_config() -> tuple[str, str] | None:
@@ -85,7 +102,124 @@ def _count_line(rows: list[pd.Series]) -> str:
         return f"오늘 살 자리 {buy}개  ·  싼 매집 {cheap}개"
     if cheap:
         return f"살 타이밍 아님  ·  싼 매집 {cheap}개 주목"
+    if not rows:
+        return "오늘 주목할 싼 매집이 없습니다."
     return f"살 타이밍 아님  ·  관찰 {len(rows)}개"
+
+
+def _numeric_col(frame: pd.DataFrame, column: str) -> pd.Series:
+    if column not in frame.columns:
+        return pd.Series(0.0, index=frame.index, dtype="float64")
+    return pd.to_numeric(frame[column], errors="coerce").fillna(0.0)
+
+
+def _large_flow_funnel(frame: pd.DataFrame, brief_rows: list[pd.Series]) -> str:
+    """Why 20-day 500억+ names rarely reach the human shortlist."""
+    if frame.empty:
+        return ""
+    large = frame.loc[_numeric_col(frame, "foreign_net20") >= LARGE_FLOW_KRW]
+    if large.empty:
+        return "20일 외인 500억+ 없음"
+    brief_symbols = {
+        _text(row, "symbol").zfill(6) for row in brief_rows if _text(row, "symbol")
+    }
+    symbols = (
+        large["symbol"].astype(str).str.zfill(6)
+        if "symbol" in large.columns
+        else pd.Series("", index=large.index)
+    )
+    n_in = int(symbols.isin(brief_symbols).sum())
+    drop = large.loc[~symbols.isin(brief_symbols)]
+    reasons: list[str] = []
+    if not drop.empty:
+        already_up = float(
+            (
+                (_numeric_col(drop, "rebound_from_low20") >= 0.05)
+                | (_numeric_col(drop, "price_return20") >= 0.03)
+            ).mean()
+        )
+        weak = float((_numeric_col(drop, "discovery_score") < 65).mean())
+        if already_up >= 0.4:
+            reasons.append("대부분 이미 오름")
+        if weak >= 0.4:
+            reasons.append("금액만 크고 강도 약함")
+    line = f"20일 외인 500억+ {len(large)}개 중 최종 {n_in}개"
+    return f"{line} · {' · '.join(reasons)}" if reasons else line
+
+
+def build_headline(
+    scored: pd.DataFrame,
+    brief: BriefConfig | None = None,
+    model: ModelConfig | None = None,
+) -> Headline:
+    frame = _brief_frame(scored, brief, model)
+    rows = list(iter_brief_rows(frame, brief))
+    section_rank = {"buy": 0, "cheap": 1, "other": 2}
+    rows = sorted(rows, key=lambda row: (section_rank.get(_section_of(row), 9),))
+    items = tuple(
+        HeadlineItem(
+            rank=index,
+            name=_text(row, "name"),
+            symbol=_text(row, "symbol").zfill(6) if _text(row, "symbol") else "",
+            timing=_timing(row, model)[0],
+        )
+        for index, row in enumerate(rows, 1)
+    )
+    return Headline(
+        verdict=_count_line(rows),
+        items=items,
+        funnel=_large_flow_funnel(frame, rows),
+    )
+
+
+def render_headline_plain(headline: Headline) -> list[str]:
+    lines = ["오늘의 핵심 요약", "이 리스트만 보세요", headline.verdict]
+    if headline.items:
+        lines.append("")
+        for item in headline.items:
+            lines.append(f"{item.rank}. {item.name}  {item.symbol}  ·  {item.timing}")
+    if headline.funnel:
+        lines.extend(["", headline.funnel])
+    return lines
+
+
+def render_headline_html(headline: Headline) -> str:
+    items = "".join(
+        "<li>"
+        f"<b>{html.escape(item.name)}</b> {html.escape(item.symbol)} "
+        f"<span>{html.escape(item.timing)}</span></li>"
+        for item in headline.items
+    )
+    list_html = f"<ol>{items}</ol>" if items else ""
+    funnel = (
+        f'<p class="headline-funnel">{html.escape(headline.funnel)}</p>'
+        if headline.funnel
+        else ""
+    )
+    return (
+        '<section class="headline">'
+        '<div class="headline-kicker">오늘의 핵심 요약</div>'
+        "<h2>이 리스트만 보세요</h2>"
+        f'<p class="headline-verdict">{html.escape(headline.verdict)}</p>'
+        f"{list_html}{funnel}</section>"
+    )
+
+
+def render_headline_markdown(headline: Headline) -> str:
+    lines = [
+        "### 오늘의 핵심 요약",
+        "",
+        "이 리스트만 보세요",
+        "",
+        headline.verdict,
+    ]
+    if headline.items:
+        lines.append("")
+        for item in headline.items:
+            lines.append(f"{item.rank}. **{item.name}** ({item.symbol}) · {item.timing}")
+    if headline.funnel:
+        lines.extend(["", headline.funnel])
+    return "\n".join(lines)
 
 
 def _setup_tags(row: pd.Series | dict) -> list[str]:
@@ -225,6 +359,24 @@ def _section_title(key: str) -> str:
     }.get(key, "참고")
 
 
+def _telegram_headline(headline: Headline) -> list[str]:
+    lines = [
+        "<b>오늘의 핵심 요약</b>",
+        "이 리스트만 보세요",
+        html.escape(headline.verdict),
+    ]
+    if headline.items:
+        compact = "\n".join(
+            f"{item.rank}. <b>{html.escape(item.name)}</b>  "
+            f"<code>{html.escape(item.symbol)}</code>  ·  {html.escape(item.timing)}"
+            for item in headline.items
+        )
+        lines.append(compact)
+    if headline.funnel:
+        lines.append(html.escape(headline.funnel))
+    return lines
+
+
 def build_telegram_text(
     scored: pd.DataFrame,
     brief: BriefConfig | None = None,
@@ -232,11 +384,11 @@ def build_telegram_text(
 ) -> str:
     frame = _brief_frame(scored, brief, model)
     rows = list(iter_brief_rows(frame, brief))
-    lines = [f"<b>{html.escape(_title(frame))}</b>"]
+    headline = build_headline(frame, brief, model)
+    lines = [f"<b>{html.escape(_title(frame))}</b>", *_telegram_headline(headline)]
     if not rows:
-        lines.extend(["", "오늘 주목할 싼 매집이 없습니다."])
-        return "\n".join(lines)
-    lines.append(html.escape(_count_line(rows)))
+        lines.append("<i>조회 전용 · 주문 미실행</i>")
+        return "\n\n".join(line for line in lines if line)
     grouped: dict[str, list[pd.Series]] = {"buy": [], "cheap": [], "other": []}
     for row in rows:
         grouped[_section_of(row)].append(row)
@@ -275,13 +427,17 @@ def build_email_bodies(
     frame = _brief_frame(scored, brief, model)
     rows = list(iter_brief_rows(frame, brief))
     title = _title(frame)
+    headline = build_headline(frame, brief, model)
     if not rows:
-        plain = f"{title}\n\n오늘 검토할 매집 후보가 없습니다.\n"
-        html_body = f"<h2>{html.escape(title)}</h2><p>오늘 검토할 매집 후보가 없습니다.</p>"
+        plain = f"{title}\n\n" + "\n".join(render_headline_plain(headline)) + "\n"
+        html_body = (
+            f"<h2>{html.escape(title)}</h2>"
+            f"{render_headline_html(headline)}"
+        )
         return plain, html_body
 
-    counts = _count_line(rows)
-    plain_lines = [title, counts]
+    counts = headline.verdict
+    plain_lines = [title, *render_headline_plain(headline)]
     cards: list[str] = []
     for rank, row in enumerate(rows, 1):
         fields = _card_fields(row, model)
@@ -299,10 +455,25 @@ def build_email_bodies(
             "</div></div>"
         )
     plain_lines.extend(["", "조회 전용 · 주문 미실행", "상세 HTML 리포트를 첨부합니다."])
+    item_html = "".join(
+        "<li style='margin:4px 0'>"
+        f"<b>{html.escape(item.name)}</b> {html.escape(item.symbol)} "
+        f"<span style='color:#6b7280'>· {html.escape(item.timing)}</span></li>"
+        for item in headline.items
+    )
+    funnel_html = (
+        f"<p style='color:#6b7280;font-size:13px;margin:10px 0 0'>{html.escape(headline.funnel)}</p>"
+        if headline.funnel
+        else ""
+    )
     html_body = (
         "<div style='font-family:Segoe UI,Apple SD Gothic Neo,sans-serif;color:#111827;max-width:680px'>"
         f"<h2 style='margin:0 0 6px;font-size:22px'>{html.escape(title)}</h2>"
-        f"<p style='color:#6b7280;margin:0 0 16px'>{html.escape(counts)}</p>"
+        "<div style='border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px;margin:0 0 16px;background:#f9fafb'>"
+        "<div style='font-size:12px;font-weight:700;letter-spacing:0.04em;color:#92400e'>오늘의 핵심 요약</div>"
+        "<div style='font-weight:700;margin:4px 0 6px'>이 리스트만 보세요</div>"
+        f"<p style='color:#6b7280;margin:0 0 8px'>{html.escape(counts)}</p>"
+        f"<ol style='margin:0;padding-left:20px'>{item_html}</ol>{funnel_html}</div>"
         + "".join(cards)
         + "<p style='color:#6b7280;font-size:13px;margin:8px 0 0'>조회 전용 · 주문 미실행. "
         "상세 HTML 리포트를 첨부합니다.</p></div>"
