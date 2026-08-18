@@ -144,6 +144,15 @@ def classify_watch_tier(
         )
     ):
         return "위험확인"
+    # A live campaign buying the dip is the setup, not a crash-to-wait-on.
+    if _bool(row, "dip_absorption") and campaign in WATCH_CAMPAIGNS | {"상승진행"}:
+        # A first pullback that is already testing the 20-day line is
+        # closer to a watchable setup than an extended name still above it.
+        if _bool(row, "ma20_support"):
+            return "관심후보"
+        if discovery >= brief.high_conviction_score:
+            return "고확신눌림"
+        return "관심후보"
     if readiness == "반전확인" or "급락 멈춤" in action:
         return "급락진정"
 
@@ -196,6 +205,12 @@ def flow_summary(row: pd.Series | dict) -> str:
     ]
     if _bool(row, "large_flow_signal"):
         parts.append("500억+")
+    if _bool(row, "dip_absorption"):
+        parts.append("하락흡수")
+    if _bool(row, "touched_ma20"):
+        parts.append("20일선 접촉")
+    elif _bool(row, "near_ma20") or _bool(row, "ma20_support"):
+        parts.append("20일선 근접")
     campaign = _text(row, "campaign_regime", "중립")
     if campaign:
         parts.append(campaign)
@@ -214,12 +229,21 @@ def block_reason(row: pd.Series | dict, model: ModelConfig | None = None) -> str
         return f"{flow_summary(row)} · 추가매수 조건 충족"
 
     bits: list[str] = []
+    price1 = _float(row, "price_return1")
     price3 = _float(row, "price_return3")
     price20 = _float(row, "price_return20")
     rebound = _float(row, "rebound_from_low20")
     floor3 = model.entry_min_return3_pct / 100.0
     cap20 = model.entry_max_return20_pct / 100.0
     rebound_cap = model.entry_max_rebound20_pct / 100.0
+    if _bool(row, "dip_absorption"):
+        bits.append(
+            f'당일 {format_pct(price1)}에 외인 {format_eok(_float(row, "foreign_net1"))} 흡수'
+        )
+    if _bool(row, "touched_ma20") or _bool(row, "ma20_support"):
+        bits.append(f'20일선 {format_pct(_float(row, "ma20_distance"))} · 접촉')
+    elif _float(row, "ma20_distance") > 0.01:
+        bits.append(f'20일선 {format_pct(_float(row, "ma20_distance"))} · 접촉 전')
     if price3 < floor3:
         bits.append(f"3일 {format_pct(price3)} · {model.entry_min_return3_pct:+.0f}% 이상 필요")
     if price20 >= cap20:
@@ -240,10 +264,16 @@ def block_reason(row: pd.Series | dict, model: ModelConfig | None = None) -> str
 
 
 def next_trigger(row: pd.Series | dict, model: ModelConfig | None = None) -> str:
+    tier = _text(row, "watch_tier") or classify_watch_tier(row, model)
+    if _bool(row, "dip_absorption"):
+        if not _bool(row, "ma20_support"):
+            return "20일선 접촉 + 하락일 외인 매수 유지"
+        if tier == "고확신눌림":
+            return "20일선 지지 + 하락일 외인 매수 유지 + 과열 진정 시 분할 검토"
+        return "20일선 지지 유지 후 즉시매수 게이트 재확인"
     promotion = _text(row, "promotion_condition")
     if promotion and promotion != "현재 조건 충족":
         return promotion
-    tier = _text(row, "watch_tier") or classify_watch_tier(row, model)
     if tier == "즉시매수":
         return "현재 조건 충족 · 분할 신규 검토"
     if tier == "관심후보":
@@ -278,6 +308,8 @@ def watch_priority(
         + _float(row, "discovery_score")
         + flow_freshness(row)
         + (5.0 if _bool(row, "large_flow_signal") else 0.0)
+        + (8.0 if _bool(row, "dip_absorption") else 0.0)
+        + (6.0 if _bool(row, "ma20_support") else 0.0)
         + closeness
         - knife
     )
@@ -346,6 +378,10 @@ def select_daily_brief(
 
     take("즉시매수", 3)
     take("추가매수", 2)
+    # Leave room for a high-conviction / dip-absorption name instead of
+    # filling the whole shortlist with near-entry watch candidates.
+    take("관심후보", 2)
+    take("고확신눌림", 2)
     take("관심후보", brief.size)
     take("고확신눌림", brief.size)
     take("급락진정", 1)

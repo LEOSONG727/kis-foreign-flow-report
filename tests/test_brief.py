@@ -6,6 +6,7 @@ from kis_flow_bot.brief import (
     annotate_watch_brief,
     classify_watch_tier,
     flow_summary,
+    next_trigger,
     select_daily_brief,
     watch_priority,
 )
@@ -149,10 +150,92 @@ def test_flow_summary_shows_recent_windows():
     assert "당일" in text
 
 
+def test_dip_absorption_is_a_watch_name_not_an_immediate_buy():
+    row = _row(
+        name="셀트리온형",
+        symbol="068270",
+        discovery_score=88.0,
+        dip_absorption=True,
+        campaign_regime="장기매집·재가속",
+        stage="매집·눌림",
+        action="매집 중 하락흡수 확인·신규매수 대기",
+        entry_readiness="반전확인",
+        entry_gate_passed=False,
+        price_return1=-0.027,
+        price_return3=-0.032,
+        price_return20=0.133,
+        rebound_from_low20=0.162,
+        foreign_net1=19_274_000_000,
+        foreign_net20=247_136_000_000,
+        large_flow_signal=True,
+        ma20_distance=0.06,
+        touched_ma20=False,
+        ma20_support=False,
+    )
+    assert classify_watch_tier(row) == "고확신눌림"
+    assert "하락흡수" in flow_summary(row)
+    assert classify_watch_tier(row) != "즉시매수"
+    assert next_trigger(row) == "20일선 접촉 + 하락일 외인 매수 유지"
+
+
+def test_dip_absorption_gets_a_brief_slot_among_watch_candidates():
+    rows = [
+        _row(name=f"관심{index}", symbol=f"00001{index}", discovery_score=70.0)
+        for index in range(5)
+    ]
+    rows.append(
+        _row(
+            name="셀트리온형",
+            symbol="068270",
+            discovery_score=88.0,
+            dip_absorption=True,
+            campaign_regime="장기매집·재가속",
+            stage="매집·눌림",
+            action="매집 중 하락흡수 확인·신규매수 대기",
+            entry_readiness="반전확인",
+            entry_gate_passed=False,
+            price_return1=-0.027,
+            price_return3=-0.032,
+            price_return20=0.133,
+            rebound_from_low20=0.162,
+            foreign_net1=19_274_000_000,
+            foreign_net20=247_136_000_000,
+            large_flow_signal=True,
+        )
+    )
+    frame = annotate_watch_brief(pd.DataFrame(rows))
+    brief = select_daily_brief(frame, BriefConfig(size=5))
+    assert "셀트리온형" in set(brief["name"])
+    assert frame.set_index("symbol").loc["068270", "watch_tier"] != "즉시매수"
+
+
+def test_ma20_support_turns_dip_absorption_into_a_watch_candidate():
+    row = _row(
+        name="20일선접촉",
+        symbol="068270",
+        discovery_score=88.0,
+        dip_absorption=True,
+        ma20_support=True,
+        touched_ma20=True,
+        ma20_distance=0.003,
+        campaign_regime="장기매집·재가속",
+        stage="매집·눌림",
+        action="매집 중 하락흡수 확인·신규매수 대기",
+        entry_readiness="반전확인",
+        entry_gate_passed=False,
+        price_return1=-0.015,
+        price_return3=-0.032,
+    )
+    assert classify_watch_tier(row) == "관심후보"
+    assert "20일선 접촉" in flow_summary(row)
+    assert "20일선 지지" in next_trigger(row)
+
+
 def test_telegram_explains_why_not_to_buy():
     scored = score_features(synthetic_features(), ModelConfig())
     text = build_telegram_text(scored)
-    assert "오늘 볼 종목" in text
-    assert "다음:" in text
+    assert "오늘" in text and "종목" in text
+    assert "다음" in text
     assert "매집후보" in text
-    assert ("막힘:" in text) or ("할 일:" in text)
+    assert ("판단" in text) or ("할 일" in text)
+    assert "막힘:" not in text

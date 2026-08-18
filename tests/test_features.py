@@ -199,5 +199,55 @@ def test_short_price_path_and_low_rebound_features_are_calculated():
     assert {
         "price_return1", "price_return3", "price_return5", "price_acceleration3",
         "ma5_slope", "above_ma5", "above_ma10", "up_down_volume_ratio10",
-        "foreign_acceleration3",
+        "foreign_acceleration3", "touched_ma20", "near_ma20", "ma20_support",
     }.issubset(row.index)
+
+
+def test_today_candle_touching_ma20_is_detected():
+    history = _history("000010", "이평접촉", 500_000_000, 100_000, 100_000)
+    history["close"] = 100_000
+    history["open"] = 100_000
+    history["high"] = 101_000
+    history["low"] = 99_000
+    last = history.index[-1]
+    history.loc[last, "open"] = 101_500
+    history.loc[last, "high"] = 102_000
+    history.loc[last, "low"] = 99_500
+    history.loc[last, "close"] = 100_200
+    universe = pd.DataFrame(
+        [{
+            "symbol": "000010", "name": "이평접촉", "market": "KOSPI",
+            "sector_code": "0010", "market_cap_eok": 50_000,
+            "sales": 1_000, "operating_profit": 100, "net_income": 80,
+            "roe": 12, "financial_base_ym": "202512",
+        }]
+    )
+    row = build_base_features(history, universe).iloc[0]
+    assert bool(row["touched_ma20"])
+    assert bool(row["ma20_support"])
+    assert abs(row["ma20_distance"]) < 0.02
+
+
+def test_extended_close_above_ma20_is_not_a_touch():
+    history = _history("000010", "이평위", 500_000_000, 100_000, 100_000)
+    history["close"] = 100_000
+    history["open"] = 100_000
+    history["high"] = 101_000
+    history["low"] = 99_000
+    last = history.index[-1]
+    history.loc[last, "open"] = 108_000
+    history.loc[last, "high"] = 110_000
+    history.loc[last, "low"] = 107_000
+    history.loc[last, "close"] = 109_000
+    universe = pd.DataFrame(
+        [{
+            "symbol": "000010", "name": "이평위", "market": "KOSPI",
+            "sector_code": "0010", "market_cap_eok": 50_000,
+            "sales": 1_000, "operating_profit": 100, "net_income": 80,
+            "roe": 12, "financial_base_ym": "202512",
+        }]
+    )
+    row = build_base_features(history, universe).iloc[0]
+    assert not bool(row["touched_ma20"])
+    assert not bool(row["ma20_support"])
+    assert row["ma20_distance"] > 0.04

@@ -193,6 +193,33 @@ def _lagged_return(group: pd.DataFrame, n: int, end_offset: int) -> float:
     return last / first - 1.0 if first > 0 else 0.0
 
 
+def _ma20_touches(group: pd.DataFrame, lookback: int = 3) -> tuple[bool, bool, int]:
+    """Whether the candle wick crossed the 20-day close average.
+
+    Today and the last few sessions are checked separately so a first
+    pullback to the 20-day line can be distinguished from a close that
+    is merely nearby.
+    """
+    if group.empty or "close" not in group or "low" not in group or "high" not in group:
+        return False, False, 0
+    ma = pd.to_numeric(group["close"], errors="coerce").rolling(20, min_periods=20).mean()
+    recent = group.tail(min(lookback, len(group)))
+    last_idx = group.index[-1]
+    today = False
+    count = 0
+    for idx in recent.index:
+        level = ma.loc[idx] if idx in ma.index else np.nan
+        if pd.isna(level) or float(level) <= 0:
+            continue
+        low = float(recent.loc[idx, "low"])
+        high = float(recent.loc[idx, "high"])
+        if low <= float(level) <= high:
+            count += 1
+            if idx == last_idx:
+                today = True
+    return today, count > 0, count
+
+
 def _streak(values: pd.Series, threshold: float = 0.001) -> int:
     count = 0
     for value in reversed(values.tolist()):
@@ -346,6 +373,13 @@ def build_base_features(
         ma5_slope = ma5 / prior_ma5 - 1.0 if prior_ma5 > 0 else 0.0
         ma20_distance = float(latest["close"] / ma20 - 1.0) if ma20 > 0 else 0.0
         ma20_atr_distance = ma20_distance / atr20 if atr20 > 0 else 0.0
+        touched_ma20, touched_ma20_3, _ = _ma20_touches(group)
+        near_band = max(0.01, 0.5 * atr20) if atr20 > 0 else 0.01
+        near_ma20 = abs(ma20_distance) <= near_band
+        above_ma20 = float(latest["close"]) >= ma20
+        # A support tag requires the line to be tested without closing
+        # meaningfully through it. A close well below is a breakdown.
+        ma20_support = (touched_ma20 or near_ma20) and ma20_distance >= -near_band
         rebound_from_low20 = float(latest["close"] / rolling_low20 - 1.0) if rolling_low20 else 0.0
         rebound_atr_distance20 = rebound_from_low20 / atr20 if atr20 > 0 else 0.0
         low_position20 = int(np.argmin(w20["low"].to_numpy()))
@@ -410,9 +444,14 @@ def build_base_features(
                 "ma10": ma10,
                 "above_ma5": bool(float(latest["close"]) >= ma5),
                 "above_ma10": bool(float(latest["close"]) >= ma10),
+                "above_ma20": above_ma20,
                 "ma5_slope": ma5_slope,
                 "ma20_distance": ma20_distance,
                 "ma20_atr_distance": ma20_atr_distance,
+                "touched_ma20": touched_ma20,
+                "touched_ma20_3": touched_ma20_3,
+                "near_ma20": near_ma20,
+                "ma20_support": ma20_support,
                 "rebound_from_low10": float(latest["close"] / rolling_low10 - 1.0) if rolling_low10 else 0.0,
                 "rebound_from_low20": rebound_from_low20,
                 "rebound_atr_distance20": rebound_atr_distance20,

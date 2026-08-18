@@ -203,6 +203,18 @@ def _reason_list(row: pd.Series) -> str:
         reasons.append(
             f'단기 가격과열: {row.get("price_heat_reason", "-")} (진입 벌점 {number(row.get("price_heat_penalty"))}점)'
         )
+    if bool(row.get("dip_absorption", False)):
+        reasons.append(
+            f'하락흡수: 당일 {pct(row.get("price_return1"))}인데 외인 {eok(row.get("foreign_net1"))} '
+            f'· 3일 {eok(row.get("foreign_net3"))} 순매수'
+        )
+    if bool(row.get("touched_ma20", False)) or bool(row.get("ma20_support", False)):
+        reasons.append(
+            f'20일선 접촉: 종가 이격 {pct(row.get("ma20_distance"))}'
+            + (" · 당일 캔들이 20일선을 건드림" if bool(row.get("touched_ma20", False)) else " · 20일선 근접")
+        )
+    elif float(row.get("ma20_distance", 0.0) or 0.0) > 0.01:
+        reasons.append(f'20일선 이격 {pct(row.get("ma20_distance"))} · 아직 접촉 전')
     if row.get("absorption_signal") in {"강함", "보통", "주의"}:
         reasons.append(f'가격 하락 중 외국인 위험흡수 신호: {row.get("absorption_signal")}')
     if row.get("opinion_coverage", 0):

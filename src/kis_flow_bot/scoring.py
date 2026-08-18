@@ -118,6 +118,49 @@ def _is_price_hot(row: pd.Series, model: ModelConfig) -> bool:
     return bool(_hard_price_heat_flags(row, model))
 
 
+def _is_dip_absorption(row: pd.Series, model: ModelConfig) -> bool:
+    """Price is pulling back while a live foreign campaign keeps buying the dip.
+
+    This is the Celltrion-type tape: a strong 20/60-day accumulation, a down
+    day (or 3-day pullback), and foreigners still adding. It is not a chase
+    and not a falling knife, so discovery should keep the name visible.
+    """
+    price1 = float(row.get("price_return1", 0.0))
+    price3 = float(row.get("price_return3", 0.0))
+    price20 = float(row.get("price_return20", 0.0))
+    foreign1 = float(row.get("foreign_1_adtv", 0.0))
+    foreign3 = float(row.get("foreign_3_adtv", 0.0))
+    net1 = float(row.get("foreign_net1", 0.0))
+    net3 = float(row.get("foreign_net3", 0.0))
+    current = float(row.get("foreign_20_adtv", 0.0))
+    long_inventory = _long_inventory20(row)
+    amount = float(row.get("foreign_net20", 0.0))
+    buy_ratio = float(row.get("tolerant_buy_ratio20", 0.0))
+    sellback = float(row.get("sellback_ratio20", 9.0))
+
+    if price20 <= model.structural_break_return20_pct / 100.0:
+        return False
+    if float(row.get("max_abs_daily_return20", 0.0)) >= model.corporate_action_daily_return_pct / 100.0:
+        return False
+    # A 20-day collapse is still a knife even if today's tape is a buy.
+    if price20 <= -0.15:
+        return False
+    campaign_alive = (
+        current >= 0.35
+        or long_inventory > 0.25
+        or amount >= model.large_flow_threshold_krw
+    )
+    if not campaign_alive:
+        return False
+    if buy_ratio < 0.50 or sellback > 0.80:
+        return False
+    today_buy = net1 > 0 or foreign1 > 0.05
+    three_buy = net3 > 0 or foreign3 > 0.10
+    if not (today_buy and three_buy):
+        return False
+    return price1 <= -0.008 or (price3 <= -0.02 and price1 <= 0.0)
+
+
 def _price_heat_reason(row: pd.Series, model: ModelConfig) -> str:
     reasons = []
     for label, value in _price_heat_flags(row, model)[:4]:
@@ -188,6 +231,14 @@ def _campaign_regime(row: pd.Series, model: ModelConfig) -> str:
         return "기관주도·외인확인"
     if current >= 0.35 and recent >= 0.20 and long_inventory < -0.10:
         return "신규재진입"
+    # A live campaign buying a down day is still accumulation, not a chase.
+    if _is_dip_absorption(row, model):
+        if long_inventory > 0.25 and recent > 0.15 and acceleration > 0.02:
+            return "장기매집·재가속"
+        if current >= 0.45 and buy_ratio >= 0.55 and sellback <= 0.80:
+            return "지속매집"
+        if current > 0.20:
+            return "초기매집"
     if hot and (current > 0.20 or long_inventory > 0.25):
         return "상승진행"
     if long_inventory > 0.25 and current > 0.20 and recent < 0 and sellback <= 0.80:
@@ -229,6 +280,7 @@ def _discovery_score(
     stage: str,
     campaign_regime: str,
     distribution_score: float,
+    dip_absorption: bool = False,
 ) -> float:
     """Foreign accumulation quality before timing, without rewarding falling knives."""
     ownership_days = row.get("foreign_ownership_days_adtv", np.nan)
@@ -266,15 +318,17 @@ def _discovery_score(
     }.get(campaign_regime, 0.0)
     # Price weakness is useful only while it remains controlled. The model
     # still rewards absorption, but a 20-day collapse beyond -15% no longer
-    # creates an ever-higher "underreaction" score.
-    falling_knife_penalty = (
-        14.0 * scale(-row.get("price_return20", 0.0), 0.15, 0.25)
-        + 8.0 * scale(-row.get("price_return3", 0.0), 0.03, 0.08)
-    )
+    # creates an ever-higher "underreaction" score. A campaign that is buying
+    # a 3-day pullback is not a knife.
+    falling_knife_penalty = 14.0 * scale(-row.get("price_return20", 0.0), 0.15, 0.25)
+    if not dip_absorption:
+        falling_knife_penalty += 8.0 * scale(-row.get("price_return3", 0.0), 0.03, 0.08)
+    ma20_bonus = 3.0 if dip_absorption and bool(row.get("ma20_support")) else 0.0
     return clamp(
         value
         + stage_adjustment
         + regime_adjustment
+        + ma20_bonus
         - falling_knife_penalty
         - 0.20 * distribution_score,
         0.0,
@@ -294,6 +348,12 @@ def _timing_score(row: pd.Series) -> float:
         + 7.0 * scale(row.get("price_return3", 0.0), -0.03, 0.025)
         + (5.0 if bool(row.get("above_ma5", False)) else 0.0)
         + (3.0 if bool(row.get("above_ma10", False)) else 0.0)
+        + (6.0 if bool(row.get("ma20_support")) else 0.0)
+        + (
+            3.0
+            if bool(row.get("touched_ma20_3")) and not bool(row.get("ma20_support"))
+            else 0.0
+        )
         + 5.0 * scale(row.get("ma5_slope", 0.0), -0.02, 0.03)
     )
     unextended = (
@@ -387,6 +447,10 @@ def _stage(row: pd.Series, model: ModelConfig) -> str:
         return "분산·이탈"
     if (strong or (inventory and row.get("foreign_20_adtv", 0.0) > 0.15)) and absolute20 > 0.05 and today < -0.08:
         return "수익실현"
+    if _is_dip_absorption(row, model) and (
+        inventory or strong or row.get("foreign_20_adtv", 0.0) > 0.20
+    ):
+        return "매집·눌림"
     fast_price_move = _is_price_hot(row, model)
     if (inventory or strong) and fast_price_move and today >= -0.08:
         return "가격상승"
@@ -413,6 +477,13 @@ def _absorption(row: pd.Series, quality: float, model: ModelConfig) -> tuple[str
     if falling and buying and structure_ok and holdings_ok:
         amount_share = row.get("absorption_share20", 0.0)
         bonus = 7.0 * scale(amount_share, 0.10, 0.65)
+        return ("강함" if bonus >= 4.5 else "보통"), bonus
+    if _is_dip_absorption(row, model) and structure_ok and holdings_ok:
+        amount_share = row.get("absorption_share20", 0.0)
+        bonus = max(
+            7.0 * scale(amount_share, 0.10, 0.65),
+            5.0 * scale(row.get("foreign_1_adtv", 0.0), 0.05, 0.40),
+        )
         return ("강함" if bonus >= 4.5 else "보통"), bonus
     if falling and buying:
         return "주의", 0.5
@@ -529,6 +600,18 @@ def _action(row: pd.Series, model: ModelConfig) -> str:
         and row.get("foreign_5_adtv", 0.0) <= 0
     ):
         return "외국인 재개 확인 후 분할매수"
+    if bool(row.get("dip_absorption")) and not entry_ready:
+        still_above_ma20 = (
+            not bool(row.get("ma20_support"))
+            and float(row.get("ma20_distance", 0.0)) > 0.01
+        )
+        if still_above_ma20:
+            return "매집 중 하락흡수·20일선 접촉 대기"
+        if readiness == "반전확인":
+            return "매집 중 하락흡수 확인·신규매수 대기"
+        if readiness == "눌림대기":
+            return "매집 중 하락흡수·첫 눌림 대기"
+        return "매집 중 하락흡수 확인·신규매수 대기"
     if not entry_ready:
         if readiness == "반전확인":
             return "급락 멈춤 확인·신규매수 대기"
@@ -615,6 +698,7 @@ def score_features(
         institution_overlay = 5.0 * clamp(row.get("institution_20_adtv", 0.0) / 2.0, -1.0, 1.0)
         raw_score = accumulation + underreaction + structure + fundamentals + institution_overlay
 
+        dip_absorption = _is_dip_absorption(row, model)
         stage = _stage(row, model)
         campaign_regime = _campaign_regime(row, model)
         campaign_strength, large_flow_signal = _campaign_strength(row, model)
@@ -644,6 +728,7 @@ def score_features(
             stage,
             campaign_regime,
             distribution_score,
+            dip_absorption,
         )
         signal_score = clamp(
             0.70 * discovery_score + 0.30 * timing_score - 0.20 * distribution_score,
@@ -710,6 +795,7 @@ def score_features(
                 "price_heat_penalty": round(price_heat_penalty, 1),
                 "price_heat_flag": _is_price_hot(row, model),
                 "price_heat_reason": _price_heat_reason(row, model),
+                "dip_absorption": dip_absorption,
                 "score_delta": round(score_delta, 1),
                 "stage": stage,
                 "campaign_regime": campaign_regime,

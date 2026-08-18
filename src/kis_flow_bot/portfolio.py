@@ -27,6 +27,10 @@ def _promotion_condition(row: dict, action: str, has_position: bool, model: Mode
         return "현재 조건 충족"
     if "위험흡수 구조 확인" in action:
         return "60일 가격구조 회복 + 외국인 보유수량 감소 없음 확인"
+    if bool(row.get("dip_absorption")):
+        if not bool(row.get("ma20_support")) and float(row.get("ma20_distance", 0.0) or 0.0) > 0.01:
+            return "20일선 접촉 + 하락일 외인 매수 유지"
+        return "20일선 지지 유지 후 즉시매수 게이트 재확인"
     if "급락 멈춤" in action:
         return f"3일 수익률 {model.entry_min_return3_pct:+.0f}% 이상 회복 + 외국인 매집 신호 유지"
     if "첫 눌림" in action:

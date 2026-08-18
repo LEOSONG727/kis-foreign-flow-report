@@ -187,7 +187,8 @@ def test_recent_three_day_drop_blocks_fresh_buy_until_stable():
     scored = score_features(features, ModelConfig())
     candidate = scored[scored["symbol"] == "000010"].iloc[0]
     assert candidate["entry_readiness"] == "반전확인"
-    assert candidate["action"] == "급락 멈춤 확인·신규매수 대기"
+    assert candidate["action"] == "매집 중 하락흡수 확인·신규매수 대기"
+    assert bool(candidate["dip_absorption"])
 
 
 def test_low_to_current_five_percent_rebound_waits_for_pullback():
@@ -277,6 +278,94 @@ def test_high_discovery_but_low_timing_is_not_a_buy():
     assert candidate["discovery_score"] >= model.discovery_candidate_score
     assert candidate["timing_score"] < model.timing_buy_score
     assert candidate["action"] == "가격 반전·수급 재가속 확인 대기"
+
+
+def _celltrion_like_features():
+    """2026-08-18 Celltrion tape: month-long campaign still buying a down day."""
+    features, index = _candidate_features()
+    overlays = {
+        "price_return1": -0.0274,
+        "price_return3": -0.0322,
+        "price_return5": -0.0274,
+        "price_return10": 0.0730,
+        "price_return20": 0.1327,
+        "price_return60": 0.1433,
+        "price_residual20": 0.08,
+        "rebound_from_low10": 0.0843,
+        "rebound_from_low20": 0.1623,
+        "rebound_atr_distance20": 4.12,
+        "distance_high20": -0.0778,
+        "foreign_net1": 19_274_000_000,
+        "foreign_net3": 72_519_000_000,
+        "foreign_net5": 143_366_000_000,
+        "foreign_net20": 247_136_000_000,
+        "foreign_net60": 426_277_000_000,
+        "foreign_net120": 816_920_000_000,
+        "foreign_1_adtv": 0.1513,
+        "foreign_3_adtv": 0.5692,
+        "foreign_5_adtv": 1.1253,
+        "foreign_20_adtv": 1.9399,
+        "foreign_60_adtv": 3.35,
+        "foreign_120_adtv": 6.41,
+        "foreign_acceleration5": 0.1708,
+        "foreign_flow_concentration20": 0.1569,
+        "tolerant_buy_ratio20": 0.75,
+        "sellback_ratio20": 0.2407,
+        "max_abs_daily_return20": 0.05,
+        "data_points": 120,
+        "buy_days20": 15,
+        "ma20_distance": 0.06,
+        "touched_ma20": False,
+        "touched_ma20_3": False,
+        "near_ma20": False,
+        "ma20_support": False,
+        "above_ma20": True,
+    }
+    for column, value in overlays.items():
+        features.loc[index, column] = value
+    return features
+
+
+def test_celltrion_like_dip_buy_is_discovered_without_becoming_a_chase_buy():
+    scored = score_features(_celltrion_like_features(), ModelConfig())
+    candidate = scored[scored["symbol"] == "000010"].iloc[0]
+    assert bool(candidate["dip_absorption"])
+    assert candidate["stage"] == "매집·눌림"
+    assert candidate["campaign_regime"] == "장기매집·재가속"
+    assert candidate["discovery_score"] >= 65
+    assert not bool(candidate["entry_gate_passed"])
+    assert candidate["entry_readiness"] == "반전확인"
+    assert candidate["action"] == "매집 중 하락흡수·20일선 접촉 대기"
+    assert candidate["action"] != "초기 분할매수"
+
+
+def test_dip_into_ma20_waits_for_stabilization_not_a_fresh_buy():
+    features = _celltrion_like_features()
+    index = features[features["symbol"] == "000010"].index[0]
+    features.loc[index, "ma20_distance"] = 0.003
+    features.loc[index, "touched_ma20"] = True
+    features.loc[index, "touched_ma20_3"] = True
+    features.loc[index, "near_ma20"] = True
+    features.loc[index, "ma20_support"] = True
+    scored = score_features(features, ModelConfig())
+    candidate = scored[scored["symbol"] == "000010"].iloc[0]
+    baseline = score_features(_celltrion_like_features(), ModelConfig()).query("symbol == '000010'").iloc[0]
+    assert bool(candidate["dip_absorption"])
+    assert candidate["action"] == "매집 중 하락흡수 확인·신규매수 대기"
+    assert not bool(candidate["entry_gate_passed"])
+    assert candidate["timing_score"] >= baseline["timing_score"]
+
+
+def test_hot_up_day_is_not_called_dip_absorption():
+    features = _celltrion_like_features()
+    index = features[features["symbol"] == "000010"].index[0]
+    features.loc[index, "price_return1"] = 0.02
+    features.loc[index, "price_return3"] = 0.03
+    scored = score_features(features, ModelConfig())
+    candidate = scored[scored["symbol"] == "000010"].iloc[0]
+    assert not bool(candidate["dip_absorption"])
+    assert candidate["stage"] == "가격상승"
+    assert candidate["action"] == "추격 금지·보유"
 
 
 def test_distribution_score_can_warn_before_full_campaign_exit():

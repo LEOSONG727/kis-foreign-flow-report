@@ -243,7 +243,7 @@ def _write_outputs(
     csv_columns = [
         "symbol", "name", "market", "as_of", "score", "campaign_score", "entry_score",
         "discovery_score", "timing_score", "distribution_score", "signal_score",
-        "price_heat_penalty", "price_heat_flag", "price_heat_reason",
+        "price_heat_penalty", "price_heat_flag", "price_heat_reason", "dip_absorption",
         "entry_readiness", "entry_gate_passed", "entry_gate_reason",
         "score_delta", "entry_score_delta", "data_points",
         "success_probability", "expected_value", "stage", "action",
@@ -256,6 +256,7 @@ def _write_outputs(
         "price_return20", "price_return60", "price_return120", "price_residual3", "price_residual5", "price_residual10", "price_residual20",
         "rebound_from_low10", "rebound_from_low20", "rebound_atr_distance20",
         "distance_high20", "ma20_distance", "ma20_atr_distance",
+        "above_ma20", "touched_ma20", "touched_ma20_3", "near_ma20", "ma20_support",
         "up_days5", "up_days10", "price_up_streak", "up_down_volume_ratio10",
         "price_acceleration3", "ma5_slope", "above_ma5", "above_ma10", "market_return20",
         "absorption_signal", "volume_ratio5_20", "rebound_volume_ratio20", "atr20_pct",

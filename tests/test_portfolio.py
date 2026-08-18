@@ -88,6 +88,19 @@ def test_rising_campaign_requires_both_short_and_monthly_heat_to_cool():
     assert "20일 수익률 +3% 미만" in result["promotion_condition"]
 
 
+def test_dip_absorption_keeps_buy_gate_and_explains_the_next_look():
+    scored = _scored()
+    scored.loc[0, "action"] = "매집 중 하락흡수·20일선 접촉 대기"
+    scored.loc[0, "dip_absorption"] = True
+    scored.loc[0, "entry_gate_passed"] = False
+    scored.loc[0, "ma20_distance"] = 0.06
+    scored.loc[0, "ma20_support"] = False
+    result = apply_portfolio_actions(scored, pd.DataFrame(), ModelConfig()).iloc[0]
+    assert result["action"] == "매집 중 하락흡수·20일선 접촉 대기"
+    assert result["decision_bucket"] != "신규매수"
+    assert "20일선 접촉" in result["promotion_condition"]
+
+
 def test_low_rebound_is_the_binding_pullback_condition():
     scored = _scored()
     scored.loc[0, "campaign_regime"] = "상승진행"
