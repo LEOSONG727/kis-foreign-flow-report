@@ -11,7 +11,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .brief import is_cheap_accumulation
+from .brief import annotate_watch_brief, is_cheap_accumulation, select_daily_brief
 from .config import ModelConfig, Settings
 from .features import add_cross_sectional_residuals, build_base_features
 from .scoring import score_features
@@ -796,6 +796,236 @@ def run_backtest(settings: Settings) -> pd.DataFrame:
     )
     _write_backtest_report(settings, results, summary, score_bands, calibration)
     return results
+
+
+def split_time_holdout(
+    results: pd.DataFrame,
+    holdout_frac: float = 0.30,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.Timestamp | None]:
+    """Split by signal date, never by shuffled rows."""
+    if results.empty or "as_of" not in results:
+        return results.copy(), results.copy(), None
+    frame = results.copy()
+    frame["as_of"] = pd.to_datetime(frame["as_of"], errors="coerce")
+    dates = sorted(frame["as_of"].dropna().unique())
+    if len(dates) < 3:
+        return frame, frame.iloc[0:0].copy(), dates[-1] if dates else None
+    cut_index = max(1, int(round(len(dates) * (1.0 - holdout_frac))))
+    cut_index = min(cut_index, len(dates) - 1)
+    cut = pd.Timestamp(dates[cut_index])
+    return frame[frame["as_of"] < cut].copy(), frame[frame["as_of"] >= cut].copy(), cut
+
+
+def summarize_screen_bucket(frame: pd.DataFrame) -> dict[str, float]:
+    if frame.empty:
+        return {
+            "signals": 0.0,
+            "dates": 0.0,
+            "mean_20d": float("nan"),
+            "mean_excess": float("nan"),
+            "positive_20d": float("nan"),
+            "positive_excess": float("nan"),
+            "mean_drawdown": float("nan"),
+            "target_rate": float("nan"),
+        }
+    resolved = frame[frame["outcome"].isin(["target", "stop"])]
+    return {
+        "signals": float(len(frame)),
+        "dates": float(frame["as_of"].nunique()),
+        "mean_20d": float(frame["forward_return"].mean()),
+        "mean_excess": float(frame["excess_forward_return"].mean()),
+        "positive_20d": float((frame["forward_return"] > 0).mean()),
+        "positive_excess": float((frame["excess_forward_return"] > 0).mean()),
+        "mean_drawdown": float(frame["max_drawdown"].mean()),
+        "target_rate": (
+            float((resolved["outcome"] == "target").mean()) if not resolved.empty else float("nan")
+        ),
+    }
+
+
+def run_screen_backtest(
+    settings: Settings,
+    step: int = 5,
+) -> pd.DataFrame:
+    """Walk-forward the live daily brief, not a hindsight favorite.
+
+    Rules:
+    - Features and scores use only bars dated on or before the signal day.
+    - The same select_daily_brief() quotas as production (cheap 3 / dip 1 / leftover).
+    - Fills at the next session open, then holds 20 sessions with 0.3% round-trip cost.
+    - Excess is versus the same-market median over the same window.
+    - One symbol cannot re-fire inside the horizon.
+    - Dates are sampled every `step` sessions so the run finishes; this is
+      documented in the report and is not a daily all-name search.
+    """
+    from .config import BriefConfig
+
+    history = read_csv(settings.data_dir / "history.csv")
+    universe = read_csv(settings.data_dir / "universe.csv")
+    snapshots = read_csv(settings.data_dir / "holdings.csv")
+    opinions = read_csv(settings.data_dir / "opinions.csv")
+    horizon = settings.model.backtest_horizon_days
+    if history.empty or universe.empty:
+        results = pd.DataFrame()
+    else:
+        history["date"] = pd.to_datetime(history["date"], errors="coerce")
+        history["symbol"] = history["symbol"].astype("string").str.zfill(6)
+        dates = sorted(history["date"].dropna().unique())
+        signal_rows: list[dict] = []
+        last_signal_index: dict[tuple[str, str], int] = {}
+        if len(dates) >= 60 + horizon:
+            for date_index in range(59, len(dates) - horizon, max(1, step)):
+                as_of = pd.Timestamp(dates[date_index])
+                LOGGER.info("Screen backtest %s", as_of.date())
+                history_view = history[history["date"] <= as_of]
+                snapshot_view = snapshots
+                if not snapshots.empty and "date" in snapshots:
+                    snapshot_view = snapshots[pd.to_datetime(snapshots["date"], errors="coerce") <= as_of]
+                opinion_view = opinions
+                if not opinions.empty and "date" in opinions:
+                    opinion_view = opinions[pd.to_datetime(opinions["date"], errors="coerce") <= as_of]
+                features = add_cross_sectional_residuals(
+                    build_base_features(history_view, universe, snapshot_view, opinion_view)
+                )
+                scored = annotate_watch_brief(score_features(features, settings.model), settings.model)
+                brief = select_daily_brief(scored, BriefConfig())
+                if brief.empty:
+                    continue
+                market_benchmarks = market_forward_benchmarks(
+                    history,
+                    as_of,
+                    pd.Timestamp(dates[date_index + horizon]),
+                    settings.model.backtest_roundtrip_cost_pct / 100.0,
+                )
+                for _, row in brief.iterrows():
+                    symbol = str(row["symbol"]).zfill(6)
+                    bucket = str(row.get("screen_bucket", "관찰"))
+                    signal_key = (bucket, symbol)
+                    if date_index - last_signal_index.get(signal_key, -horizon) < horizon:
+                        continue
+                    future = history[
+                        (history["symbol"] == symbol) & (history["date"] > as_of)
+                    ].sort_values("date").head(horizon)
+                    if len(future) < horizon:
+                        continue
+                    next_open = pd.to_numeric(future["open"].iloc[0], errors="coerce")
+                    entry_price = (
+                        float(next_open)
+                        if pd.notna(next_open) and next_open > 0
+                        else float(future["close"].iloc[0])
+                    )
+                    path = evaluate_forward_ohlc(
+                        entry_price,
+                        future,
+                        settings.model.backtest_target_pct / 100.0,
+                        settings.model.backtest_stop_pct / 100.0,
+                        settings.model.backtest_roundtrip_cost_pct / 100.0,
+                    )
+                    market = str(row.get("market", ""))
+                    market_forward = float(
+                        market_benchmarks.get(
+                            market,
+                            np.median(list(market_benchmarks.values())) if market_benchmarks else 0.0,
+                        )
+                    )
+                    signal_rows.append(
+                        {
+                            "bucket": bucket,
+                            "as_of": as_of,
+                            "entry_date": future["date"].iloc[0],
+                            "symbol": symbol,
+                            "name": row.get("name", symbol),
+                            "market": market,
+                            "discovery_score": row.get("discovery_score", 0.0),
+                            "cheap_accumulation": bool(row.get("cheap_accumulation", False)),
+                            "dip_absorption": bool(row.get("dip_absorption", False)),
+                            "watch_tier": row.get("watch_tier", ""),
+                            "foreign_20_adtv": row.get("foreign_20_adtv", 0.0),
+                            "price_return20": row.get("price_return20", 0.0),
+                            "rebound_from_low20": row.get("rebound_from_low20", 0.0),
+                            "ma20_distance": row.get("ma20_distance", 0.0),
+                            "outcome": path.outcome,
+                            "forward_return": path.forward_return,
+                            "market_forward_return": market_forward,
+                            "excess_forward_return": path.forward_return - market_forward,
+                            "realized_return": path.realized_return,
+                            "max_drawdown": path.max_drawdown,
+                            "ambiguous_same_day": path.ambiguous_same_day,
+                        }
+                    )
+                    last_signal_index[signal_key] = date_index
+        results = pd.DataFrame(signal_rows)
+
+    _write_screen_backtest_report(settings, results, step)
+    write_csv(results, settings.reports_dir / "screen_backtest.csv")
+    return results
+
+
+def _fmt_pct(value: float) -> str:
+    if value is None or not np.isfinite(value):
+        return "-"
+    return f"{value * 100:+.2f}%"
+
+
+def _fmt_rate(value: float) -> str:
+    if value is None or not np.isfinite(value):
+        return "-"
+    return f"{value * 100:.1f}%"
+
+
+def _write_screen_backtest_report(settings: Settings, results: pd.DataFrame, step: int) -> None:
+    path = settings.reports_dir / "screen_backtest.md"
+    settings.reports_dir.mkdir(parents=True, exist_ok=True)
+    if results.empty:
+        path.write_text(
+            "# 스크리닝 워크포워드\n\n평가할 신호가 없습니다. 이력을 더 쌓은 뒤 다시 실행하세요.\n",
+            encoding="utf-8",
+        )
+        return
+    train, holdout, cut = split_time_holdout(results)
+    lines = [
+        "# 스크리닝 워크포워드",
+        "",
+        "실전 숏리스트(`select_daily_brief`)와 같은 규칙입니다. 종목을 고른 뒤 규칙을 맞추지 않았습니다.",
+        "",
+        f"- 신호일 종가 이후 정보 사용 안 함 · 다음 거래일 시가 진입 · {settings.model.backtest_horizon_days}거래일",
+        f"- 왕복 비용 {settings.model.backtest_roundtrip_cost_pct:.1f}% · 같은 시장 중앙값 대비 초과수익",
+        f"- 샘플링: {step}거래일마다 1회 (매일 전수 아님)",
+        f"- 같은 종목은 {settings.model.backtest_horizon_days}거래일 안에 재진입하지 않음",
+        f"- 시간 홀드아웃 컷: {cut.date() if cut is not None else '-'}",
+        "",
+        "현재 유니버스 기준이라 상장폐지 종목이 빠지는 편향은 남아 있습니다.",
+        "",
+        "| 구간 | 바구니 | 신호 | 날짜 | 평균 20일 | 시장초과 | 20일 양수 | 시장 우위 | 평균 낙폭 |",
+        "|---|---|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+    for label, frame in (("전체", results), ("학습", train), ("홀드아웃", holdout)):
+        if frame.empty:
+            continue
+        for bucket, part in frame.groupby("bucket", sort=False):
+            stats = summarize_screen_bucket(part)
+            lines.append(
+                f"| {label} | {bucket} | {int(stats['signals'])} | {int(stats['dates'])} | "
+                f"{_fmt_pct(stats['mean_20d'])} | {_fmt_pct(stats['mean_excess'])} | "
+                f"{_fmt_rate(stats['positive_20d'])} | {_fmt_rate(stats['positive_excess'])} | "
+                f"{_fmt_pct(stats['mean_drawdown'])} |"
+            )
+        stats = summarize_screen_bucket(frame)
+        lines.append(
+            f"| {label} | 숏리스트 합 | {int(stats['signals'])} | {int(stats['dates'])} | "
+            f"{_fmt_pct(stats['mean_20d'])} | {_fmt_pct(stats['mean_excess'])} | "
+            f"{_fmt_rate(stats['positive_20d'])} | {_fmt_rate(stats['positive_excess'])} | "
+            f"{_fmt_pct(stats['mean_drawdown'])} |"
+        )
+    lines.extend(
+        [
+            "",
+            "해석: 시장초과와 홀드아웃이 같이 플러스일 때만 스크리닝이 작동했다고 본다. "
+            "목표 선도달률은 +8/-6 비대칭이라 여기서는 쓰지 않는다.",
+            "",
+        ]
+    )
+    path.write_text("\n".join(lines), encoding="utf-8")
 
 
 GATE_SWEEP_POLICIES = (

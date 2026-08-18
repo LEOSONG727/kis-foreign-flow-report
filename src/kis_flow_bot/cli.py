@@ -5,7 +5,7 @@ import logging
 from datetime import date
 from pathlib import Path
 
-from .backtest import run_backtest, run_gate_sweep
+from .backtest import run_backtest, run_gate_sweep, run_screen_backtest
 from .config import load_settings
 from .pipeline import rerank_stored_data, run_pipeline, smoke_test
 
@@ -14,7 +14,7 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="KIS foreign accumulation daily report")
     parser.add_argument(
         "command",
-        choices=["run", "rerank", "smoke", "backtest", "gate-sweep"],
+        choices=["run", "rerank", "smoke", "backtest", "screen-backtest", "gate-sweep"],
         nargs="?",
         default="run",
     )
@@ -39,6 +39,9 @@ def main() -> None:
         return
     if args.command == "backtest":
         run_backtest(settings)
+        return
+    if args.command == "screen-backtest":
+        run_screen_backtest(settings)
         return
     if args.command == "gate-sweep":
         run_gate_sweep(settings)

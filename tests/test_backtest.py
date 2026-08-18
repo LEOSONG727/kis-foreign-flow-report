@@ -11,9 +11,34 @@ from kis_flow_bot.backtest import (
     passes_price_gates,
     recommend_gate_policy,
     simulate_scaled_strategy,
+    split_time_holdout,
+    summarize_screen_bucket,
     summarize_variants,
 )
 from kis_flow_bot.config import ModelConfig
+
+
+def test_time_holdout_splits_by_date_not_by_shuffle():
+    frame = pd.DataFrame(
+        {
+            "as_of": pd.to_datetime(
+                ["2026-03-02", "2026-03-09", "2026-03-16", "2026-03-23", "2026-03-30"]
+            ),
+            "forward_return": [0.01, 0.02, 0.03, 0.04, 0.05],
+            "excess_forward_return": [0.0, 0.01, 0.0, 0.02, 0.01],
+            "outcome": ["horizon"] * 5,
+            "max_drawdown": [-0.03] * 5,
+        }
+    )
+    train, holdout, cut = split_time_holdout(frame, 0.40)
+    assert cut is not None
+    assert train["as_of"].max() < holdout["as_of"].min()
+    assert len(train) + len(holdout) == 5
+
+
+def test_screen_bucket_summary_handles_empty_frame():
+    stats = summarize_screen_bucket(pd.DataFrame())
+    assert stats["signals"] == 0
 
 
 def test_target_before_stop_is_a_win():
