@@ -261,11 +261,11 @@ def _campaign_strength(row: pd.Series, model: ModelConfig) -> tuple[float, bool]
     concentration = row.get("foreign_flow_concentration20", 0.0)
     large_flow = amount >= model.large_flow_threshold_krw
     strength = (
-        25.0 * scale(current, 0.0, 2.0)
-        + 15.0 * scale(amount, 0.0, model.large_flow_threshold_krw)
-        + 15.0 * scale(row.get("tolerant_buy_ratio20", 0.0), 0.45, 0.75)
-        + 10.0 * (1.0 - scale(row.get("sellback_ratio20", 9.0), 0.25, 1.0))
-        + 20.0 * scale(long_inventory, 0.0, 1.5)
+        32.0 * scale(current, 0.0, 2.0)
+        + 5.0 * scale(amount, 0.0, model.large_flow_threshold_krw)
+        + 18.0 * scale(row.get("tolerant_buy_ratio20", 0.0), 0.45, 0.75)
+        + 12.0 * (1.0 - scale(row.get("sellback_ratio20", 9.0), 0.25, 1.0))
+        + 18.0 * scale(long_inventory, 0.0, 1.5)
         + 10.0 * scale(row.get("foreign_acceleration5", 0.0), -0.03, 0.12)
         + 5.0 * (1.0 - scale(concentration, 0.25, 0.55))
     )

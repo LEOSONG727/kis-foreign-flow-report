@@ -272,6 +272,7 @@ def _write_outputs(
         "invalidation_condition", "suggested_order_krw",
         "watch_tier", "watch_priority", "flow_freshness", "flow_summary", "block_reason",
         "next_trigger", "high_conviction", "in_daily_brief",
+        "cheap_accumulation", "screen_bucket",
     ]
     write_csv(scored[[column for column in csv_columns if column in scored]], settings.reports_dir / "latest.csv")
     summary_path = os.getenv("GITHUB_STEP_SUMMARY")

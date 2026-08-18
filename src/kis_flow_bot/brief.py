@@ -15,6 +15,7 @@ WATCH_TIERS = (
     "고확신눌림",
     "급락진정",
     "눌림대기",
+    "감시",
     "위험확인",
     "제외",
 )
@@ -27,6 +28,7 @@ TIER_BASE = {
     "고확신눌림": 240.0,
     "급락진정": 180.0,
     "눌림대기": 160.0,
+    "감시": 110.0,
     "위험확인": 80.0,
     "제외": 0.0,
 }
@@ -98,6 +100,64 @@ def infer_decision_bucket(row: pd.Series | dict) -> str:
     return "관찰"
 
 
+def is_cheap_accumulation(
+    row: pd.Series | dict,
+    model: ModelConfig | None = None,
+    brief: BriefConfig | None = None,
+) -> bool:
+    """Unextended foreign accumulation. Intensity over absolute won amount."""
+    model = model or ModelConfig()
+    brief = brief or BriefConfig()
+    campaign = _text(row, "campaign_regime", "중립")
+    stage = _text(row, "stage", "중립")
+    if campaign not in WATCH_CAMPAIGNS or stage not in ACCUM_STAGES:
+        return False
+    if _float(row, "discovery_score") < brief.min_discovery_score:
+        return False
+    if _text(row, "absorption_signal") == "주의":
+        return False
+    if any(token in _text(row, "action") for token in ("위험흡수", "이벤트", "매수 금지")):
+        return False
+    if _float(row, "distribution_score") > model.entry_max_distribution_score:
+        return False
+    if _float(row, "foreign_20_adtv") < 0.20:
+        return False
+    if _float(row, "price_return20") >= model.cheap_max_return20_pct / 100.0:
+        return False
+    if _float(row, "price_return20") <= -0.15:
+        return False
+    if _float(row, "rebound_from_low20") >= model.cheap_max_rebound20_pct / 100.0:
+        return False
+    if "ma20_distance" in getattr(row, "index", []) or (
+        isinstance(row, dict) and "ma20_distance" in row
+    ):
+        if _float(row, "ma20_distance") > model.cheap_max_ma20_distance_pct / 100.0:
+            return False
+    if "distance_high60" in getattr(row, "index", []) or (
+        isinstance(row, dict) and "distance_high60" in row
+    ):
+        if _float(row, "distance_high60") > model.cheap_max_distance_high60_pct / 100.0:
+            return False
+    return True
+
+
+def screen_bucket(
+    row: pd.Series | dict,
+    model: ModelConfig | None = None,
+    brief: BriefConfig | None = None,
+) -> str:
+    tier = _text(row, "watch_tier") or classify_watch_tier(row, model, brief)
+    if tier == "즉시매수":
+        return "즉시매수"
+    if is_cheap_accumulation(row, model, brief):
+        return "싼매집"
+    if _bool(row, "dip_absorption"):
+        return "하락흡수감시" if tier == "감시" else "하락흡수"
+    if tier in {"관심후보", "고확신눌림"}:
+        return "관찰"
+    return tier
+
+
 def _quality_accumulation(row: pd.Series | dict, model: ModelConfig) -> bool:
     campaign = _text(row, "campaign_regime", "중립")
     stage = _text(row, "stage", "중립")
@@ -146,8 +206,9 @@ def classify_watch_tier(
         return "위험확인"
     # A live campaign buying the dip is the setup, not a crash-to-wait-on.
     if _bool(row, "dip_absorption") and campaign in WATCH_CAMPAIGNS | {"상승진행"}:
-        # A first pullback that is already testing the 20-day line is
-        # closer to a watchable setup than an extended name still above it.
+        far_above_ma20 = _float(row, "ma20_distance") > model.dip_watch_ma20_distance_pct / 100.0
+        if far_above_ma20 and not _bool(row, "ma20_support"):
+            return "감시"
         if _bool(row, "ma20_support"):
             return "관심후보"
         if discovery >= brief.high_conviction_score:
@@ -282,6 +343,8 @@ def next_trigger(row: pd.Series | dict, model: ModelConfig | None = None) -> str
         return "가격 과열 진정 + 외인 20일 순매수 유지"
     if tier == "급락진정":
         return "3일 급락 진정 후 매집 신호 유지 확인"
+    if tier == "감시":
+        return "20일선 접근 후 싼 매집 조건 재확인"
     if tier == "위험확인":
         return "가격구조·이벤트 확인 전에는 관망"
     return promotion or "매집 신호 유지 여부 확인"
@@ -307,8 +370,8 @@ def watch_priority(
         TIER_BASE.get(tier, 0.0)
         + _float(row, "discovery_score")
         + flow_freshness(row)
-        + (5.0 if _bool(row, "large_flow_signal") else 0.0)
-        + (8.0 if _bool(row, "dip_absorption") else 0.0)
+        + (2.0 if _bool(row, "large_flow_signal") else 0.0)
+        + (8.0 if _bool(row, "dip_absorption") and _bool(row, "ma20_support") else 0.0)
         + (6.0 if _bool(row, "ma20_support") else 0.0)
         + closeness
         - knife
@@ -336,6 +399,8 @@ def annotate_watch_brief(
     frame["block_reason"] = [block_reason(row, model) for _, row in frame.iterrows()]
     frame["next_trigger"] = [next_trigger(row, model) for _, row in frame.iterrows()]
     frame["watch_priority"] = [watch_priority(row, model, brief) for _, row in frame.iterrows()]
+    frame["cheap_accumulation"] = [is_cheap_accumulation(row, model, brief) for _, row in frame.iterrows()]
+    frame["screen_bucket"] = [screen_bucket(row, model, brief) for _, row in frame.iterrows()]
     selected = set(select_daily_brief(frame, brief).get("symbol", pd.Series(dtype="string")).astype(str).str.zfill(6))
     frame["in_daily_brief"] = frame["symbol"].astype(str).str.zfill(6).isin(selected)
     return frame
@@ -376,18 +441,41 @@ def select_daily_brief(
         if not pool.empty:
             picked.append(pool)
 
-    take("즉시매수", 3)
-    take("추가매수", 2)
-    # Leave room for a high-conviction / dip-absorption name instead of
-    # filling the whole shortlist with near-entry watch candidates.
-    take("관심후보", 2)
-    take("고확신눌림", 2)
-    take("관심후보", brief.size)
-    take("고확신눌림", brief.size)
+    def take_mask(mask: pd.Series, limit: int) -> None:
+        remaining = brief.size - sum(len(part) for part in picked)
+        if remaining <= 0 or limit <= 0:
+            return
+        used = set(pd.concat(picked)["symbol"]) if picked else set()
+        pool = frame[mask & (~frame["symbol"].isin(used))]
+        if pool.empty:
+            return
+        pool = pool.sort_values(
+            ["watch_priority", "flow_freshness", "discovery_score"],
+            ascending=False,
+        ).head(min(limit, remaining))
+        if not pool.empty:
+            picked.append(pool)
+
+    cheap = frame.apply(lambda row: is_cheap_accumulation(row, brief=brief), axis=1)
+    if "dip_absorption" in frame:
+        dip = frame["dip_absorption"].map(lambda value: bool(value) if pd.notna(value) else False)
+    else:
+        dip = pd.Series(False, index=frame.index)
+    # Cheap unextended accumulation first, then at most one dip-absorption
+    # name, then one leftover slot for an executable buy or other watch.
+    take_mask(cheap, brief.cheap_slots)
+    take_mask(dip & ~cheap, brief.dip_slots)
+    take("즉시매수", brief.leftover_slots)
+    take("추가매수", 1)
+    take("관심후보", brief.leftover_slots)
+    take("고확신눌림", brief.leftover_slots)
     take("급락진정", 1)
-    take("눌림대기", brief.size)
+    take("눌림대기", 1)
+    take("감시", 1)
     if sum(len(part) for part in picked) < min(3, brief.size):
         take("위험확인", 1)
+    take("관심후보", brief.size)
+    take("고확신눌림", brief.size)
 
     if not picked:
         fallback = frame[frame["watch_tier"] != "제외"].sort_values(

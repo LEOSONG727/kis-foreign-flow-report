@@ -55,6 +55,13 @@ class ModelConfig:
     entry_min_return3_pct: float = -3.0
     entry_max_return20_pct: float = 3.0
     entry_max_rebound20_pct: float = 5.0
+    # Cheap-accumulation screen: price still unextended, ranked by intensity
+    # (ADTV) rather than absolute 20-day won amount.
+    cheap_max_return20_pct: float = 3.0
+    cheap_max_rebound20_pct: float = 5.0
+    cheap_max_ma20_distance_pct: float = 1.0
+    cheap_max_distance_high60_pct: float = -8.0
+    dip_watch_ma20_distance_pct: float = 5.0
     persistent_entry_requires_reacceleration: bool = False
     ma20_atr_chase_multiple: float = 2.5
     rebound_atr_chase_multiple: float = 4.0
@@ -80,6 +87,9 @@ class ModelConfig:
 class BriefConfig:
     """Daily human-review shortlist. Does not change executable buy gates."""
     size: int = 5
+    cheap_slots: int = 3
+    dip_slots: int = 1
+    leftover_slots: int = 1
     high_conviction_score: float = 80.0
     min_discovery_score: float = 65.0
     # Slightly looser than entry gates so "almost ready" names still surface.

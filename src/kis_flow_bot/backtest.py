@@ -11,6 +11,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from .brief import is_cheap_accumulation
 from .config import ModelConfig, Settings
 from .features import add_cross_sectional_residuals, build_base_features
 from .scoring import score_features
@@ -457,6 +458,7 @@ def summarize_score_bands(results: pd.DataFrame) -> pd.DataFrame:
     definitions = [
         ("discovery_v2", "discovery_score", [65.0, 70.0, 75.0, 80.0, 101.0]),
         ("flow_price_v2", "signal_score", [0.0, 60.0, 65.0, 70.0, 75.0, 80.0, 101.0]),
+        ("cheap_accumulation", "discovery_score", [65.0, 70.0, 75.0, 80.0, 101.0]),
     ]
     for variant, score_column, edges in definitions:
         group = results[results["variant"] == variant].copy()
@@ -607,6 +609,15 @@ def _policy_variants(settings: Settings) -> list[dict]:
             "discovery": model.discovery_candidate_score, "timing": model.timing_buy_score,
             "strict_add": True, "production": True,
         },
+        {
+            "variant": "cheap_accumulation", "mode": "cheap",
+            "min3": model.entry_min_return3_pct,
+            "max20": model.cheap_max_return20_pct,
+            "max_rebound20": model.cheap_max_rebound20_pct,
+            "reacceleration": False,
+            "discovery": model.discovery_candidate_score, "timing": 0.0,
+            "strict_add": True, "production": False,
+        },
     ]
 
 
@@ -673,6 +684,9 @@ def run_backtest(settings: Settings) -> pd.DataFrame:
                             ]))
                             & (scored["data_points"] >= 60)
                         ]
+                    elif policy["mode"] == "cheap":
+                        cheap_flags = scored.apply(is_cheap_accumulation, axis=1)
+                        candidates = scored[cheap_flags & (scored["data_points"] >= 60)]
                     else:
                         candidates = scored[
                             scored["action"].isin(["강한 신규매수", "초기 분할매수"])

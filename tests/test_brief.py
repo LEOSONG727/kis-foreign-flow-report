@@ -6,6 +6,7 @@ from kis_flow_bot.brief import (
     annotate_watch_brief,
     classify_watch_tier,
     flow_summary,
+    is_cheap_accumulation,
     next_trigger,
     select_daily_brief,
     watch_priority,
@@ -172,10 +173,11 @@ def test_dip_absorption_is_a_watch_name_not_an_immediate_buy():
         touched_ma20=False,
         ma20_support=False,
     )
-    assert classify_watch_tier(row) == "고확신눌림"
+    assert classify_watch_tier(row) == "감시"
     assert "하락흡수" in flow_summary(row)
     assert classify_watch_tier(row) != "즉시매수"
     assert next_trigger(row) == "20일선 접촉 + 하락일 외인 매수 유지"
+    assert not is_cheap_accumulation(row)
 
 
 def test_dip_absorption_gets_a_brief_slot_among_watch_candidates():
@@ -229,6 +231,78 @@ def test_ma20_support_turns_dip_absorption_into_a_watch_candidate():
     assert classify_watch_tier(row) == "관심후보"
     assert "20일선 접촉" in flow_summary(row)
     assert "20일선 지지" in next_trigger(row)
+
+
+def test_unextended_foreign_buying_is_cheap_accumulation():
+    row = _row(
+        price_return20=0.01,
+        rebound_from_low20=0.02,
+        ma20_distance=0.0,
+        distance_high60=-0.12,
+        foreign_20_adtv=0.80,
+        discovery_score=72.0,
+    )
+    assert is_cheap_accumulation(row)
+    assert classify_watch_tier(row) in {"관심후보", "눌림대기"}
+
+
+def test_absorption_caution_is_not_called_cheap():
+    row = _row(
+        price_return20=-0.09,
+        rebound_from_low20=0.01,
+        ma20_distance=-0.19,
+        distance_high60=-0.20,
+        foreign_20_adtv=2.3,
+        discovery_score=66.0,
+        absorption_signal="주의",
+        action="위험흡수 구조 확인 대기",
+    )
+    assert not is_cheap_accumulation(row)
+
+
+def test_brief_keeps_cheap_majority_and_one_dip():
+    rows = [
+        _row(
+            name=f"싼매집{index}",
+            symbol=f"00002{index}",
+            discovery_score=70.0 + index,
+            price_return20=0.01,
+            rebound_from_low20=0.02,
+            ma20_distance=0.0,
+            distance_high60=-0.12,
+            foreign_20_adtv=0.70,
+            action="관찰·신호 강화 대기",
+            entry_readiness="눌림대기",
+        )
+        for index in range(4)
+    ]
+    for index in range(4):
+        rows.append(
+            _row(
+                name=f"하락흡수{index}",
+                symbol=f"00003{index}",
+                discovery_score=88.0,
+                dip_absorption=True,
+                campaign_regime="장기매집·재가속",
+                ma20_distance=0.08,
+                touched_ma20=False,
+                ma20_support=False,
+                price_return1=-0.02,
+                price_return3=-0.03,
+                price_return20=0.12,
+                rebound_from_low20=0.16,
+                large_flow_signal=True,
+                action="매집 중 하락흡수·20일선 접촉 대기",
+                entry_readiness="반전확인",
+            )
+        )
+    frame = annotate_watch_brief(pd.DataFrame(rows))
+    brief = select_daily_brief(frame, BriefConfig(size=5))
+    cheap_count = int(brief["cheap_accumulation"].sum())
+    dip_count = int(brief["dip_absorption"].fillna(False).astype(bool).sum())
+    assert cheap_count >= 3
+    assert dip_count == 1
+    assert len(brief) == 5
 
 
 def test_telegram_explains_why_not_to_buy():
