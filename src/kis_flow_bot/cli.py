@@ -23,6 +23,12 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--skip-backfill", action="store_true", help="장기 이력 초기화를 생략")
     parser.add_argument("--full-history-bootstrap", action="store_true", help="전체 유니버스 장기 이력 초기화")
     parser.add_argument("--no-notify", action="store_true", help="텔레그램·이메일 알림 생략")
+    parser.add_argument(
+        "--step",
+        type=int,
+        default=None,
+        help="screen-backtest 신호일 간격. 1이면 매일, 기본 5",
+    )
     parser.add_argument("--root", type=Path, default=Path.cwd())
     return parser
 
@@ -41,7 +47,7 @@ def main() -> None:
         run_backtest(settings)
         return
     if args.command == "screen-backtest":
-        run_screen_backtest(settings)
+        run_screen_backtest(settings, step=args.step or 5)
         return
     if args.command == "gate-sweep":
         run_gate_sweep(settings)

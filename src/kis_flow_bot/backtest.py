@@ -990,7 +990,7 @@ def _write_screen_backtest_report(settings: Settings, results: pd.DataFrame, ste
         "",
         f"- 신호일 종가 이후 정보 사용 안 함 · 다음 거래일 시가 진입 · {settings.model.backtest_horizon_days}거래일",
         f"- 왕복 비용 {settings.model.backtest_roundtrip_cost_pct:.1f}% · 같은 시장 중앙값 대비 초과수익",
-        f"- 샘플링: {step}거래일마다 1회 (매일 전수 아님)",
+        f"- 샘플링: {'매일 전수' if step <= 1 else f'{step}거래일마다 1회'}",
         f"- 같은 종목은 {settings.model.backtest_horizon_days}거래일 안에 재진입하지 않음",
         f"- 시간 홀드아웃 컷: {cut.date() if cut is not None else '-'}",
         "",
