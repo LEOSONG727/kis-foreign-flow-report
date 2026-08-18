@@ -38,16 +38,14 @@ def test_email_and_telegram_share_the_daily_brief():
     subject = build_email_subject(scored)
     plain, html_body = build_email_bodies(scored)
     assert "외인 매집 브리핑" in telegram
-    assert "오늘 2종목" in telegram
     assert "이노션" in telegram
+    assert "타이밍" in telegram
     assert "수급" in telegram
-    assert "판단" in telegram
     assert "막힘:" not in telegram
     assert "조회 전용" in telegram
     assert subject == "외인 매집 브리핑 · 8월 14일"
     assert "이노션" in plain
-    assert "3일" in plain
-    assert "판단" in plain
+    assert "타이밍" in plain
     assert "이노션" in html_body
     assert "상세 HTML 리포트" in html_body
 
@@ -82,10 +80,9 @@ def test_telegram_card_puts_setup_and_ma20_on_separate_lines():
     )
     text = build_telegram_text(scored)
     assert "셀트리온" in text
-    assert "특징" in text and "하락흡수" in text
+    assert "타이밍" in text
+    assert "사지 않음" in text
     assert "20일선" in text
-    assert "판단" in text
-    assert "다음" in text
     assert "막힘" not in text
 
 

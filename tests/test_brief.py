@@ -308,8 +308,6 @@ def test_brief_keeps_cheap_majority_and_one_dip():
 def test_telegram_explains_why_not_to_buy():
     scored = score_features(synthetic_features(), ModelConfig())
     text = build_telegram_text(scored)
-    assert "오늘" in text and "종목" in text
-    assert "다음" in text
     assert "매집후보" in text
-    assert ("판단" in text) or ("할 일" in text)
+    assert "타이밍" in text
     assert "막힘:" not in text

@@ -27,7 +27,7 @@ def _parser() -> argparse.ArgumentParser:
         "--step",
         type=int,
         default=None,
-        help="screen-backtest 신호일 간격. 1이면 매일, 기본 5",
+        help="screen-backtest 신호일 간격. 기본 1(매일 전수)",
     )
     parser.add_argument("--root", type=Path, default=Path.cwd())
     return parser
@@ -47,7 +47,7 @@ def main() -> None:
         run_backtest(settings)
         return
     if args.command == "screen-backtest":
-        run_screen_backtest(settings, step=args.step or 5)
+        run_screen_backtest(settings, step=args.step or 1)
         return
     if args.command == "gate-sweep":
         run_gate_sweep(settings)

@@ -80,13 +80,12 @@ def _actionable(tier: str) -> bool:
 
 def _count_line(rows: list[pd.Series]) -> str:
     buy = sum(1 for row in rows if _text(row, "watch_tier") == "즉시매수")
-    add = sum(1 for row in rows if _text(row, "watch_tier") == "추가매수")
-    watch = max(0, len(rows) - buy - add)
-    parts = [f"오늘 {len(rows)}종목", f"즉시매수 {buy}"]
-    if add:
-        parts.append(f"추가매수 {add}")
-    parts.append(f"관찰 {watch}")
-    return "  ·  ".join(parts)
+    cheap = sum(1 for row in rows if _is_cheap_row(row))
+    if buy:
+        return f"오늘 살 자리 {buy}개  ·  싼 매집 {cheap}개"
+    if cheap:
+        return f"살 타이밍 아님  ·  싼 매집 {cheap}개 주목"
+    return f"살 타이밍 아님  ·  관찰 {len(rows)}개"
 
 
 def _setup_tags(row: pd.Series | dict) -> list[str]:
@@ -157,23 +156,50 @@ def _judgment_line(row: pd.Series | dict, model: ModelConfig | None = None) -> s
     return _text(row, "action") or "추가 확인 필요"
 
 
+def _is_cheap_row(row: pd.Series | dict) -> bool:
+    return _bool(row, "cheap_accumulation") or _text(row, "screen_bucket") == "싼매집"
+
+
+def _timing(row: pd.Series | dict, model: ModelConfig | None = None) -> tuple[str, str]:
+    """Human timing label and the single reason not to buy yet."""
+    model = model or ModelConfig()
+    tier = _text(row, "watch_tier")
+    if _actionable(tier) or _bool(row, "entry_gate_passed"):
+        return "지금 분할 검토", "즉시매수 게이트 통과"
+    if _is_cheap_row(row):
+        return "주목 · 아직 대기", _judgment_line(row, model)
+    if _bool(row, "dip_absorption") or _text(row, "screen_bucket").startswith("하락흡수"):
+        return "참고 · 사지 않음", _judgment_line(row, model)
+    if tier == "감시":
+        return "감시만", "20일선에서 멀리 오른 하락 매수"
+    if tier == "급락진정":
+        return "진정 대기", _judgment_line(row, model)
+    return "관찰", _judgment_line(row, model)
+
+
 def _card_fields(
     row: pd.Series | dict,
     model: ModelConfig | None = None,
 ) -> dict[str, str]:
-    tier = _text(row, "watch_tier")
+    timing, reason = _timing(row, model)
     return {
         "name": _text(row, "name"),
         "symbol": _text(row, "symbol").zfill(6) if _text(row, "symbol") else "",
-        "tier": tier,
-        "discovery": f"{_float(row, 'discovery_score'):.0f}",
+        "timing": timing,
+        "reason": reason,
         "flow": _flow_line(row),
-        "tags": "  ·  ".join(_setup_tags(row)),
         "price": _price_line(row),
-        "verdict_label": "할 일" if _actionable(tier) else "판단",
-        "verdict": _judgment_line(row, model),
-        "next": _text(row, "next_trigger") or "매집 신호 유지 여부 확인",
+        "section": _section_of(row),
     }
+
+
+def _section_of(row: pd.Series | dict) -> str:
+    timing, _ = _timing(row)
+    if timing.startswith("지금"):
+        return "buy"
+    if _is_cheap_row(row):
+        return "cheap"
+    return "other"
 
 
 def _title(frame: pd.DataFrame) -> str:
@@ -182,22 +208,21 @@ def _title(frame: pd.DataFrame) -> str:
 
 
 def _plain_card(rank: int, fields: dict[str, str]) -> list[str]:
-    lines = [
+    return [
         f"{rank}. {fields['name']}  {fields['symbol']}",
-        f"{fields['tier']}  ·  발견 {fields['discovery']}",
-        "",
+        f"타이밍  {fields['timing']}",
+        f"이유  {fields['reason']}",
         f"수급  {fields['flow']}",
+        f"가격  {fields['price']}",
     ]
-    if fields["tags"]:
-        lines.append(f"특징  {fields['tags']}")
-    lines.extend(
-        [
-            f"가격  {fields['price']}",
-            f"{fields['verdict_label']}  {fields['verdict']}",
-            f"다음  {fields['next']}",
-        ]
-    )
-    return lines
+
+
+def _section_title(key: str) -> str:
+    return {
+        "buy": "지금 살 타이밍",
+        "cheap": "지금 주목  ·  싼 매집",
+        "other": "참고",
+    }.get(key, "참고")
 
 
 def build_telegram_text(
@@ -209,30 +234,31 @@ def build_telegram_text(
     rows = list(iter_brief_rows(frame, brief))
     lines = [f"<b>{html.escape(_title(frame))}</b>"]
     if not rows:
-        lines.extend(["", "오늘 검토할 매집 후보가 없습니다."])
+        lines.extend(["", "오늘 주목할 싼 매집이 없습니다."])
         return "\n".join(lines)
-    lines.extend([html.escape(_count_line(rows)), ""])
-    for rank, row in enumerate(rows, 1):
-        fields = _card_fields(row, model)
-        name = html.escape(fields["name"])
-        symbol = html.escape(fields["symbol"])
-        card = [
-            f"{rank}. <b>{name}</b>  <code>{symbol}</code>",
-            f"{html.escape(fields['tier'])}  ·  발견 {html.escape(fields['discovery'])}",
-            "",
-            f"수급  {html.escape(fields['flow'])}",
-        ]
-        if fields["tags"]:
-            card.append(f"특징  {html.escape(fields['tags'])}")
-        card.extend(
-            [
-                f"가격  {html.escape(fields['price'])}",
-                f"{html.escape(fields['verdict_label'])}  {html.escape(fields['verdict'])}",
-                f"다음  {html.escape(fields['next'])}",
-            ]
-        )
-        lines.append("\n".join(card))
-    lines.extend(["", "<i>조회 전용 · 주문 미실행</i>"])
+    lines.append(html.escape(_count_line(rows)))
+    grouped: dict[str, list[pd.Series]] = {"buy": [], "cheap": [], "other": []}
+    for row in rows:
+        grouped[_section_of(row)].append(row)
+    rank = 1
+    for key in ("buy", "cheap", "other"):
+        part = grouped[key]
+        if not part:
+            continue
+        lines.append(f"<b>{html.escape(_section_title(key))}</b>")
+        for row in part:
+            fields = _card_fields(row, model)
+            card = (
+                f"{rank}. <b>{html.escape(fields['name'])}</b>  "
+                f"<code>{html.escape(fields['symbol'])}</code>\n"
+                f"타이밍  {html.escape(fields['timing'])}\n"
+                f"이유  {html.escape(fields['reason'])}\n"
+                f"수급  {html.escape(fields['flow'])}\n"
+                f"가격  {html.escape(fields['price'])}"
+            )
+            lines.append(card)
+            rank += 1
+    lines.append("<i>조회 전용 · 주문 미실행</i>")
     return "\n\n".join(line for line in lines if line)
 
 
@@ -260,23 +286,16 @@ def build_email_bodies(
     for rank, row in enumerate(rows, 1):
         fields = _card_fields(row, model)
         plain_lines.extend(["", *_plain_card(rank, fields)])
-        tag_html = (
-            f"<div style='color:#4b5563;margin:2px 0'>특징  {html.escape(fields['tags'])}</div>"
-            if fields["tags"]
-            else ""
-        )
         cards.append(
             "<div style='border:1px solid #e5e7eb;border-radius:12px;padding:16px 18px;margin:0 0 12px'>"
             f"<div style='color:#6b7280;font-size:12px;letter-spacing:0.02em'>"
-            f"{html.escape(fields['tier'])}  ·  발견 {html.escape(fields['discovery'])}</div>"
+            f"{html.escape(fields['timing'])}</div>"
             f"<div style='font-size:18px;font-weight:700;margin:6px 0 10px'>{rank}. {html.escape(fields['name'])} "
             f"<span style='color:#6b7280;font-size:13px;font-weight:500'>{html.escape(fields['symbol'])}</span></div>"
             f"<div style='color:#111827;line-height:1.55'>"
+            f"<div><b>이유</b>  {html.escape(fields['reason'])}</div>"
             f"<div>수급  {html.escape(fields['flow'])}</div>"
-            f"{tag_html}"
             f"<div>가격  {html.escape(fields['price'])}</div>"
-            f"<div style='margin-top:8px'><b>{html.escape(fields['verdict_label'])}</b>  {html.escape(fields['verdict'])}</div>"
-            f"<div><b>다음</b>  {html.escape(fields['next'])}</div>"
             "</div></div>"
         )
     plain_lines.extend(["", "조회 전용 · 주문 미실행", "상세 HTML 리포트를 첨부합니다."])
