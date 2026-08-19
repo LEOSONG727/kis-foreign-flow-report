@@ -93,9 +93,11 @@ class BriefConfig:
     """Daily human-review shortlist. Does not change executable buy gates."""
     size: int = 5
     steady_slots: int = 3
+    steady_priced_slots: int = 3
     cheap_slots: int = 1
     dip_slots: int = 1
     leftover_slots: int = 1
+    steady_max_ma20_distance_pct: float = 3.0
     high_conviction_score: float = 80.0
     min_discovery_score: float = 65.0
     # Slightly looser than entry gates so "almost ready" names still surface.

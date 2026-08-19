@@ -142,6 +142,47 @@ def is_cheap_accumulation(
     return True
 
 
+def is_steady_price_ok(
+    row: pd.Series | dict,
+    model: ModelConfig | None = None,
+    brief: BriefConfig | None = None,
+) -> bool:
+    """Staircase accumulation that is not too expensive to keep on the buy list.
+
+    This is not the executable buy gate. It only asks whether the 20-day pile
+    is still growing at a price that is close enough to the 20-day line and
+    not already extended.
+    """
+    model = model or ModelConfig()
+    brief = brief or BriefConfig()
+    if not (_bool(row, "steady_accumulation") or is_steady_accumulation(row, model)):
+        return False
+    if _text(row, "watch_tier") in {"제외", "위험확인"}:
+        return False
+    if _text(row, "campaign_regime") in TERMINAL_CAMPAIGNS | {"상승진행"}:
+        return False
+    if _text(row, "stage") in TERMINAL_STAGES:
+        return False
+    if _text(row, "absorption_signal") == "주의":
+        return False
+    if _float(row, "distribution_score") > model.entry_max_distribution_score:
+        return False
+    if _float(row, "price_return3") < brief.watch_min_return3_pct / 100.0:
+        return False
+    if _float(row, "price_return20") >= brief.watch_max_return20_pct / 100.0:
+        return False
+    if _float(row, "price_return20") <= -0.12:
+        return False
+    if _float(row, "rebound_from_low20") >= brief.watch_max_rebound20_pct / 100.0:
+        return False
+    ma20 = _float(row, "ma20_distance")
+    if ma20 > brief.steady_max_ma20_distance_pct / 100.0 and not (
+        _bool(row, "ma20_support") or _bool(row, "near_ma20")
+    ):
+        return False
+    return True
+
+
 def screen_bucket(
     row: pd.Series | dict,
     model: ModelConfig | None = None,
@@ -151,6 +192,8 @@ def screen_bucket(
     if tier == "즉시매수":
         return "즉시매수"
     if _bool(row, "steady_accumulation") or is_steady_accumulation(row, model):
+        if is_steady_price_ok(row, model, brief):
+            return "차곡차곡가격"
         if _float(row, "price_return1") < 0:
             return "차곡차곡눌림"
         return "차곡차곡"
@@ -338,11 +381,16 @@ def block_reason(row: pd.Series | dict, model: ModelConfig | None = None) -> str
 def next_trigger(row: pd.Series | dict, model: ModelConfig | None = None) -> str:
     tier = _text(row, "watch_tier") or classify_watch_tier(row, model)
     if _bool(row, "steady_accumulation") or is_steady_accumulation(row):
+        if _bool(row, "entry_gate_passed"):
+            return "차곡차곡 유지되면 분할 신규 검토"
+        if is_steady_price_ok(row):
+            return (
+                "20일 +3% 미만·저점반등 +5% 미만·3일 -3% 이상 + "
+                "20일선 접촉 + 당일 누적 증가 시 분할"
+            )
         if _float(row, "price_return1") < 0:
-            return "하락일에도 20일 누적이 다시 증가하는지"
-        if not _bool(row, "foreign_roll20_today_up"):
-            return "한 달 누적 증가가 이어지는지 확인"
-        return "누적선 유지 · 가격 눌림 대기"
+            return "20일선까지 더 눌리면서 누적이 또 증가하는지"
+        return "가격 과열 진정 + 누적선 유지"
     if _bool(row, "dip_absorption"):
         if not _bool(row, "ma20_support"):
             return "20일선 접촉 + 하락일 외인 매수 유지"
@@ -439,6 +487,7 @@ def annotate_watch_brief(
         frame["steady_accumulation"] = frame["steady_accumulation"].map(
             lambda value: bool(value) if pd.notna(value) else False
         )
+    frame["steady_price_ok"] = [is_steady_price_ok(row, model, brief) for _, row in frame.iterrows()]
     frame["screen_bucket"] = [screen_bucket(row, model, brief) for _, row in frame.iterrows()]
     selected = set(select_daily_brief(frame, brief).get("symbol", pd.Series(dtype="string")).astype(str).str.zfill(6))
     frame["in_daily_brief"] = frame["symbol"].astype(str).str.zfill(6).isin(selected)
@@ -511,10 +560,14 @@ def select_daily_brief(
         dip = frame["dip_absorption"].map(lambda value: bool(value) if pd.notna(value) else False)
     else:
         dip = pd.Series(False, index=frame.index)
-    # Staircasing 20-day inventory first, ranked by how much was added
-    # and how many recent days kept adding — not by discovery heat.
+    # Priced-ok staircases first, then large staircases that are still expensive.
+    if "steady_price_ok" in frame:
+        priced = frame["steady_price_ok"].map(lambda value: bool(value) if pd.notna(value) else False)
+    else:
+        priced = frame.apply(lambda row: is_steady_price_ok(row), axis=1)
     steady_sort = ["foreign_net20", "foreign_roll20_up_days10", "watch_priority"]
-    take_mask(steady & price_down, brief.steady_slots, steady_sort)
+    take_mask(steady & priced, brief.steady_priced_slots, steady_sort)
+    take_mask(steady & price_down & ~priced, brief.steady_slots, steady_sort)
     take_mask(steady, brief.steady_slots, steady_sort)
     take_mask(cheap & ~steady, brief.cheap_slots)
     take_mask(dip & ~cheap & ~steady, brief.dip_slots)

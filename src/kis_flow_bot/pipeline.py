@@ -272,7 +272,7 @@ def _write_outputs(
         "invalidation_condition", "suggested_order_krw",
         "watch_tier", "watch_priority", "flow_freshness", "flow_summary", "block_reason",
         "next_trigger", "high_conviction", "in_daily_brief",
-        "cheap_accumulation", "steady_accumulation",
+        "cheap_accumulation", "steady_accumulation", "steady_price_ok",
         "foreign_roll20_up_days10", "foreign_roll20_down_days10",
         "foreign_roll20_up_days20", "foreign_roll20_up_streak", "foreign_roll20_today_up",
         "screen_bucket",

@@ -7,6 +7,7 @@ from kis_flow_bot.brief import (
     classify_watch_tier,
     flow_summary,
     is_cheap_accumulation,
+    is_steady_price_ok,
     next_trigger,
     select_daily_brief,
     watch_priority,
@@ -413,6 +414,51 @@ def test_brief_keeps_large_staircase_ahead_of_small_high_score_names():
     frame = annotate_watch_brief(pd.DataFrame(rows))
     brief = select_daily_brief(frame, BriefConfig(size=2))
     assert list(brief["name"]) == ["한화오션", "셀트리온"]
+
+
+def test_steady_price_ok_requires_a_controlled_pullback():
+    cheap_enough = _steady_row(
+        price_return1=-0.01,
+        price_return3=-0.02,
+        price_return20=0.04,
+        rebound_from_low20=0.06,
+        ma20_distance=0.008,
+        ma20_support=True,
+        near_ma20=True,
+        watch_tier="관심후보",
+    )
+    too_hot = _steady_row(
+        price_return20=0.14,
+        rebound_from_low20=0.19,
+        ma20_distance=0.07,
+        watch_tier="고확신눌림",
+    )
+    assert is_steady_price_ok(cheap_enough)
+    assert not is_steady_price_ok(too_hot)
+
+
+def test_brief_puts_priced_staircases_ahead_of_expensive_ones():
+    rows = [
+        _steady_row(name="비싼메인", symbol="068270"),
+        _steady_row(
+            name="가격괜찮음",
+            symbol="015760",
+            foreign_net20=80_000_000_000,
+            price_return1=-0.01,
+            price_return3=-0.015,
+            price_return20=0.02,
+            rebound_from_low20=0.04,
+            ma20_distance=0.005,
+            ma20_support=True,
+            near_ma20=True,
+            watch_tier="관심후보",
+        ),
+    ]
+    frame = annotate_watch_brief(pd.DataFrame(rows))
+    brief = select_daily_brief(frame, BriefConfig(size=2))
+    assert list(brief["name"]) == ["가격괜찮음", "비싼메인"]
+    assert bool(frame.set_index("symbol").loc["015760", "steady_price_ok"])
+    assert not bool(frame.set_index("symbol").loc["068270", "steady_price_ok"])
 
 
 def test_telegram_explains_why_not_to_buy():
