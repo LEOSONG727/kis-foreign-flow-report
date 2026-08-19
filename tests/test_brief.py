@@ -386,6 +386,35 @@ def test_brief_prefers_staircasing_inventory_over_cheap_and_generic_dip():
     assert "누적" in next_trigger(_steady_row())
 
 
+def test_brief_keeps_large_staircase_ahead_of_small_high_score_names():
+    rows = [
+        _steady_row(
+            name="작은고득점",
+            symbol="241560",
+            discovery_score=100.0,
+            foreign_net20=16_000_000_000,
+            large_flow_signal=False,
+            watch_tier="관심후보",
+        ),
+        _steady_row(
+            name="셀트리온",
+            symbol="068270",
+            discovery_score=88.0,
+            foreign_net20=243_000_000_000,
+            foreign_roll20_up_days10=10,
+        ),
+        _steady_row(
+            name="한화오션",
+            symbol="042660",
+            discovery_score=90.0,
+            foreign_net20=264_000_000_000,
+        ),
+    ]
+    frame = annotate_watch_brief(pd.DataFrame(rows))
+    brief = select_daily_brief(frame, BriefConfig(size=2))
+    assert list(brief["name"]) == ["한화오션", "셀트리온"]
+
+
 def test_telegram_explains_why_not_to_buy():
     scored = score_features(synthetic_features(), ModelConfig())
     text = build_telegram_text(scored)

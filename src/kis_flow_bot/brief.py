@@ -480,7 +480,7 @@ def select_daily_brief(
         if not pool.empty:
             picked.append(pool)
 
-    def take_mask(mask: pd.Series, limit: int) -> None:
+    def take_mask(mask: pd.Series, limit: int, sort_by: list[str] | None = None) -> None:
         remaining = brief.size - sum(len(part) for part in picked)
         if remaining <= 0 or limit <= 0:
             return
@@ -488,10 +488,16 @@ def select_daily_brief(
         pool = frame[mask & (~frame["symbol"].isin(used))]
         if pool.empty:
             return
-        pool = pool.sort_values(
-            ["watch_priority", "flow_freshness", "discovery_score"],
-            ascending=False,
-        ).head(min(limit, remaining))
+        columns = [
+            column
+            for column in (sort_by or ["watch_priority", "flow_freshness", "discovery_score"])
+            if column in pool.columns
+        ]
+        if not columns:
+            columns = ["discovery_score"] if "discovery_score" in pool.columns else []
+        if columns:
+            pool = pool.sort_values(columns, ascending=False)
+        pool = pool.head(min(limit, remaining))
         if not pool.empty:
             picked.append(pool)
 
@@ -505,10 +511,11 @@ def select_daily_brief(
         dip = frame["dip_absorption"].map(lambda value: bool(value) if pd.notna(value) else False)
     else:
         dip = pd.Series(False, index=frame.index)
-    # Staircasing 20-day inventory first (especially if price fell today),
-    # then unextended cheap names, then at most one generic dip-absorption.
-    take_mask(steady & price_down, brief.steady_slots)
-    take_mask(steady, brief.steady_slots)
+    # Staircasing 20-day inventory first, ranked by how much was added
+    # and how many recent days kept adding — not by discovery heat.
+    steady_sort = ["foreign_net20", "foreign_roll20_up_days10", "watch_priority"]
+    take_mask(steady & price_down, brief.steady_slots, steady_sort)
+    take_mask(steady, brief.steady_slots, steady_sort)
     take_mask(cheap & ~steady, brief.cheap_slots)
     take_mask(dip & ~cheap & ~steady, brief.dip_slots)
     take("즉시매수", brief.leftover_slots)
@@ -541,8 +548,12 @@ def iter_brief_rows(scored: pd.DataFrame, brief: BriefConfig | None = None) -> I
     if selected.empty:
         selected = select_daily_brief(scored, brief)
     else:
-        selected = selected.sort_values(
-            ["watch_priority", "flow_freshness", "discovery_score"], ascending=False
-        )
+        sort_cols = [
+            column
+            for column in ("foreign_net20", "foreign_roll20_up_days10", "watch_priority")
+            if column in selected.columns
+        ]
+        if sort_cols:
+            selected = selected.sort_values(sort_cols, ascending=False)
     for _, row in selected.iterrows():
         yield row
