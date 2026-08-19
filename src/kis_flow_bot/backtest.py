@@ -851,7 +851,7 @@ def run_screen_backtest(
 
     Rules:
     - Features and scores use only bars dated on or before the signal day.
-    - The same select_daily_brief() quotas as production (cheap 3 / dip 1 / leftover).
+    - The same select_daily_brief() quotas as production (steady 3 / cheap 1 / dip 1).
     - Fills at the next session open, then holds 20 sessions with 0.3% round-trip cost.
     - Excess is versus the same-market median over the same window.
     - One symbol cannot re-fire inside the horizon.

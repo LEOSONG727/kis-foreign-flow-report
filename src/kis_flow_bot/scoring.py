@@ -161,6 +161,43 @@ def _is_dip_absorption(row: pd.Series, model: ModelConfig) -> bool:
     return price1 <= -0.008 or (price3 <= -0.02 and price1 <= 0.0)
 
 
+def is_steady_accumulation(row: pd.Series | dict, model: ModelConfig | None = None) -> bool:
+    """The 20-day foreign pile is still being added to, almost every day.
+
+    Looks at daily adds, not the latest 20-day sum. A name that bought on 8 of
+    the last 10 sessions is the Celltrion tape. A two-day burst with the same
+    20-day won amount is not.
+    """
+    model = model or ModelConfig()
+
+    def _num(key: str, default: float) -> float:
+        value = row.get(key, default)
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return default
+        return default if pd.isna(number) else number
+
+    if _num("foreign_net20", 0.0) < model.steady_min_net20_krw:
+        return False
+    if _num("price_return20", 0.0) <= model.structural_break_return20_pct / 100.0:
+        return False
+    if _num("max_abs_daily_return20", 0.0) >= model.corporate_action_daily_return_pct / 100.0:
+        return False
+    if _num("foreign_roll20_up_days10", 0.0) < model.steady_min_up_days10:
+        return False
+    if _num("foreign_flow_concentration20", 0.0) >= model.steady_max_concentration:
+        return False
+    if _num("sellback_ratio20", 9.0) > model.steady_max_sellback:
+        return False
+    today_up = row.get("foreign_roll20_today_up", False)
+    if isinstance(today_up, str):
+        today_up = today_up.strip().lower() in {"1", "true", "yes", "y", "t"}
+    if not bool(today_up):
+        return False
+    return True
+
+
 def _price_heat_reason(row: pd.Series, model: ModelConfig) -> str:
     reasons = []
     for label, value in _price_heat_flags(row, model)[:4]:
@@ -268,6 +305,8 @@ def _campaign_strength(row: pd.Series, model: ModelConfig) -> tuple[float, bool]
         + 18.0 * scale(long_inventory, 0.0, 1.5)
         + 10.0 * scale(row.get("foreign_acceleration5", 0.0), -0.03, 0.12)
         + 5.0 * (1.0 - scale(concentration, 0.25, 0.55))
+        + 8.0 * scale(row.get("foreign_roll20_up_days10", 0.0), 5.0, 10.0)
+        + 4.0 * scale(row.get("foreign_roll20_up_streak", 0.0), 3.0, 10.0)
     )
     return clamp(strength, 0.0, 100.0), large_flow
 
@@ -281,6 +320,7 @@ def _discovery_score(
     campaign_regime: str,
     distribution_score: float,
     dip_absorption: bool = False,
+    steady_accumulation: bool = False,
 ) -> float:
     """Foreign accumulation quality before timing, without rewarding falling knives."""
     ownership_days = row.get("foreign_ownership_days_adtv", np.nan)
@@ -324,11 +364,17 @@ def _discovery_score(
     if not dip_absorption:
         falling_knife_penalty += 8.0 * scale(-row.get("price_return3", 0.0), 0.03, 0.08)
     ma20_bonus = 3.0 if dip_absorption and bool(row.get("ma20_support")) else 0.0
+    steady_bonus = 0.0
+    if steady_accumulation:
+        steady_bonus = 4.0
+        if float(row.get("price_return1", 0.0) or 0.0) <= -0.008:
+            steady_bonus += 3.0
     return clamp(
         value
         + stage_adjustment
         + regime_adjustment
         + ma20_bonus
+        + steady_bonus
         - falling_knife_penalty
         - 0.20 * distribution_score,
         0.0,
@@ -601,17 +647,18 @@ def _action(row: pd.Series, model: ModelConfig) -> str:
     ):
         return "외국인 재개 확인 후 분할매수"
     if bool(row.get("dip_absorption")) and not entry_ready:
+        prefix = "차곡차곡 누적 중 " if bool(row.get("steady_accumulation")) else "매집 중 "
         still_above_ma20 = (
             not bool(row.get("ma20_support"))
             and float(row.get("ma20_distance", 0.0)) > 0.01
         )
         if still_above_ma20:
-            return "매집 중 하락흡수·20일선 접촉 대기"
+            return f"{prefix}하락흡수·20일선 접촉 대기"
         if readiness == "반전확인":
-            return "매집 중 하락흡수 확인·신규매수 대기"
+            return f"{prefix}하락흡수 확인·신규매수 대기"
         if readiness == "눌림대기":
-            return "매집 중 하락흡수·첫 눌림 대기"
-        return "매집 중 하락흡수 확인·신규매수 대기"
+            return f"{prefix}하락흡수·첫 눌림 대기"
+        return f"{prefix}하락흡수 확인·신규매수 대기"
     if not entry_ready:
         if readiness == "반전확인":
             return "급락 멈춤 확인·신규매수 대기"
@@ -699,6 +746,7 @@ def score_features(
         raw_score = accumulation + underreaction + structure + fundamentals + institution_overlay
 
         dip_absorption = _is_dip_absorption(row, model)
+        steady_accumulation = is_steady_accumulation(row, model)
         stage = _stage(row, model)
         campaign_regime = _campaign_regime(row, model)
         campaign_strength, large_flow_signal = _campaign_strength(row, model)
@@ -729,6 +777,7 @@ def score_features(
             campaign_regime,
             distribution_score,
             dip_absorption,
+            steady_accumulation,
         )
         signal_score = clamp(
             0.70 * discovery_score + 0.30 * timing_score - 0.20 * distribution_score,
@@ -796,6 +845,7 @@ def score_features(
                 "price_heat_flag": _is_price_hot(row, model),
                 "price_heat_reason": _price_heat_reason(row, model),
                 "dip_absorption": dip_absorption,
+                "steady_accumulation": steady_accumulation,
                 "score_delta": round(score_delta, 1),
                 "stage": stage,
                 "campaign_regime": campaign_regime,

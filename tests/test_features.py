@@ -3,12 +3,14 @@ from __future__ import annotations
 import pandas as pd
 
 from kis_flow_bot.features import (
+    _cumulative_flow_path,
     _opinion_consensus,
     add_cross_sectional_residuals,
     build_base_features,
     normalize_investor_rows,
     validate_investor_amounts,
 )
+from kis_flow_bot.scoring import is_steady_accumulation
 
 
 def test_opinion_consensus_ignores_stale_targets_and_reports_dispersion():
@@ -226,6 +228,61 @@ def test_today_candle_touching_ma20_is_detected():
     assert bool(row["touched_ma20"])
     assert bool(row["ma20_support"])
     assert abs(row["ma20_distance"]) < 0.02
+
+
+def _flow_history(daily_amounts: list[float], symbol: str = "000010", name: str = "누적주"):
+    dates = pd.bdate_range("2026-02-02", periods=len(daily_amounts))
+    close = 100_000.0
+    return pd.DataFrame(
+        {
+            "date": dates,
+            "symbol": symbol,
+            "market": "KOSPI",
+            "name": name,
+            "open": close,
+            "high": close * 1.01,
+            "low": close * 0.99,
+            "close": close,
+            "volume": 100_000,
+            "turnover": 10_000_000_000,
+            "foreign_net_qty": [amount / close for amount in daily_amounts],
+            "foreign_net_amount": daily_amounts,
+            "institution_net_qty": 0,
+            "institution_net_amount": 0,
+        }
+    )
+
+
+def test_rolling_twenty_day_path_counts_up_days_not_just_the_total():
+    staircase = pd.Series([500_000_000.0] * 40)
+    burst = pd.Series([0.0] * 37 + [6_666_666_667.0] * 3)
+    stair = _cumulative_flow_path(staircase)
+    lump = _cumulative_flow_path(burst)
+    assert stair["foreign_roll20_up_days10"] == 10
+    assert stair["foreign_roll20_today_up"] is True
+    assert stair["foreign_roll20_up_streak"] >= 10
+    assert lump["foreign_roll20_up_days10"] <= 3
+    assert lump["foreign_roll20_up_streak"] <= 3
+
+
+def test_steady_accumulation_accepts_staircase_and_rejects_a_same_size_burst():
+    universe = pd.DataFrame(
+        [{
+            "symbol": "000010", "name": "계단", "market": "KOSPI",
+            "sector_code": "0010", "market_cap_eok": 50_000,
+            "sales": 1_000, "operating_profit": 100, "net_income": 80,
+            "roe": 12, "financial_base_ym": "202512",
+        }]
+    )
+    stair_row = build_base_features(_flow_history([800_000_000.0] * 40, name="계단"), universe).iloc[0]
+    burst_amounts = [0.0] * 37 + [5_333_333_333.0] * 3
+    burst_row = build_base_features(_flow_history(burst_amounts, name="몰빵"), universe).iloc[0]
+    assert stair_row["foreign_net20"] >= 10_000_000_000
+    assert burst_row["foreign_net20"] >= 10_000_000_000
+    assert is_steady_accumulation(stair_row)
+    assert not is_steady_accumulation(burst_row)
+    assert stair_row["foreign_roll20_up_days10"] >= 8
+    assert burst_row["foreign_roll20_up_days10"] < 8
 
 
 def test_extended_close_above_ma20_is_not_a_touch():

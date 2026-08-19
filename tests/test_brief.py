@@ -11,6 +11,7 @@ from kis_flow_bot.brief import (
     select_daily_brief,
     watch_priority,
 )
+from kis_flow_bot.scoring import is_steady_accumulation
 from kis_flow_bot.config import BriefConfig, ModelConfig
 from kis_flow_bot.notify import build_telegram_text
 from kis_flow_bot.scoring import score_features
@@ -47,6 +48,13 @@ def _row(**overrides) -> pd.Series:
         "absorption_signal": "없음",
         "large_flow_signal": False,
         "promotion_condition": "20일 수익률 +3% 미만·20일 저점반등 +5% 미만 + 외국인 매집 유지",
+        "steady_accumulation": False,
+        "foreign_roll20_up_days10": 4,
+        "foreign_roll20_down_days10": 6,
+        "foreign_roll20_up_streak": 1,
+        "foreign_roll20_today_up": False,
+        "foreign_flow_concentration20": 0.20,
+        "price_return1": 0.0,
     }
     base.update(overrides)
     return pd.Series(base)
@@ -260,6 +268,34 @@ def test_absorption_caution_is_not_called_cheap():
     assert not is_cheap_accumulation(row)
 
 
+def _steady_row(**overrides) -> pd.Series:
+    values = dict(
+        discovery_score=80.0,
+        foreign_net20=220_000_000_000,
+        foreign_net1=15_000_000_000,
+        large_flow_signal=True,
+        steady_accumulation=True,
+        foreign_roll20_up_days10=9,
+        foreign_roll20_down_days10=1,
+        foreign_roll20_up_streak=8,
+        foreign_roll20_today_up=True,
+        foreign_flow_concentration20=0.16,
+        sellback_ratio20=0.28,
+        price_return1=-0.005,
+        price_return3=-0.02,
+        price_return20=0.14,
+        rebound_from_low20=0.19,
+        ma20_distance=0.07,
+        campaign_regime="장기매집·재가속",
+        stage="매집·눌림",
+        action="차곡차곡 누적·하락일 흡수 확인",
+        entry_readiness="눌림대기",
+        dip_absorption=True,
+    )
+    values.update(overrides)
+    return _row(**values)
+
+
 def test_brief_keeps_cheap_majority_and_one_dip():
     rows = [
         _row(
@@ -297,12 +333,57 @@ def test_brief_keeps_cheap_majority_and_one_dip():
             )
         )
     frame = annotate_watch_brief(pd.DataFrame(rows))
-    brief = select_daily_brief(frame, BriefConfig(size=5))
+    brief = select_daily_brief(frame, BriefConfig(size=5, cheap_slots=3, dip_slots=1, leftover_slots=1, steady_slots=0))
     cheap_count = int(brief["cheap_accumulation"].sum())
     dip_count = int(brief["dip_absorption"].fillna(False).astype(bool).sum())
     assert cheap_count >= 3
     assert dip_count == 1
     assert len(brief) == 5
+
+
+def test_brief_prefers_staircasing_inventory_over_cheap_and_generic_dip():
+    rows = [
+        _row(
+            name=f"싼매집{index}",
+            symbol=f"00002{index}",
+            discovery_score=70.0 + index,
+            price_return20=0.01,
+            rebound_from_low20=0.02,
+            ma20_distance=0.0,
+            distance_high60=-0.12,
+            foreign_20_adtv=0.70,
+        )
+        for index in range(4)
+    ]
+    for index in range(3):
+        rows.append(
+            _row(
+                name=f"하락흡수{index}",
+                symbol=f"00003{index}",
+                discovery_score=88.0,
+                dip_absorption=True,
+                ma20_distance=0.08,
+                price_return1=-0.02,
+                price_return20=0.12,
+                rebound_from_low20=0.16,
+                large_flow_signal=True,
+            )
+        )
+    rows.extend(
+        [
+            _steady_row(name="셀트리온형", symbol="068270"),
+            _steady_row(name="한화오션형", symbol="042660", price_return1=-0.012),
+            _steady_row(name="HMM형", symbol="011200", price_return1=0.004, dip_absorption=False),
+        ]
+    )
+    frame = annotate_watch_brief(pd.DataFrame(rows))
+    brief = select_daily_brief(frame, BriefConfig(size=5))
+    names = set(brief["name"])
+    assert {"셀트리온형", "한화오션형", "HMM형"}.issubset(names)
+    assert int(brief["steady_accumulation"].sum()) >= 3
+    assert is_steady_accumulation(_steady_row())
+    assert "차곡차곡" in flow_summary(_steady_row())
+    assert "누적" in next_trigger(_steady_row())
 
 
 def test_telegram_explains_why_not_to_buy():

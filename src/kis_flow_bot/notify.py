@@ -98,13 +98,16 @@ def _actionable(tier: str) -> bool:
 def _count_line(rows: list[pd.Series]) -> str:
     buy = sum(1 for row in rows if _text(row, "watch_tier") == "즉시매수")
     cheap = sum(1 for row in rows if _is_cheap_row(row))
+    steady = sum(1 for row in rows if _is_steady_row(row))
     if buy:
-        return f"오늘 살 자리 {buy}개  ·  싼 매집 {cheap}개"
+        return f"오늘 살 자리 {buy}개  ·  차곡차곡 {steady}개 점검"
+    if steady:
+        return f"오늘 당장 살 자리 없음  ·  차곡차곡 {steady}개 점검"
     if cheap:
-        return f"살 타이밍 아님  ·  싼 매집 {cheap}개 주목"
+        return f"오늘 당장 살 자리 없음  ·  싼 매집 {cheap}개 주목"
     if not rows:
-        return "오늘 주목할 싼 매집이 없습니다."
-    return f"살 타이밍 아님  ·  관찰 {len(rows)}개"
+        return "오늘 살 자리 없음 · 차곡차곡 누적도 없음"
+    return f"오늘 당장 살 자리 없음  ·  관찰 {len(rows)}개"
 
 
 def _numeric_col(frame: pd.DataFrame, column: str) -> pd.Series:
@@ -154,7 +157,7 @@ def build_headline(
 ) -> Headline:
     frame = _brief_frame(scored, brief, model)
     rows = list(iter_brief_rows(frame, brief))
-    section_rank = {"buy": 0, "cheap": 1, "other": 2}
+    section_rank = {"buy": 0, "steady": 1, "cheap": 2, "other": 3}
     rows = sorted(rows, key=lambda row: (section_rank.get(_section_of(row), 9),))
     items = tuple(
         HeadlineItem(
@@ -224,6 +227,9 @@ def render_headline_markdown(headline: Headline) -> str:
 
 def _setup_tags(row: pd.Series | dict) -> list[str]:
     tags: list[str] = []
+    if _bool(row, "steady_accumulation"):
+        up_days = int(_float(row, "foreign_roll20_up_days10"))
+        tags.append(f"차곡차곡 {up_days}일↑" if up_days else "차곡차곡")
     if _bool(row, "dip_absorption"):
         tags.append("하락흡수")
     if _bool(row, "touched_ma20"):
@@ -294,12 +300,21 @@ def _is_cheap_row(row: pd.Series | dict) -> bool:
     return _bool(row, "cheap_accumulation") or _text(row, "screen_bucket") == "싼매집"
 
 
+def _is_steady_row(row: pd.Series | dict) -> bool:
+    bucket = _text(row, "screen_bucket")
+    return _bool(row, "steady_accumulation") or bucket.startswith("차곡차곡")
+
+
 def _timing(row: pd.Series | dict, model: ModelConfig | None = None) -> tuple[str, str]:
     """Human timing label and the single reason not to buy yet."""
     model = model or ModelConfig()
     tier = _text(row, "watch_tier")
     if _actionable(tier) or _bool(row, "entry_gate_passed"):
         return "지금 분할 검토", "즉시매수 게이트 통과"
+    if _is_steady_row(row):
+        if _float(row, "price_return1") < 0:
+            return "주목 · 하락에도 누적↑", _judgment_line(row, model)
+        return "주목 · 차곡차곡", _judgment_line(row, model)
     if _is_cheap_row(row):
         return "주목 · 아직 대기", _judgment_line(row, model)
     if _bool(row, "dip_absorption") or _text(row, "screen_bucket").startswith("하락흡수"):
@@ -331,6 +346,8 @@ def _section_of(row: pd.Series | dict) -> str:
     timing, _ = _timing(row)
     if timing.startswith("지금"):
         return "buy"
+    if _is_steady_row(row):
+        return "steady"
     if _is_cheap_row(row):
         return "cheap"
     return "other"
@@ -354,6 +371,7 @@ def _plain_card(rank: int, fields: dict[str, str]) -> list[str]:
 def _section_title(key: str) -> str:
     return {
         "buy": "지금 살 타이밍",
+        "steady": "살만한지 점검  ·  차곡차곡 누적",
         "cheap": "지금 주목  ·  싼 매집",
         "other": "참고",
     }.get(key, "참고")
@@ -389,11 +407,11 @@ def build_telegram_text(
     if not rows:
         lines.append("<i>조회 전용 · 주문 미실행</i>")
         return "\n\n".join(line for line in lines if line)
-    grouped: dict[str, list[pd.Series]] = {"buy": [], "cheap": [], "other": []}
+    grouped: dict[str, list[pd.Series]] = {"buy": [], "steady": [], "cheap": [], "other": []}
     for row in rows:
         grouped[_section_of(row)].append(row)
     rank = 1
-    for key in ("buy", "cheap", "other"):
+    for key in ("buy", "steady", "cheap", "other"):
         part = grouped[key]
         if not part:
             continue

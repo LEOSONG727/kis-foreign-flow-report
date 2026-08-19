@@ -72,6 +72,9 @@ strategy_trailing_stop_pct = 8.0
 [brief]
 # 매일 사람이 볼 숏리스트. 즉시매수 게이트는 바꾸지 않는다.
 size = 5
+steady_slots = 3
+cheap_slots = 1
+dip_slots = 1
 high_conviction_score = 80.0
 min_discovery_score = 65.0
 watch_min_return3_pct = -4.0

@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 from .config import BriefConfig, ModelConfig
+from .scoring import is_steady_accumulation
 
 
 WATCH_TIERS = (
@@ -149,6 +150,10 @@ def screen_bucket(
     tier = _text(row, "watch_tier") or classify_watch_tier(row, model, brief)
     if tier == "즉시매수":
         return "즉시매수"
+    if _bool(row, "steady_accumulation") or is_steady_accumulation(row, model):
+        if _float(row, "price_return1") < 0:
+            return "차곡차곡눌림"
+        return "차곡차곡"
     if is_cheap_accumulation(row, model, brief):
         return "싼매집"
     if _bool(row, "dip_absorption"):
@@ -266,6 +271,12 @@ def flow_summary(row: pd.Series | dict) -> str:
     ]
     if _bool(row, "large_flow_signal"):
         parts.append("500억+")
+    if _bool(row, "steady_accumulation") or is_steady_accumulation(row):
+        up_days = int(_float(row, "foreign_roll20_up_days10"))
+        if up_days > 0:
+            parts.append(f"차곡차곡 {up_days}일/10일↑")
+        else:
+            parts.append("차곡차곡")
     if _bool(row, "dip_absorption"):
         parts.append("하락흡수")
     if _bool(row, "touched_ma20"):
@@ -326,6 +337,12 @@ def block_reason(row: pd.Series | dict, model: ModelConfig | None = None) -> str
 
 def next_trigger(row: pd.Series | dict, model: ModelConfig | None = None) -> str:
     tier = _text(row, "watch_tier") or classify_watch_tier(row, model)
+    if _bool(row, "steady_accumulation") or is_steady_accumulation(row):
+        if _float(row, "price_return1") < 0:
+            return "하락일에도 20일 누적이 다시 증가하는지"
+        if not _bool(row, "foreign_roll20_today_up"):
+            return "한 달 누적 증가가 이어지는지 확인"
+        return "누적선 유지 · 가격 눌림 대기"
     if _bool(row, "dip_absorption"):
         if not _bool(row, "ma20_support"):
             return "20일선 접촉 + 하락일 외인 매수 유지"
@@ -373,6 +390,17 @@ def watch_priority(
         + (2.0 if _bool(row, "large_flow_signal") else 0.0)
         + (8.0 if _bool(row, "dip_absorption") and _bool(row, "ma20_support") else 0.0)
         + (6.0 if _bool(row, "ma20_support") else 0.0)
+        + (12.0 if _bool(row, "steady_accumulation") or is_steady_accumulation(row, model) else 0.0)
+        + (
+            10.0
+            if (
+                (_bool(row, "steady_accumulation") or is_steady_accumulation(row, model))
+                and _float(row, "price_return1") < 0
+            )
+            else 0.0
+        )
+        + 8.0 * _scale(_float(row, "foreign_roll20_up_days10"), 6.0, 10.0)
+        + 4.0 * _scale(_float(row, "foreign_net20") / 100_000_000, 100.0, 2_000.0)
         + closeness
         - knife
     )
@@ -400,6 +428,17 @@ def annotate_watch_brief(
     frame["next_trigger"] = [next_trigger(row, model) for _, row in frame.iterrows()]
     frame["watch_priority"] = [watch_priority(row, model, brief) for _, row in frame.iterrows()]
     frame["cheap_accumulation"] = [is_cheap_accumulation(row, model, brief) for _, row in frame.iterrows()]
+    if "steady_accumulation" not in frame:
+        frame["steady_accumulation"] = [is_steady_accumulation(row, model) for _, row in frame.iterrows()]
+    else:
+        missing = frame["steady_accumulation"].isna()
+        if missing.any():
+            frame.loc[missing, "steady_accumulation"] = [
+                is_steady_accumulation(row, model) for _, row in frame.loc[missing].iterrows()
+            ]
+        frame["steady_accumulation"] = frame["steady_accumulation"].map(
+            lambda value: bool(value) if pd.notna(value) else False
+        )
     frame["screen_bucket"] = [screen_bucket(row, model, brief) for _, row in frame.iterrows()]
     selected = set(select_daily_brief(frame, brief).get("symbol", pd.Series(dtype="string")).astype(str).str.zfill(6))
     frame["in_daily_brief"] = frame["symbol"].astype(str).str.zfill(6).isin(selected)
@@ -457,14 +496,21 @@ def select_daily_brief(
             picked.append(pool)
 
     cheap = frame.apply(lambda row: is_cheap_accumulation(row, brief=brief), axis=1)
+    if "steady_accumulation" in frame:
+        steady = frame["steady_accumulation"].map(lambda value: bool(value) if pd.notna(value) else False)
+    else:
+        steady = frame.apply(lambda row: is_steady_accumulation(row), axis=1)
+    price_down = pd.to_numeric(frame.get("price_return1", pd.Series(0.0, index=frame.index)), errors="coerce").fillna(0.0) < 0
     if "dip_absorption" in frame:
         dip = frame["dip_absorption"].map(lambda value: bool(value) if pd.notna(value) else False)
     else:
         dip = pd.Series(False, index=frame.index)
-    # Cheap unextended accumulation first, then at most one dip-absorption
-    # name, then one leftover slot for an executable buy or other watch.
-    take_mask(cheap, brief.cheap_slots)
-    take_mask(dip & ~cheap, brief.dip_slots)
+    # Staircasing 20-day inventory first (especially if price fell today),
+    # then unextended cheap names, then at most one generic dip-absorption.
+    take_mask(steady & price_down, brief.steady_slots)
+    take_mask(steady, brief.steady_slots)
+    take_mask(cheap & ~steady, brief.cheap_slots)
+    take_mask(dip & ~cheap & ~steady, brief.dip_slots)
     take("즉시매수", brief.leftover_slots)
     take("추가매수", 1)
     take("관심후보", brief.leftover_slots)

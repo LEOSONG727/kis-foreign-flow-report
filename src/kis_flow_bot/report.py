@@ -204,6 +204,14 @@ def _reason_list(row: pd.Series) -> str:
         reasons.append(
             f'단기 가격과열: {row.get("price_heat_reason", "-")} (진입 벌점 {number(row.get("price_heat_penalty"))}점)'
         )
+    if bool(row.get("steady_accumulation", False)):
+        up_days = int(row.get("foreign_roll20_up_days10", 0) or 0)
+        streak = int(row.get("foreign_roll20_up_streak", 0) or 0)
+        reasons.append(
+            f'차곡차곡 누적: 최근 10일 중 {up_days}일 20일 누적 증가'
+            + (f' · 연속 {streak}일' if streak else "")
+            + (" · 오늘도 증가" if bool(row.get("foreign_roll20_today_up", False)) else "")
+        )
     if bool(row.get("dip_absorption", False)):
         reasons.append(
             f'하락흡수: 당일 {pct(row.get("price_return1"))}인데 외인 {eok(row.get("foreign_net1"))} '
@@ -403,6 +411,12 @@ def render_report(
     risk_actions = ranked[ranked["decision_bucket"] == "수익실현·중단"].sort_values(
         wait_sort, ascending=False
     ).head(12)
+    if "steady_accumulation" in ranked:
+        steady = ranked[ranked["steady_accumulation"].fillna(False).astype(bool)].sort_values(
+            wait_sort, ascending=False
+        ).head(12)
+    else:
+        steady = ranked.head(0)
     watched = ranked[ranked["symbol"].astype(str).str.zfill(6).isin(watchlist)]
     falling = ranked[
         (ranked["price_return20"] < 0)
@@ -424,8 +438,11 @@ def render_report(
 {render_headline_html(headline)}
 <section class="summary"><div><b>{brief_count}</b><span>오늘 볼 종목</span></div><div><b>{new_count}</b><span>즉시매수</span></div><div><b>{interest_count}</b><span>관심후보 · 거의 준비됨</span></div><div><b>{conviction_count}</b><span>고확신 눌림대기</span></div></section>
 <h2>오늘 볼 종목 {brief.size}</h2>
-<p class="muted">즉시매수 게이트는 그대로입니다. 아래는 사람이 오늘 열어볼 후보입니다. 급락 중 고득점은 뒤로 밀립니다.</p>
+<p class="muted">즉시매수 게이트는 그대로입니다. 아래는 사람이 오늘 열어볼 후보입니다. 한 달 누적이 계단처럼 오르는 종목을 앞에 둡니다.</p>
 {_brief_cards(daily_brief)}
+<h2>차곡차곡 누적 · 20일 수급이 계속 증가</h2>
+<p class="muted">20일 외인 누적이 최근 10거래일 중 8일 이상 늘어난 종목입니다. 합계만 큰 종목과 구분합니다.</p>
+{_table(steady, empty_message="오늘은 한 달 누적이 계단처럼 오르는 종목이 없습니다.")}
 <h2>① 즉시매수</h2>{_table(new_buys, empty_message="오늘은 발견·분산위험·가격 게이트를 모두 통과한 종목이 없습니다. 아래 관심후보와 고확신 눌림을 보세요.")}
 <h2>② 관심후보 · 거의 준비됨</h2>{_table(interest, empty_message="완화된 관심 게이트(20일 +6% / 저점반등 +8%)를 통과한 종목이 없습니다.")}
 <h2>③ 고확신 눌림대기 · 발견 80+</h2>{_table(conviction, empty_message="발견 80점 이상인데 가격이 먼저 오른 종목이 없습니다.")}
@@ -437,7 +454,7 @@ def render_report(
 <h2>가격 하락 + 외국인 매수</h2>{_table(falling)}
 <h2>내 관찰 종목</h2>{_table(watched)}
 <h2>상세 분석</h2>{_detail_cards(pd.concat([daily_brief, new_buys, interest, conviction, watched]).drop_duplicates('symbol').head(12))}
-<h2>국면 해석</h2><div class="legend"><div><b>즉시매수</b>기존 엄격 게이트 통과. 분할 신규를 검토할 수 있음</div><div><b>관심후보</b>수급은 좋은데 20일 +3% 또는 저점반등 +5%를 살짝 넘김. 조금 더 눌리면 즉시매수 후보</div><div><b>고확신 눌림</b>발견 80점 이상. 가격이 먼저 올라 추격은 금지, 눌림을 기다림</div><div><b>급락진정</b>매집은 유효하나 최근 3일이 아직 하락 가속</div><div><b>지속매집</b>20일 순매수·매수일 비율·되팔기 비율이 함께 양호</div><div><b>상승진행</b>매집은 유효하지만 가격이 먼저 올라 신규 추격은 제한</div></div>
+<h2>국면 해석</h2><div class="legend"><div><b>차곡차곡</b>20일 외인 누적이 최근 10일 거의 매일 증가. 가격이 빠져도 누적선이 안 꺾이면 감시</div><div><b>즉시매수</b>기존 엄격 게이트 통과. 분할 신규를 검토할 수 있음</div><div><b>관심후보</b>수급은 좋은데 20일 +3% 또는 저점반등 +5%를 살짝 넘김. 조금 더 눌리면 즉시매수 후보</div><div><b>고확신 눌림</b>발견 80점 이상. 가격이 먼저 올라 추격은 금지, 눌림을 기다림</div><div><b>급락진정</b>매집은 유효하나 최근 3일이 아직 하락 가속</div><div><b>지속매집</b>20일 순매수·매수일 비율·되팔기 비율이 함께 양호</div><div><b>상승진행</b>매집은 유효하지만 가격이 먼저 올라 신규 추격은 제한</div></div>
 <p class="note">오늘 볼 종목은 즉시매수 액션을 바꾸지 않습니다. 신규매수는 발견 65점, 분산위험 25점 이하, 최근 3일 급락 진정, 20일 상승률 +3% 미만, 20일 저점 반등 +5% 미만을 통과해야 합니다. 관심후보는 사람이 열어보기 위해 20일 +6%·저점반등 +8%까지 표시합니다. 타이밍점수는 커트라인이 아니라 설명용입니다. 주문 API는 포함되어 있지 않습니다.</p>
 </main></body></html>"""
 
@@ -476,6 +493,7 @@ def render_report(
         [
             f"## 외국인 매집 액션 리포트 · {report_date}",
             "\n".join(brief_lines).rstrip(),
+            md_section("차곡차곡 누적", steady),
             md_section("① 즉시매수", new_buys),
             md_section("② 관심후보", interest),
             md_section("③ 고확신 눌림대기", conviction),

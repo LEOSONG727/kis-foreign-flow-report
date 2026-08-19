@@ -31,6 +31,10 @@ def _promotion_condition(row: dict, action: str, has_position: bool, model: Mode
         if not bool(row.get("ma20_support")) and float(row.get("ma20_distance", 0.0) or 0.0) > 0.01:
             return "20일선 접촉 + 하락일 외인 매수 유지"
         return "20일선 지지 유지 후 즉시매수 게이트 재확인"
+    if bool(row.get("steady_accumulation")):
+        if float(row.get("price_return1", 0.0) or 0.0) < 0:
+            return "하락일에도 20일 누적이 다시 증가하는지"
+        return "누적선 유지 · 가격 눌림 대기"
     if "급락 멈춤" in action:
         return f"3일 수익률 {model.entry_min_return3_pct:+.0f}% 이상 회복 + 외국인 매집 신호 유지"
     if "첫 눌림" in action:
@@ -84,6 +88,8 @@ def _invalidation_condition(row: dict) -> str:
         return "기관 20일 순매도 전환 또는 60일 저점 이탈"
     if campaign == "손바뀜·재확인":
         return "기관 흡수 중단 + 외국인 최근 3일 재매도"
+    if bool(row.get("steady_accumulation")):
+        return "20일 누적이 꺾임·외국인 20일 순매수 0 이하·60일 저점 이탈"
     return "외국인 20일 순매수 0 이하·되팔기 100% 이상·60일 저점 이탈"
 
 

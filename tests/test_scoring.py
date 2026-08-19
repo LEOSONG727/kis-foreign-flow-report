@@ -187,7 +187,7 @@ def test_recent_three_day_drop_blocks_fresh_buy_until_stable():
     scored = score_features(features, ModelConfig())
     candidate = scored[scored["symbol"] == "000010"].iloc[0]
     assert candidate["entry_readiness"] == "반전확인"
-    assert candidate["action"] == "매집 중 하락흡수 확인·신규매수 대기"
+    assert candidate["action"] == "차곡차곡 누적 중 하락흡수 확인·신규매수 대기"
     assert bool(candidate["dip_absorption"])
 
 
@@ -314,6 +314,10 @@ def _celltrion_like_features():
         "max_abs_daily_return20": 0.05,
         "data_points": 120,
         "buy_days20": 15,
+        "foreign_roll20_up_days10": 9,
+        "foreign_roll20_down_days10": 1,
+        "foreign_roll20_up_streak": 8,
+        "foreign_roll20_today_up": True,
         "ma20_distance": 0.06,
         "touched_ma20": False,
         "touched_ma20_3": False,
@@ -330,12 +334,13 @@ def test_celltrion_like_dip_buy_is_discovered_without_becoming_a_chase_buy():
     scored = score_features(_celltrion_like_features(), ModelConfig())
     candidate = scored[scored["symbol"] == "000010"].iloc[0]
     assert bool(candidate["dip_absorption"])
+    assert bool(candidate["steady_accumulation"])
     assert candidate["stage"] == "매집·눌림"
     assert candidate["campaign_regime"] == "장기매집·재가속"
     assert candidate["discovery_score"] >= 65
     assert not bool(candidate["entry_gate_passed"])
     assert candidate["entry_readiness"] == "반전확인"
-    assert candidate["action"] == "매집 중 하락흡수·20일선 접촉 대기"
+    assert candidate["action"] == "차곡차곡 누적 중 하락흡수·20일선 접촉 대기"
     assert candidate["action"] != "초기 분할매수"
 
 
@@ -351,7 +356,8 @@ def test_dip_into_ma20_waits_for_stabilization_not_a_fresh_buy():
     candidate = scored[scored["symbol"] == "000010"].iloc[0]
     baseline = score_features(_celltrion_like_features(), ModelConfig()).query("symbol == '000010'").iloc[0]
     assert bool(candidate["dip_absorption"])
-    assert candidate["action"] == "매집 중 하락흡수 확인·신규매수 대기"
+    assert bool(candidate["steady_accumulation"])
+    assert candidate["action"] == "차곡차곡 누적 중 하락흡수 확인·신규매수 대기"
     assert not bool(candidate["entry_gate_passed"])
     assert candidate["timing_score"] >= baseline["timing_score"]
 

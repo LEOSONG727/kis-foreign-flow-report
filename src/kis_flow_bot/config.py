@@ -62,6 +62,11 @@ class ModelConfig:
     cheap_max_ma20_distance_pct: float = 1.0
     cheap_max_distance_high60_pct: float = -8.0
     dip_watch_ma20_distance_pct: float = 5.0
+    # Rolling 20-day inventory that keeps staircasing higher (Celltrion tape).
+    steady_min_net20_krw: int = 10_000_000_000
+    steady_min_up_days10: int = 8
+    steady_max_concentration: float = 0.36
+    steady_max_sellback: float = 0.80
     persistent_entry_requires_reacceleration: bool = False
     ma20_atr_chase_multiple: float = 2.5
     rebound_atr_chase_multiple: float = 4.0
@@ -87,7 +92,8 @@ class ModelConfig:
 class BriefConfig:
     """Daily human-review shortlist. Does not change executable buy gates."""
     size: int = 5
-    cheap_slots: int = 3
+    steady_slots: int = 3
+    cheap_slots: int = 1
     dip_slots: int = 1
     leftover_slots: int = 1
     high_conviction_score: float = 80.0
