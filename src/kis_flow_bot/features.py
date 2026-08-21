@@ -235,19 +235,35 @@ def _cumulative_flow_path(
     window: int = 20,
     lookback: int = 10,
 ) -> dict[str, float | bool | int]:
-    """Whether the 20-day pile kept growing day by day.
+    """Describe daily foreign buying and the actual rolling-20 inventory path.
 
-    The 20-day *total* can be large from a two-day burst. 차곡차곡 is the
-    opposite: most recent sessions added to the pile, so a month-to-date
-    cumulative would keep staircasing higher.
+    ``foreign_buy_days10`` counts positive *daily* net buys. It is the main
+    persistence signal because it separates steady demand from a two-day
+    burst. ``foreign_inventory_up_days10`` is intentionally separate: it
+    counts increases in the rolling 20-session sum and must not be described
+    as daily foreign buying.
+
+    The legacy ``foreign_roll20_*`` aliases are kept for one migration cycle
+    so stored CSVs and downstream readers do not fail abruptly.
     """
     empty = {
-        "foreign_roll20_up_days10": 0,
-        "foreign_roll20_down_days10": 0,
-        "foreign_roll20_up_days20": 0,
-        "foreign_roll20_up_streak": 0,
-        "foreign_roll20_today_up": False,
+        "foreign_buy_days10": 0,
+        "foreign_sell_days10": 0,
+        "foreign_buy_days20": 0,
+        "foreign_buy_streak": 0,
+        "foreign_bought_today": False,
+        "foreign_inventory_up_days10": 0,
+        "foreign_inventory_down_days10": 0,
     }
+    empty.update(
+        {
+            "foreign_roll20_up_days10": 0,
+            "foreign_roll20_down_days10": 0,
+            "foreign_roll20_up_days20": 0,
+            "foreign_roll20_up_streak": 0,
+            "foreign_roll20_today_up": False,
+        }
+    )
     if amounts.empty:
         return empty
     daily = pd.to_numeric(amounts, errors="coerce").fillna(0.0)
@@ -257,19 +273,32 @@ def _cumulative_flow_path(
     last10 = daily.tail(lookback)
     last20 = daily.tail(20)
     today = float(daily.iloc[-1]) if pd.notna(daily.iloc[-1]) else 0.0
+    inventory_change = roll.diff().dropna().tail(lookback)
     streak = 0
     for value in reversed(daily.tolist()):
         if value > epsilon:
             streak += 1
         else:
             break
-    return {
-        "foreign_roll20_up_days10": int((last10 > epsilon).sum()),
-        "foreign_roll20_down_days10": int((last10 < -epsilon).sum()),
-        "foreign_roll20_up_days20": int((last20 > epsilon).sum()),
-        "foreign_roll20_up_streak": streak,
-        "foreign_roll20_today_up": today > epsilon,
+    result = {
+        "foreign_buy_days10": int((last10 > epsilon).sum()),
+        "foreign_sell_days10": int((last10 < -epsilon).sum()),
+        "foreign_buy_days20": int((last20 > epsilon).sum()),
+        "foreign_buy_streak": streak,
+        "foreign_bought_today": today > epsilon,
+        "foreign_inventory_up_days10": int((inventory_change > epsilon).sum()),
+        "foreign_inventory_down_days10": int((inventory_change < -epsilon).sum()),
     }
+    result.update(
+        {
+            "foreign_roll20_up_days10": result["foreign_buy_days10"],
+            "foreign_roll20_down_days10": result["foreign_sell_days10"],
+            "foreign_roll20_up_days20": result["foreign_buy_days20"],
+            "foreign_roll20_up_streak": result["foreign_buy_streak"],
+            "foreign_roll20_today_up": result["foreign_bought_today"],
+        }
+    )
+    return result
 
 
 def _holding_change(symbol: str, snapshots: pd.DataFrame) -> float:
@@ -528,11 +557,19 @@ def build_base_features(
                 "foreign_acceleration5": acceleration5,
                 "foreign_acceleration3": acceleration3,
                 "foreign_flow_concentration20": flow_concentration20,
-                "foreign_roll20_up_days10": flow_path["foreign_roll20_up_days10"],
-                "foreign_roll20_down_days10": flow_path["foreign_roll20_down_days10"],
-                "foreign_roll20_up_days20": flow_path["foreign_roll20_up_days20"],
-                "foreign_roll20_up_streak": flow_path["foreign_roll20_up_streak"],
-                "foreign_roll20_today_up": flow_path["foreign_roll20_today_up"],
+                "foreign_buy_days10": flow_path["foreign_buy_days10"],
+                "foreign_sell_days10": flow_path["foreign_sell_days10"],
+                "foreign_buy_days20": flow_path["foreign_buy_days20"],
+                "foreign_buy_streak": flow_path["foreign_buy_streak"],
+                "foreign_bought_today": flow_path["foreign_bought_today"],
+                "foreign_inventory_up_days10": flow_path["foreign_inventory_up_days10"],
+                "foreign_inventory_down_days10": flow_path["foreign_inventory_down_days10"],
+                # Backward-compatible aliases; use the canonical names above.
+                "foreign_roll20_up_days10": flow_path["foreign_buy_days10"],
+                "foreign_roll20_down_days10": flow_path["foreign_sell_days10"],
+                "foreign_roll20_up_days20": flow_path["foreign_buy_days20"],
+                "foreign_roll20_up_streak": flow_path["foreign_buy_streak"],
+                "foreign_roll20_today_up": flow_path["foreign_bought_today"],
                 "foreign_flow_share20": float(w20["foreign_net_amount"].sum() / w20["turnover"].sum()) if w20["turnover"].sum() else 0.0,
                 "foreign_ewm20": float(w120["flow_ratio"].ewm(halflife=20, adjust=False).mean().iloc[-1]),
                 "foreign_ewm120": float(w120["flow_ratio"].ewm(halflife=120, adjust=False).mean().iloc[-1]),
