@@ -184,13 +184,17 @@ def is_steady_accumulation(row: pd.Series | dict, model: ModelConfig | None = No
         return False
     if _num("max_abs_daily_return20", 0.0) >= model.corporate_action_daily_return_pct / 100.0:
         return False
-    if _num("foreign_roll20_up_days10", 0.0) < model.steady_min_up_days10:
+    buy_days10 = _num(
+        "foreign_buy_days10",
+        _num("foreign_roll20_up_days10", 0.0),
+    )
+    if buy_days10 < model.steady_min_up_days10:
         return False
     if _num("foreign_flow_concentration20", 0.0) >= model.steady_max_concentration:
         return False
     if _num("sellback_ratio20", 9.0) > model.steady_max_sellback:
         return False
-    today_up = row.get("foreign_roll20_today_up", False)
+    today_up = row.get("foreign_bought_today", row.get("foreign_roll20_today_up", False))
     if isinstance(today_up, str):
         today_up = today_up.strip().lower() in {"1", "true", "yes", "y", "t"}
     if not bool(today_up):
@@ -305,8 +309,16 @@ def _campaign_strength(row: pd.Series, model: ModelConfig) -> tuple[float, bool]
         + 18.0 * scale(long_inventory, 0.0, 1.5)
         + 10.0 * scale(row.get("foreign_acceleration5", 0.0), -0.03, 0.12)
         + 5.0 * (1.0 - scale(concentration, 0.25, 0.55))
-        + 8.0 * scale(row.get("foreign_roll20_up_days10", 0.0), 5.0, 10.0)
-        + 4.0 * scale(row.get("foreign_roll20_up_streak", 0.0), 3.0, 10.0)
+        + 8.0 * scale(
+            row.get("foreign_buy_days10", row.get("foreign_roll20_up_days10", 0.0)),
+            5.0,
+            10.0,
+        )
+        + 4.0 * scale(
+            row.get("foreign_buy_streak", row.get("foreign_roll20_up_streak", 0.0)),
+            3.0,
+            10.0,
+        )
     )
     return clamp(strength, 0.0, 100.0), large_flow
 
@@ -647,7 +659,7 @@ def _action(row: pd.Series, model: ModelConfig) -> str:
     ):
         return "외국인 재개 확인 후 분할매수"
     if bool(row.get("dip_absorption")) and not entry_ready:
-        prefix = "차곡차곡 누적 중 " if bool(row.get("steady_accumulation")) else "매집 중 "
+        prefix = "외인 지속매수 중 " if bool(row.get("steady_accumulation")) else "매집 중 "
         still_above_ma20 = (
             not bool(row.get("ma20_support"))
             and float(row.get("ma20_distance", 0.0)) > 0.01
