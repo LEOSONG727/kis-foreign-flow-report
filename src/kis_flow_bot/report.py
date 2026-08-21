@@ -41,6 +41,13 @@ TIER_CLASS = {
     "제외": "gray",
 }
 
+PROPOSAL_CLASS = {
+    "오늘 신규매수 검토": "green",
+    "강한 후보·가격 대기": "yellow",
+    "관찰": "blue",
+    "제외": "gray",
+}
+
 CAMPAIGN_CLASS = {
     "지속매집": "green",
     "장기매집·재가속": "green",
@@ -105,6 +112,13 @@ def badge(text: str, kind: str) -> str:
     return f'<span class="badge {esc(kind)}">{esc(text)}</span>'
 
 
+def grade_badge(grade: str) -> str:
+    if grade not in {"A", "B", "C"}:
+        return ""
+    kind = "green" if grade == "A" else "blue" if grade == "B" else "gray"
+    return badge(f"{grade}등급", kind)
+
+
 def sparkline(values, width: int = 124, height: int = 38) -> str:
     if isinstance(values, str):
         try:
@@ -149,6 +163,8 @@ def _table(frame: pd.DataFrame, start_rank: int = 1, empty_message: str = "해�
     rows = []
     for offset, (_, row) in enumerate(frame.iterrows()):
         campaign = str(row.get("campaign_regime", "중립"))
+        proposal = str(row.get("proposal_status", "관찰"))
+        grade = str(row.get("discovery_grade", "-"))
         large_badge = badge("500억+", "green") if bool(row.get("large_flow_signal", False)) else ""
         rows.append(
             "<tr>"
@@ -162,7 +178,9 @@ def _table(frame: pd.DataFrame, start_rank: int = 1, empty_message: str = "해�
             f'<td>{pct(row.get("price_return20"))}'
             f'<small>3일 {pct(row.get("price_return3"))} · 10일 {pct(row.get("price_return10"))}</small>'
             f'<small>20일 저점반등 {pct(row.get("rebound_from_low20"))}</small></td>'
-            f'<td class="action">{badge(str(row.get("watch_tier", "")), TIER_CLASS.get(str(row.get("watch_tier", "")), "gray")) if row.get("watch_tier") else ""}'
+            f'<td class="action">{grade_badge(grade)}'
+            f'{badge(proposal, PROPOSAL_CLASS.get(proposal, "gray"))}'
+            f'<small>기존 구간: {esc(row.get("watch_tier", "-"))}</small>'
             f'{esc(row.get("action", ""))}'
             f'<small>{won(row.get("suggested_order_krw")) if row.get("suggested_order_krw", 0) else ""}</small></td>'
             f'<td class="condition">{esc(row.get("block_reason") or row.get("promotion_condition", "-"))}'
@@ -205,12 +223,12 @@ def _reason_list(row: pd.Series) -> str:
             f'단기 가격과열: {row.get("price_heat_reason", "-")} (진입 벌점 {number(row.get("price_heat_penalty"))}점)'
         )
     if bool(row.get("steady_accumulation", False)):
-        up_days = int(row.get("foreign_roll20_up_days10", 0) or 0)
-        streak = int(row.get("foreign_roll20_up_streak", 0) or 0)
+        up_days = int(row.get("foreign_buy_days10", row.get("foreign_roll20_up_days10", 0)) or 0)
+        streak = int(row.get("foreign_buy_streak", row.get("foreign_roll20_up_streak", 0)) or 0)
         reasons.append(
-            f'차곡차곡 누적: 최근 10일 중 {up_days}일 20일 누적 증가'
+            f'지속 매수: 최근 10일 중 {up_days}일 외국인 순매수'
             + (f' · 연속 {streak}일' if streak else "")
-            + (" · 오늘도 증가" if bool(row.get("foreign_roll20_today_up", False)) else "")
+            + (" · 오늘도 순매수" if bool(row.get("foreign_bought_today", row.get("foreign_roll20_today_up", False))) else "")
         )
     if bool(row.get("dip_absorption", False)):
         reasons.append(
@@ -266,11 +284,13 @@ def _brief_cards(frame: pd.DataFrame) -> str:
         )
     cards = []
     for rank, (_, row) in enumerate(frame.iterrows(), 1):
-        tier = str(row.get("watch_tier", "관찰"))
+        proposal = str(row.get("proposal_status", "관찰"))
+        grade = str(row.get("discovery_grade", "-"))
         cards.append(
             '<article class="brief-card">'
             f'<div class="hero-head"><span class="hero-rank">#{rank}</span>'
-            f'{badge(tier, TIER_CLASS.get(tier, "gray"))}</div>'
+            f'{grade_badge(grade)}'
+            f'{badge(proposal, PROPOSAL_CLASS.get(proposal, "gray"))}</div>'
             f'<h3>{esc(row.get("name"))} <small>{esc(row.get("symbol"))}</small></h3>'
             f'<div class="hero-score"><strong>{number(row.get("discovery_score", row.get("entry_score")))}</strong>'
             f"<span>/100 발견</span></div>"
@@ -278,8 +298,8 @@ def _brief_cards(frame: pd.DataFrame) -> str:
             f' · 분산 {number(row.get("distribution_score"))}</small>'
             f'<div class="chart">{sparkline(row.get("price_series", []), 210, 54)}</div>'
             f'<p class="flow-line">{esc(row.get("flow_summary", ""))}</p>'
-            f'<p class="block-line"><b>{"지금 할 일" if tier in {"즉시매수", "추가매수"} else "지금 안 사는 이유"}</b>{esc(row.get("block_reason", "-"))}</p>'
-            f'<p class="next-line"><b>{"판단 포인트" if tier in {"즉시매수", "추가매수"} else "이 조건이면 다시 본다"}</b>{esc(row.get("next_trigger", "-"))}</p>'
+            f'<p class="block-line"><b>{"오늘 판단 근거" if proposal == "오늘 신규매수 검토" else "지금 안 사는 이유"}</b>{esc(row.get("block_reason", "-"))}</p>'
+            f'<p class="next-line"><b>{"판단 포인트" if proposal == "오늘 신규매수 검토" else "이 조건이면 다시 본다"}</b>{esc(row.get("next_trigger", "-"))}</p>'
             f'<p class="primary-action">{esc(row.get("action"))}</p>'
             "</article>"
         )
@@ -393,26 +413,48 @@ def render_report(
         for column in ("discovery_score", "flow_freshness", "campaign_score", "underreaction_score")
         if column in ranked
     ]
-    wait_sort = [column for column in ("watch_priority", "flow_freshness", "discovery_score") if column in ranked]
+    wait_sort = [
+        column
+        for column in ("watch_priority", "flow_freshness", "discovery_score")
+        if column in ranked
+    ]
+    eligible_discovery = (
+        ranked["discovery_eligible"].fillna(False).astype(bool)
+        if "discovery_eligible" in ranked
+        else pd.Series(True, index=ranked.index)
+    )
     discovery_top = ranked[
-        (ranked.get("discovery_score", pd.Series(0.0, index=ranked.index)) >= 65.0)
+        eligible_discovery
+        & (
+            ranked.get("discovery_score", pd.Series(0.0, index=ranked.index))
+            >= brief.min_discovery_score
+        )
         & (~ranked["stage"].isin(["가격상승", "수익실현", "분산·이탈", "이벤트확인"]))
         & (~ranked["campaign_regime"].isin(["상승진행", "장기매집·휴식", "분산·이탈", "이벤트·구조확인"]))
     ].sort_values(discovery_sort, ascending=False).head(top_n)
     daily_brief = select_daily_brief(ranked, brief)
-    new_buys = _tier_frame(ranked, "즉시매수")
-    add_buys = ranked[ranked["decision_bucket"] == "추가매수"].sort_values(wait_sort, ascending=False).head(10)
-    interest = _tier_frame(ranked, "관심후보", 12)
-    conviction = _tier_frame(ranked, "고확신눌림", 12)
+    buy_now = ranked[ranked["proposal_status"] == "오늘 신규매수 검토"].sort_values(
+        wait_sort, ascending=False
+    ).head(10)
+    price_wait = ranked[ranked["proposal_status"] == "강한 후보·가격 대기"].sort_values(
+        wait_sort, ascending=False
+    ).head(12)
+    observe = ranked[ranked["proposal_status"] == "관찰"].sort_values(
+        wait_sort, ascending=False
+    ).head(12)
+    add_buys = ranked[ranked["decision_bucket"] == "추가매수"].sort_values(
+        wait_sort, ascending=False
+    ).head(10)
     cooling = _tier_frame(ranked, "급락진정", 8)
     pullbacks = _tier_frame(ranked, "눌림대기", 12)
     risks = _tier_frame(ranked, "위험확인", 8)
-    held_management = ranked[ranked["decision_bucket"] == "보유관리"].sort_values(wait_sort, ascending=False).head(10)
     risk_actions = ranked[ranked["decision_bucket"] == "수익실현·중단"].sort_values(
         wait_sort, ascending=False
     ).head(12)
     if "steady_accumulation" in ranked:
-        steady = ranked[ranked["steady_accumulation"].fillna(False).astype(bool)].sort_values(
+        steady = ranked[
+            ranked["steady_accumulation"].fillna(False).astype(bool) & eligible_discovery
+        ].sort_values(
             wait_sort, ascending=False
         ).head(12)
     else:
@@ -425,9 +467,9 @@ def render_report(
     ].head(10)
     large_flow = ranked[ranked["large_flow_signal"].fillna(False)].head(15)
 
-    new_count = int((ranked["watch_tier"] == "즉시매수").sum())
-    interest_count = int((ranked["watch_tier"] == "관심후보").sum())
-    conviction_count = int((ranked["watch_tier"] == "고확신눌림").sum())
+    buy_now_count = int((ranked["proposal_status"] == "오늘 신규매수 검토").sum())
+    grade_a_count = int(((ranked["discovery_grade"] == "A") & eligible_discovery).sum())
+    price_wait_count = int((ranked["proposal_status"] == "강한 후보·가격 대기").sum())
     brief_count = int(len(daily_brief))
     large_flow_count = int(ranked["large_flow_signal"].fillna(False).sum())
     report_date = pd.to_datetime(ranked["as_of"].max()).strftime("%Y-%m-%d") if not ranked.empty else generated_at.strftime("%Y-%m-%d")
@@ -436,37 +478,38 @@ def render_report(
     html_text = f"""<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>외국인 매집 리포트 {report_date}</title><style>{CSS}</style></head><body><main class="page">
 <header><div><h1>외국인 매집 레이더</h1><div class="muted">외인 수급이 좋고 가격이 아직 덜 오른 종목 · 매일 판단용 숏리스트</div></div><div class="stamp">기준일 {report_date}<br>생성 {generated_at.strftime('%Y-%m-%d %H:%M KST')}</div></header>
 {render_headline_html(headline)}
-<section class="summary"><div><b>{brief_count}</b><span>오늘 볼 종목</span></div><div><b>{new_count}</b><span>즉시매수</span></div><div><b>{interest_count}</b><span>관심후보 · 거의 준비됨</span></div><div><b>{conviction_count}</b><span>고확신 눌림대기</span></div></section>
+<section class="summary"><div><b>{brief_count}</b><span>오늘 볼 종목</span></div><div><b>{buy_now_count}</b><span>오늘 신규매수 검토</span></div><div><b>{grade_a_count}</b><span>발견 A등급 · 80+</span></div><div><b>{price_wait_count}</b><span>강한 후보 · 가격 대기</span></div></section>
 <h2>오늘 볼 종목 {brief.size}</h2>
-<p class="muted">즉시매수 게이트는 그대로입니다. 아래는 사람이 오늘 열어볼 후보입니다. 한 달 누적이 계단처럼 오르는 종목을 앞에 둡니다.</p>
+<p class="muted">발견등급과 가격 게이트를 분리했습니다. 오늘 신규매수 검토를 먼저, 좋은 종목이지만 가격이 맞지 않는 후보를 그다음에 둡니다.</p>
 {_brief_cards(daily_brief)}
-<h2>차곡차곡 누적 · 20일 수급이 계속 증가</h2>
-<p class="muted">20일 외인 누적이 최근 10거래일 중 8일 이상 늘어난 종목입니다. 합계만 큰 종목과 구분합니다.</p>
-{_table(steady, empty_message="오늘은 한 달 누적이 계단처럼 오르는 종목이 없습니다.")}
-<h2>① 즉시매수</h2>{_table(new_buys, empty_message="오늘은 발견·분산위험·가격 게이트를 모두 통과한 종목이 없습니다. 아래 관심후보와 고확신 눌림을 보세요.")}
-<h2>② 관심후보 · 거의 준비됨</h2>{_table(interest, empty_message="완화된 관심 게이트(20일 +6% / 저점반등 +8%)를 통과한 종목이 없습니다.")}
-<h2>③ 고확신 눌림대기 · 발견 80+</h2>{_table(conviction, empty_message="발견 80점 이상인데 가격이 먼저 오른 종목이 없습니다.")}
+<h2>① 오늘 신규매수 검토 · 발견 75+ & 가격 게이트 통과</h2>{_table(buy_now, empty_message="오늘은 발견등급과 가격 게이트를 함께 통과한 종목이 없습니다. 빈 결과도 정상입니다.")}
+<h2>② 강한 후보 · 가격 대기 · 발견 A등급</h2>{_table(price_wait, empty_message="발견 80점 이상이면서 가격만 기다리는 종목이 없습니다.")}
+<h2>③ 관찰 후보</h2>{_table(observe, empty_message="추가 관찰 후보가 없습니다.")}
+<h2>지속 매수 · 최근 10일 중 외인 순매수 8일 이상</h2>
+<p class="muted">일별 외국인 순매수 지속성을 뜻합니다. 실제 20일 누적선 증감 횟수와는 별도 지표입니다.</p>
+{_table(steady, empty_message="오늘은 외국인 순매수가 충분히 꾸준한 종목이 없습니다.")}
 <div class="two-col"><section><h2>④ 급락 진정 대기</h2>{_table(cooling, empty_message="급락이 아직 멈추지 않은 매집 후보가 없습니다.")}</section><section><h2>⑤ 눌림·확인 대기</h2>{_table(pullbacks)}</section></div>
-<h2>⑥ 종목 발견 TOP {top_n}</h2>{_table(discovery_top, empty_message="발견점수 65점 이상이며 매집 초기·눌림 단계인 후보가 없습니다.")}
-<h2>⑦ 보유종목 추가매수 후보</h2>{_table(add_buys, empty_message="추가매수 실행 후보가 없습니다. portfolio.csv에 실제 보유정보가 있어야 개인화됩니다.")}
-<div class="two-col"><section><h2>⑧ 보유·추가매수 준비</h2>{_table(held_management, empty_message="등록된 보유종목 관리 항목이 없습니다.")}</section><section><h2>⑨ 수익실현·신호 중단</h2>{_table(risk_actions)}</section></div>
+<h2>⑥ 종목 발견 TOP {top_n}</h2>{_table(discovery_top, empty_message=f"발견점수 {brief.min_discovery_score:.0f}점 이상이며 매집 초기·눌림 단계인 후보가 없습니다.")}
+<h2>참고 · 기존 보유/후속 관리</h2>
+<div class="two-col"><section>{_table(add_buys, empty_message="추가매수 실행 후보가 없습니다.")}</section><section>{_table(risk_actions, empty_message="수익실현·중단 후보가 없습니다.")}</section></div>
 <div class="two-col"><section><h2>위험확인이 필요한 고득점</h2>{_table(risks, empty_message="급락+매수 구조나 이벤트를 확인할 고득점이 없습니다.")}</section><section><h2>20일 외인 500억원 이상 ({large_flow_count})</h2>{_table(large_flow)}</section></div>
 <h2>가격 하락 + 외국인 매수</h2>{_table(falling)}
 <h2>내 관찰 종목</h2>{_table(watched)}
-<h2>상세 분석</h2>{_detail_cards(pd.concat([daily_brief, new_buys, interest, conviction, watched]).drop_duplicates('symbol').head(12))}
-<h2>국면 해석</h2><div class="legend"><div><b>차곡차곡</b>20일 외인 누적이 최근 10일 거의 매일 증가. 가격이 빠져도 누적선이 안 꺾이면 감시</div><div><b>즉시매수</b>기존 엄격 게이트 통과. 분할 신규를 검토할 수 있음</div><div><b>관심후보</b>수급은 좋은데 20일 +3% 또는 저점반등 +5%를 살짝 넘김. 조금 더 눌리면 즉시매수 후보</div><div><b>고확신 눌림</b>발견 80점 이상. 가격이 먼저 올라 추격은 금지, 눌림을 기다림</div><div><b>급락진정</b>매집은 유효하나 최근 3일이 아직 하락 가속</div><div><b>지속매집</b>20일 순매수·매수일 비율·되팔기 비율이 함께 양호</div><div><b>상승진행</b>매집은 유효하지만 가격이 먼저 올라 신규 추격은 제한</div></div>
-<p class="note">오늘 볼 종목은 즉시매수 액션을 바꾸지 않습니다. 신규매수는 발견 65점, 분산위험 25점 이하, 최근 3일 급락 진정, 20일 상승률 +3% 미만, 20일 저점 반등 +5% 미만을 통과해야 합니다. 관심후보는 사람이 열어보기 위해 20일 +6%·저점반등 +8%까지 표시합니다. 타이밍점수는 커트라인이 아니라 설명용입니다. 주문 API는 포함되어 있지 않습니다.</p>
+<h2>상세 분석</h2>{_detail_cards(pd.concat([daily_brief, buy_now, price_wait, observe, watched]).drop_duplicates('symbol').head(12))}
+<h2>판정 해석</h2><div class="legend"><div><b>A등급</b>발견 80점 이상. 가격 게이트까지 통과해야 오늘 신규매수 검토</div><div><b>B등급</b>발견 75~79점. 가격 게이트 통과 시 보조 신규매수 검토</div><div><b>C등급</b>발견 65~74점. 관찰만 하고 메인 신규매수 제안에서는 제외</div><div><b>지속 매수</b>최근 10일 중 외국인 일별 순매수가 8일 이상. 20일 누적선 증가와 다른 개념</div><div><b>가격 대기</b>종목 발견 품질은 높지만 추격·반등·급락 조건이 맞지 않음</div><div><b>데이터 제외</b>당일 수급 미수신·유동성·최소 이력 조건을 통과하지 못함</div></div>
+<p class="note">오늘 신규매수 검토는 발견 75점 이상, 분산위험 25점 이하, 최근 3일 급락 진정, 20일 상승률 +3% 미만, 20일 저점 반등 +5% 미만과 당일 데이터·유동성 조건을 함께 통과해야 합니다. 결과가 0개여도 강제로 채우지 않습니다. 타이밍점수는 설명용이며 주문 API는 포함되어 있지 않습니다.</p>
 </main></body></html>"""
 
     def md_section(title: str, frame: pd.DataFrame) -> str:
-        lines = [f"### {title}", "", "| 순위 | 종목 | 발견 | 구간 | 국면 | 외인 20일 | 가격 20일 | 저점반등 20일 | 막힌 이유 |", "|---:|---|---:|---|---|---:|---:|---:|---|"]
+        lines = [f"### {title}", "", "| 순위 | 종목 | 발견 | 등급 | 제안 상태 | 국면 | 외인 20일 | 가격 20일 | 저점반등 20일 | 판단 근거 |", "|---:|---|---:|---|---|---|---:|---:|---:|---|"]
         if frame.empty:
-            lines.append("| - | 해당 없음 | - | - | - | - | - | - | - |")
+            lines.append("| - | 해당 없음 | - | - | - | - | - | - | - | - |")
         else:
             for rank, (_, row) in enumerate(frame.head(10).iterrows(), 1):
                 lines.append(
                     f"| {rank} | {row['name']} ({row['symbol']}) | {row.get('discovery_score', 0):.1f} | "
-                    f"{row.get('watch_tier', '-')} | {row['campaign_regime']} | {eok(row['foreign_net20'])} | "
+                    f"{row.get('discovery_grade', '-')} | {row.get('proposal_status', '-')} | "
+                    f"{row['campaign_regime']} | {eok(row['foreign_net20'])} | "
                     f"{pct(row['price_return20'])} | {pct(row.get('rebound_from_low20'))} | "
                     f"{row.get('block_reason', row.get('action', ''))} |"
                 )
@@ -478,8 +521,8 @@ def render_report(
     else:
         for rank, (_, row) in enumerate(daily_brief.iterrows(), 1):
             brief_lines.append(
-                f"{rank}. **{row['name']}** ({row['symbol']}) · {row.get('watch_tier', '')} · "
-                f"발견 {row.get('discovery_score', 0):.1f}"
+                f"{rank}. **{row['name']}** ({row['symbol']}) · {row.get('proposal_status', '')} · "
+                f"발견 {row.get('discovery_score', 0):.1f} ({row.get('discovery_grade', '-')}등급)"
             )
             brief_lines.append(f"   - 수급: {row.get('flow_summary', '')}")
             brief_lines.append(
@@ -493,13 +536,13 @@ def render_report(
         [
             f"## 외국인 매집 액션 리포트 · {report_date}",
             "\n".join(brief_lines).rstrip(),
-            md_section("차곡차곡 누적", steady),
-            md_section("① 즉시매수", new_buys),
-            md_section("② 관심후보", interest),
-            md_section("③ 고확신 눌림대기", conviction),
+            md_section("① 오늘 신규매수 검토", buy_now),
+            md_section("② 강한 후보·가격 대기", price_wait),
+            md_section("③ 관찰 후보", observe),
+            md_section("지속 매수 · 최근 10일 중 순매수 8일 이상", steady),
             md_section("④ 종목 발견 TOP", discovery_top),
-            md_section("⑤ 추가매수", add_buys),
-            md_section("⑥ 수익실현·중단", risk_actions),
+            md_section("참고 · 추가매수", add_buys),
+            md_section("참고 · 수익실현·중단", risk_actions),
         ]
-    ) + "\n\n*오늘 볼 종목은 판단용입니다. 즉시매수 게이트와 주문 미실행은 그대로입니다.*\n"
+    ) + "\n\n*오늘 신규매수 검토는 발견 75점 이상과 가격·데이터 게이트를 함께 통과한 판단 보조 정보이며, 주문은 실행하지 않습니다.*\n"
     return RenderedReport(html=html_text, markdown=markdown)
