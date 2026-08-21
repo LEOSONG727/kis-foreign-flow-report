@@ -19,11 +19,12 @@ def test_report_contains_ranking_and_action():
     assert "오늘의 핵심 요약" in rendered.html
     assert "이 리스트만 보세요" in rendered.html
     assert rendered.html.index("이 리스트만 보세요") < rendered.html.index("오늘 볼 종목 5")
-    assert "관심후보 · 거의 준비됨" in rendered.html
-    assert "보유종목 추가매수 후보" in rendered.html
+    assert "강한 후보 · 가격 대기" in rendered.html
+    assert "오늘 신규매수 검토" in rendered.html
+    assert "참고 · 기존 보유/후속 관리" in rendered.html
     assert "가격·단기열기" in rendered.html
     assert "20일 저점반등" in rendered.html
-    assert "지금 할 일" in rendered.html or "지금 안 사는 이유" in rendered.html
+    assert "오늘 판단 근거" in rendered.html or "지금 안 사는 이유" in rendered.html
     assert "외국인 매집 액션 리포트" in rendered.markdown
     assert "오늘의 핵심 요약" in rendered.markdown
     assert "이 리스트만 보세요" in rendered.markdown
