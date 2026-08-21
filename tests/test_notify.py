@@ -85,7 +85,7 @@ def test_telegram_card_puts_setup_and_ma20_on_separate_lines():
     text = build_telegram_text(scored)
     assert "셀트리온" in text
     assert "타이밍" in text
-    assert "사지 않음" in text
+    assert "강한 후보 · 가격 대기" in text
     assert "20일선" in text
     assert "막힘" not in text
 
