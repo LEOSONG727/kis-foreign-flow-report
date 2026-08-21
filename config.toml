@@ -2,6 +2,7 @@
 # 실전 포지션 1천만원을 충분히 소화할 수 있는 유동성 중심 기본값
 min_market_cap_eok = 1000
 min_median_turnover_krw = 1000000000
+min_data_points = 15
 max_universe = 1800
 top_n = 20
 bootstrap_candidates = 120
@@ -77,6 +78,8 @@ steady_priced_slots = 3
 cheap_slots = 1
 dip_slots = 1
 high_conviction_score = 80.0
+# 기존 백테스트에서 65~74점대 절대수익이 약해, 메인 신규매수 검토는 75점부터 노출
+buy_review_score = 75.0
 min_discovery_score = 65.0
 watch_min_return3_pct = -4.0
 watch_max_return20_pct = 6.0
