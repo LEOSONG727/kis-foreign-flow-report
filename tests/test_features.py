@@ -253,16 +253,18 @@ def _flow_history(daily_amounts: list[float], symbol: str = "000010", name: str 
     )
 
 
-def test_rolling_twenty_day_path_counts_up_days_not_just_the_total():
+def test_flow_path_separates_daily_buy_days_from_rolling_inventory_changes():
     staircase = pd.Series([500_000_000.0] * 40)
     burst = pd.Series([0.0] * 37 + [6_666_666_667.0] * 3)
     stair = _cumulative_flow_path(staircase)
     lump = _cumulative_flow_path(burst)
-    assert stair["foreign_roll20_up_days10"] == 10
-    assert stair["foreign_roll20_today_up"] is True
-    assert stair["foreign_roll20_up_streak"] >= 10
-    assert lump["foreign_roll20_up_days10"] <= 3
-    assert lump["foreign_roll20_up_streak"] <= 3
+    assert stair["foreign_buy_days10"] == 10
+    assert stair["foreign_bought_today"] is True
+    assert stair["foreign_buy_streak"] >= 10
+    assert stair["foreign_inventory_up_days10"] == 0
+    assert lump["foreign_buy_days10"] <= 3
+    assert lump["foreign_buy_streak"] <= 3
+    assert lump["foreign_inventory_up_days10"] <= 3
 
 
 def test_steady_accumulation_accepts_staircase_and_rejects_a_same_size_burst():
@@ -281,8 +283,8 @@ def test_steady_accumulation_accepts_staircase_and_rejects_a_same_size_burst():
     assert burst_row["foreign_net20"] >= 10_000_000_000
     assert is_steady_accumulation(stair_row)
     assert not is_steady_accumulation(burst_row)
-    assert stair_row["foreign_roll20_up_days10"] >= 8
-    assert burst_row["foreign_roll20_up_days10"] < 8
+    assert stair_row["foreign_buy_days10"] >= 8
+    assert burst_row["foreign_buy_days10"] < 8
 
 
 def test_extended_close_above_ma20_is_not_a_touch():
