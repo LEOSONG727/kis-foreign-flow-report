@@ -34,7 +34,7 @@ def _promotion_condition(row: dict, action: str, has_position: bool, model: Mode
     if bool(row.get("steady_accumulation")):
         if float(row.get("price_return1", 0.0) or 0.0) < 0:
             return "하락일에도 20일 누적이 다시 증가하는지"
-        return "누적선 유지 · 가격 눌림 대기"
+        return "외인 순매수 지속 · 가격 눌림 대기"
     if "급락 멈춤" in action:
         return f"3일 수익률 {model.entry_min_return3_pct:+.0f}% 이상 회복 + 외국인 매집 신호 유지"
     if "첫 눌림" in action:

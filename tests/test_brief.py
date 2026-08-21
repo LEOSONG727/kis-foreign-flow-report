@@ -6,9 +6,11 @@ from kis_flow_bot.brief import (
     annotate_watch_brief,
     classify_watch_tier,
     flow_summary,
+    discovery_grade,
     is_cheap_accumulation,
     is_steady_price_ok,
     next_trigger,
+    proposal_status,
     select_daily_brief,
     watch_priority,
 )
@@ -50,10 +52,10 @@ def _row(**overrides) -> pd.Series:
         "large_flow_signal": False,
         "promotion_condition": "20일 수익률 +3% 미만·20일 저점반등 +5% 미만 + 외국인 매집 유지",
         "steady_accumulation": False,
-        "foreign_roll20_up_days10": 4,
-        "foreign_roll20_down_days10": 6,
-        "foreign_roll20_up_streak": 1,
-        "foreign_roll20_today_up": False,
+        "foreign_buy_days10": 4,
+        "foreign_sell_days10": 6,
+        "foreign_buy_streak": 1,
+        "foreign_bought_today": False,
         "foreign_flow_concentration20": 0.20,
         "price_return1": 0.0,
     }
@@ -63,6 +65,26 @@ def _row(**overrides) -> pd.Series:
 
 def test_executable_buy_is_immediate_tier():
     assert classify_watch_tier(_row(action="초기 분할매수", decision_bucket="신규매수")) == "즉시매수"
+
+
+def test_proposal_status_requires_both_discovery_quality_and_price_gate():
+    ready = _row(
+        discovery_score=79.0,
+        action="초기 분할매수",
+        decision_bucket="신규매수",
+        watch_tier="즉시매수",
+    )
+    high_wait = _row(discovery_score=88.0, watch_tier="고확신눌림")
+    low_ready = _row(
+        discovery_score=71.0,
+        action="초기 분할매수",
+        decision_bucket="신규매수",
+        watch_tier="즉시매수",
+    )
+    assert discovery_grade(ready) == "B"
+    assert proposal_status(ready) == "오늘 신규매수 검토"
+    assert proposal_status(high_wait) == "강한 후보·가격 대기"
+    assert proposal_status(low_ready) == "관찰"
 
 
 def test_slightly_extended_name_is_watch_candidate_not_buy():
@@ -99,7 +121,7 @@ def test_falling_knife_is_risk_not_top_brief():
     frame = annotate_watch_brief(pd.DataFrame([knife, ready, conviction]))
     assert frame.set_index("symbol").loc["000030", "watch_tier"] == "위험확인"
     brief = select_daily_brief(frame, BriefConfig(size=2))
-    assert list(brief["name"]) == ["이노션", "오리온"]
+    assert list(brief["name"]) == ["오리온", "이노션"]
     assert "급락주" not in set(brief["name"])
 
 
@@ -127,7 +149,7 @@ def test_daily_brief_prefers_ready_then_conviction_over_crash():
         ),
     ]))
     brief = select_daily_brief(frame, BriefConfig(size=3))
-    assert list(brief["name"]) == ["매수주", "관심", "고확신"]
+    assert list(brief["name"]) == ["매수주", "고확신", "관심"]
 
 
 def test_live_flow_ranks_above_stale_twenty_day_total():
@@ -276,10 +298,10 @@ def _steady_row(**overrides) -> pd.Series:
         foreign_net1=15_000_000_000,
         large_flow_signal=True,
         steady_accumulation=True,
-        foreign_roll20_up_days10=9,
-        foreign_roll20_down_days10=1,
-        foreign_roll20_up_streak=8,
-        foreign_roll20_today_up=True,
+        foreign_buy_days10=9,
+        foreign_sell_days10=1,
+        foreign_buy_streak=8,
+        foreign_bought_today=True,
         foreign_flow_concentration20=0.16,
         sellback_ratio20=0.28,
         price_return1=-0.005,
@@ -336,7 +358,11 @@ def test_brief_keeps_cheap_majority_and_one_dip():
     frame = annotate_watch_brief(pd.DataFrame(rows))
     brief = select_daily_brief(frame, BriefConfig(size=5, cheap_slots=3, dip_slots=1, leftover_slots=1, steady_slots=0))
     cheap_count = int(brief["cheap_accumulation"].sum())
-    dip_count = int(brief["dip_absorption"].fillna(False).astype(bool).sum())
+    dip_count = int(
+        brief["dip_absorption"].map(
+            lambda value: bool(value) if pd.notna(value) else False
+        ).sum()
+    )
     assert cheap_count >= 3
     assert dip_count == 1
     assert len(brief) == 5
@@ -383,17 +409,18 @@ def test_brief_prefers_staircasing_inventory_over_cheap_and_generic_dip():
     assert {"셀트리온형", "한화오션형", "HMM형"}.issubset(names)
     assert int(brief["steady_accumulation"].sum()) >= 3
     assert is_steady_accumulation(_steady_row())
-    assert "차곡차곡" in flow_summary(_steady_row())
-    assert "누적" in next_trigger(_steady_row())
+    assert "외인 순매수" in flow_summary(_steady_row())
+    assert "순매수" in next_trigger(_steady_row())
 
 
-def test_brief_keeps_large_staircase_ahead_of_small_high_score_names():
+def test_brief_prefers_relative_flow_strength_over_absolute_won_amount():
     rows = [
         _steady_row(
             name="작은고득점",
             symbol="241560",
             discovery_score=100.0,
             foreign_net20=16_000_000_000,
+            foreign_20_adtv=1.80,
             large_flow_signal=False,
             watch_tier="관심후보",
         ),
@@ -402,18 +429,20 @@ def test_brief_keeps_large_staircase_ahead_of_small_high_score_names():
             symbol="068270",
             discovery_score=88.0,
             foreign_net20=243_000_000_000,
-            foreign_roll20_up_days10=10,
+            foreign_20_adtv=0.45,
+            foreign_buy_days10=10,
         ),
         _steady_row(
             name="한화오션",
             symbol="042660",
             discovery_score=90.0,
             foreign_net20=264_000_000_000,
+            foreign_20_adtv=0.55,
         ),
     ]
     frame = annotate_watch_brief(pd.DataFrame(rows))
     brief = select_daily_brief(frame, BriefConfig(size=2))
-    assert list(brief["name"]) == ["한화오션", "셀트리온"]
+    assert list(brief["name"])[0] == "작은고득점"
 
 
 def test_steady_price_ok_requires_a_controlled_pullback():

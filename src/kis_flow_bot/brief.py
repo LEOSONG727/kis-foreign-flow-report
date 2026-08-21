@@ -41,6 +41,13 @@ ACCUM_STAGES = {"매집·눌림", "초기매집", "매집휴식"}
 TERMINAL_CAMPAIGNS = {"분산·이탈", "이벤트·구조확인", "이상대량·확인"}
 TERMINAL_STAGES = {"분산·이탈", "이벤트확인", "수익실현"}
 
+PROPOSAL_STATUS_RANK = {
+    "오늘 신규매수 검토": 3,
+    "강한 후보·가격 대기": 2,
+    "관찰": 1,
+    "제외": 0,
+}
+
 
 def _float(row: pd.Series | dict, key: str, default: float = 0.0) -> float:
     value = row.get(key, default)
@@ -60,6 +67,52 @@ def _bool(row: pd.Series | dict, key: str, default: bool = False) -> bool:
     if isinstance(value, str):
         return value.strip().lower() in {"1", "true", "yes", "y", "t"}
     return bool(value)
+
+
+def _flow_metric(
+    row: pd.Series | dict,
+    canonical: str,
+    legacy: str,
+    default: float = 0.0,
+) -> float:
+    """Read the corrected flow-path name with one-cycle CSV compatibility."""
+    if canonical in row:
+        return _float(row, canonical, default)
+    return _float(row, legacy, default)
+
+
+def discovery_grade(
+    row: pd.Series | dict,
+    brief: BriefConfig | None = None,
+) -> str:
+    brief = brief or BriefConfig()
+    score = _float(row, "discovery_score")
+    if score >= brief.high_conviction_score:
+        return "A"
+    if score >= brief.buy_review_score:
+        return "B"
+    if score >= brief.min_discovery_score:
+        return "C"
+    return "제외"
+
+
+def proposal_status(
+    row: pd.Series | dict,
+    brief: BriefConfig | None = None,
+) -> str:
+    """Separate stock quality from whether today's price is buyable."""
+    brief = brief or BriefConfig()
+    if "discovery_eligible" in row and not _bool(row, "discovery_eligible"):
+        return "제외"
+    tier = _text(row, "watch_tier")
+    grade = discovery_grade(row, brief)
+    if tier in {"제외", "위험확인"} or grade == "제외":
+        return "제외"
+    if tier == "즉시매수" and grade in {"A", "B"}:
+        return "오늘 신규매수 검토"
+    if grade == "A":
+        return "강한 후보·가격 대기"
+    return "관찰"
 
 
 def format_eok(value: float) -> str:
@@ -149,9 +202,9 @@ def is_steady_price_ok(
 ) -> bool:
     """Staircase accumulation that is not too expensive to keep on the buy list.
 
-    This is not the executable buy gate. It only asks whether the 20-day pile
-    is still growing at a price that is close enough to the 20-day line and
-    not already extended.
+    This is not the executable buy gate. It asks whether persistent daily
+    foreign buying is occurring at a price close enough to the 20-day line
+    and not already extended.
     """
     model = model or ModelConfig()
     brief = brief or BriefConfig()
@@ -234,6 +287,9 @@ def classify_watch_tier(
     price20 = _float(row, "price_return20")
     rebound = _float(row, "rebound_from_low20")
 
+    if "discovery_eligible" in row and not _bool(row, "discovery_eligible"):
+        return "제외"
+
     if bucket == "신규매수" or action in BUY_ACTIONS:
         return "즉시매수"
     if bucket == "추가매수":
@@ -315,9 +371,9 @@ def flow_summary(row: pd.Series | dict) -> str:
     if _bool(row, "large_flow_signal"):
         parts.append("500억+")
     if _bool(row, "steady_accumulation") or is_steady_accumulation(row):
-        up_days = int(_float(row, "foreign_roll20_up_days10"))
+        up_days = int(_flow_metric(row, "foreign_buy_days10", "foreign_roll20_up_days10"))
         if up_days > 0:
-            parts.append(f"차곡차곡 {up_days}일/10일↑")
+            parts.append(f"최근 10일 중 외인 순매수 {up_days}일")
         else:
             parts.append("차곡차곡")
     if _bool(row, "dip_absorption"):
@@ -337,6 +393,8 @@ def flow_summary(row: pd.Series | dict) -> str:
 
 def block_reason(row: pd.Series | dict, model: ModelConfig | None = None) -> str:
     model = model or ModelConfig()
+    if "discovery_eligible" in row and not _bool(row, "discovery_eligible"):
+        return _text(row, "eligibility_reason", "후보 데이터 조건 미충족")
     tier = _text(row, "watch_tier") or classify_watch_tier(row, model)
     if tier == "즉시매수":
         return f"{flow_summary(row)} · 즉시매수 게이트 통과"
@@ -386,11 +444,11 @@ def next_trigger(row: pd.Series | dict, model: ModelConfig | None = None) -> str
         if is_steady_price_ok(row):
             return (
                 "20일 +3% 미만·저점반등 +5% 미만·3일 -3% 이상 + "
-                "20일선 접촉 + 당일 누적 증가 시 분할"
+                "20일선 접촉 + 당일 외인 순매수 시 분할"
             )
         if _float(row, "price_return1") < 0:
-            return "20일선까지 더 눌리면서 누적이 또 증가하는지"
-        return "가격 과열 진정 + 누적선 유지"
+            return "20일선까지 더 눌리면서 외인 순매수가 이어지는지"
+        return "가격 과열 진정 + 외인 순매수 지속"
     if _bool(row, "dip_absorption"):
         if not _bool(row, "ma20_support"):
             return "20일선 접촉 + 하락일 외인 매수 유지"
@@ -447,8 +505,12 @@ def watch_priority(
             )
             else 0.0
         )
-        + 8.0 * _scale(_float(row, "foreign_roll20_up_days10"), 6.0, 10.0)
-        + 4.0 * _scale(_float(row, "foreign_net20") / 100_000_000, 100.0, 2_000.0)
+        + 8.0 * _scale(
+            _flow_metric(row, "foreign_buy_days10", "foreign_roll20_up_days10"),
+            6.0,
+            10.0,
+        )
+        + 6.0 * _scale(_float(row, "foreign_20_adtv"), 0.25, 2.0)
         + closeness
         - knife
     )
@@ -489,6 +551,12 @@ def annotate_watch_brief(
         )
     frame["steady_price_ok"] = [is_steady_price_ok(row, model, brief) for _, row in frame.iterrows()]
     frame["screen_bucket"] = [screen_bucket(row, model, brief) for _, row in frame.iterrows()]
+    frame["discovery_grade"] = [discovery_grade(row, brief) for _, row in frame.iterrows()]
+    frame["proposal_status"] = [proposal_status(row, brief) for _, row in frame.iterrows()]
+    frame["proposal_priority"] = [
+        1_000.0 * PROPOSAL_STATUS_RANK.get(status, 0) + priority
+        for status, priority in zip(frame["proposal_status"], frame["watch_priority"])
+    ]
     selected = set(select_daily_brief(frame, brief).get("symbol", pd.Series(dtype="string")).astype(str).str.zfill(6))
     frame["in_daily_brief"] = frame["symbol"].astype(str).str.zfill(6).isin(selected)
     return frame
@@ -560,17 +628,37 @@ def select_daily_brief(
         dip = frame["dip_absorption"].map(lambda value: bool(value) if pd.notna(value) else False)
     else:
         dip = pd.Series(False, index=frame.index)
-    # Priced-ok staircases first, then large staircases that are still expensive.
+    # Buyable names lead. Within every setup, prefer relative intensity and
+    # persistence; the 500억 absolute amount remains a badge, not a rank key.
     if "steady_price_ok" in frame:
         priced = frame["steady_price_ok"].map(lambda value: bool(value) if pd.notna(value) else False)
     else:
         priced = frame.apply(lambda row: is_steady_price_ok(row), axis=1)
-    steady_sort = ["foreign_net20", "foreign_roll20_up_days10", "watch_priority"]
+    steady_sort = [
+        "watch_priority",
+        "flow_freshness",
+        "foreign_20_adtv",
+        "foreign_buy_days10",
+        "discovery_score",
+    ]
+    if "proposal_status" in frame:
+        take_mask(frame["proposal_status"] == "오늘 신규매수 검토", brief.size)
+        take_mask(
+            frame["proposal_status"] == "강한 후보·가격 대기",
+            max(1, brief.leftover_slots),
+        )
     take_mask(steady & priced, brief.steady_priced_slots, steady_sort)
     take_mask(steady & price_down & ~priced, brief.steady_slots, steady_sort)
     take_mask(steady, brief.steady_slots, steady_sort)
     take_mask(cheap & ~steady, brief.cheap_slots)
-    take_mask(dip & ~cheap & ~steady, brief.dip_slots)
+    selected_dips = 0
+    if picked and "dip_absorption" in pd.concat(picked).columns:
+        selected_dips = int(
+            pd.concat(picked)["dip_absorption"].map(
+                lambda value: bool(value) if pd.notna(value) else False
+            ).sum()
+        )
+    take_mask(dip & ~cheap & ~steady, max(0, brief.dip_slots - selected_dips))
     take("즉시매수", brief.leftover_slots)
     take("추가매수", 1)
     take("관심후보", brief.leftover_slots)
@@ -603,7 +691,7 @@ def iter_brief_rows(scored: pd.DataFrame, brief: BriefConfig | None = None) -> I
     else:
         sort_cols = [
             column
-            for column in ("foreign_net20", "foreign_roll20_up_days10", "watch_priority")
+            for column in ("proposal_priority", "watch_priority", "flow_freshness", "foreign_20_adtv")
             if column in selected.columns
         ]
         if sort_cols:

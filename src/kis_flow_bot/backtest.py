@@ -13,6 +13,7 @@ import pandas as pd
 
 from .brief import annotate_watch_brief, is_cheap_accumulation, select_daily_brief
 from .config import ModelConfig, Settings
+from .eligibility import apply_candidate_eligibility
 from .features import add_cross_sectional_residuals, build_base_features
 from .scoring import score_features
 from .storage import read_csv, write_csv
@@ -672,6 +673,12 @@ def run_backtest(settings: Settings) -> pd.DataFrame:
                         strict_add_confirmation=bool(policy["strict_add"]),
                     )
                     scored = score_features(features, variant_model)
+                    scored = apply_candidate_eligibility(
+                        scored,
+                        settings.screening,
+                        report_date=as_of,
+                    )
+                    scored = scored[scored["discovery_eligible"]]
                     if policy["mode"] == "discovery":
                         candidates = scored[
                             (scored["discovery_score"] >= variant_model.discovery_candidate_score)
@@ -851,15 +858,13 @@ def run_screen_backtest(
 
     Rules:
     - Features and scores use only bars dated on or before the signal day.
-    - The same select_daily_brief() quotas as production (steady 3 / cheap 1 / dip 1).
+    - The same eligibility, grade/status, and select_daily_brief() policy as production.
     - Fills at the next session open, then holds 20 sessions with 0.3% round-trip cost.
     - Excess is versus the same-market median over the same window.
     - One symbol cannot re-fire inside the horizon.
     - Dates are sampled every `step` sessions so the run finishes; this is
       documented in the report and is not a daily all-name search.
     """
-    from .config import BriefConfig
-
     history = read_csv(settings.data_dir / "history.csv")
     universe = read_csv(settings.data_dir / "universe.csv")
     snapshots = read_csv(settings.data_dir / "holdings.csv")
@@ -887,8 +892,15 @@ def run_screen_backtest(
                 features = add_cross_sectional_residuals(
                     build_base_features(history_view, universe, snapshot_view, opinion_view)
                 )
-                scored = annotate_watch_brief(score_features(features, settings.model), settings.model)
-                brief = select_daily_brief(scored, BriefConfig())
+                scored = score_features(features, settings.model)
+                scored = apply_candidate_eligibility(
+                    scored,
+                    settings.screening,
+                    report_date=as_of,
+                )
+                scored = scored[scored["discovery_eligible"]]
+                scored = annotate_watch_brief(scored, settings.model, settings.brief)
+                brief = select_daily_brief(scored, settings.brief)
                 if brief.empty:
                     continue
                 market_benchmarks = market_forward_benchmarks(
@@ -899,7 +911,7 @@ def run_screen_backtest(
                 )
                 for _, row in brief.iterrows():
                     symbol = str(row["symbol"]).zfill(6)
-                    bucket = str(row.get("screen_bucket", "관찰"))
+                    bucket = str(row.get("proposal_status", "관찰"))
                     signal_key = (bucket, symbol)
                     if date_index - last_signal_index.get(signal_key, -horizon) < horizon:
                         continue
@@ -940,6 +952,9 @@ def run_screen_backtest(
                             "cheap_accumulation": bool(row.get("cheap_accumulation", False)),
                             "dip_absorption": bool(row.get("dip_absorption", False)),
                             "watch_tier": row.get("watch_tier", ""),
+                            "discovery_grade": row.get("discovery_grade", ""),
+                            "proposal_status": row.get("proposal_status", ""),
+                            "screen_bucket": row.get("screen_bucket", ""),
                             "foreign_20_adtv": row.get("foreign_20_adtv", 0.0),
                             "price_return20": row.get("price_return20", 0.0),
                             "rebound_from_low20": row.get("rebound_from_low20", 0.0),
@@ -1246,6 +1261,12 @@ def _gate_sweep_one_date(date_index: int) -> tuple[int, list[dict]]:
     features = build_base_features(history_view, universe, snapshot_view, opinion_view)
     features = add_cross_sectional_residuals(features)
     scored = score_features(features, widest_model)
+    scored = apply_candidate_eligibility(
+        scored,
+        ctx["screening"],
+        report_date=as_of,
+    )
+    scored = scored[scored["discovery_eligible"]]
     candidates = scored[
         scored["action"].isin(["강한 신규매수", "초기 분할매수"])
         & (scored["entry_score"] >= eval_model.entry_buy_score)
@@ -1353,6 +1374,7 @@ def run_gate_sweep(settings: Settings) -> tuple[pd.DataFrame, pd.DataFrame, dict
             "horizon": horizon,
             "widest_model": widest_model,
             "eval_model": settings.model,
+            "screening": settings.screening,
         }
         workers = max(1, min(6, (os.cpu_count() or 2) - 1))
         LOGGER.info("gate-sweep start: %s dates, %s workers", len(date_indexes), workers)

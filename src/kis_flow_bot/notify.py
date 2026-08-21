@@ -96,12 +96,18 @@ def _actionable(tier: str) -> bool:
 
 
 def _count_line(rows: list[pd.Series]) -> str:
-    buy = sum(1 for row in rows if _text(row, "watch_tier") == "즉시매수")
+    buy = sum(1 for row in rows if _text(row, "proposal_status") == "오늘 신규매수 검토")
+    grade_a = sum(
+        1
+        for row in rows
+        if _text(row, "proposal_status") == "오늘 신규매수 검토"
+        and _text(row, "discovery_grade") == "A"
+    )
     cheap = sum(1 for row in rows if _is_cheap_row(row))
     steady = sum(1 for row in rows if _is_steady_row(row))
     priced = sum(1 for row in rows if _is_priced_steady_row(row))
     if buy:
-        return f"오늘 살 자리 {buy}개  ·  가격 괜찮은 차곡차곡 {priced}개"
+        return f"오늘 신규매수 검토 {buy}개(A등급 {grade_a}개) · 가격 대기 후보는 분리"
     if priced:
         return f"오늘 당장 살 자리 없음  ·  가격 괜찮은 차곡차곡 {priced}개"
     if steady:
@@ -109,7 +115,7 @@ def _count_line(rows: list[pd.Series]) -> str:
     if cheap:
         return f"오늘 당장 살 자리 없음  ·  싼 매집 {cheap}개 주목"
     if not rows:
-        return "오늘 살 자리 없음 · 차곡차곡 누적도 없음"
+        return "오늘 살 자리 없음 · 외인 지속 매수도 없음"
     return f"오늘 당장 살 자리 없음  ·  관찰 {len(rows)}개"
 
 
@@ -231,8 +237,14 @@ def render_headline_markdown(headline: Headline) -> str:
 def _setup_tags(row: pd.Series | dict) -> list[str]:
     tags: list[str] = []
     if _bool(row, "steady_accumulation"):
-        up_days = int(_float(row, "foreign_roll20_up_days10"))
-        tags.append(f"차곡차곡 {up_days}일↑" if up_days else "차곡차곡")
+        up_days = int(
+            _float(
+                row,
+                "foreign_buy_days10",
+                _float(row, "foreign_roll20_up_days10"),
+            )
+        )
+        tags.append(f"10일 중 외인 순매수 {up_days}일" if up_days else "차곡차곡")
     if _bool(row, "dip_absorption"):
         tags.append("하락흡수")
     if _bool(row, "touched_ma20"):
@@ -316,13 +328,20 @@ def _timing(row: pd.Series | dict, model: ModelConfig | None = None) -> tuple[st
     """Human timing label and the single reason not to buy yet."""
     model = model or ModelConfig()
     tier = _text(row, "watch_tier")
+    proposal = _text(row, "proposal_status")
+    if proposal == "오늘 신규매수 검토":
+        return "오늘 신규매수 검토", f"발견 {_text(row, 'discovery_grade')}등급 · 가격 게이트 통과"
+    if proposal == "강한 후보·가격 대기":
+        return "강한 후보 · 가격 대기", _judgment_line(row, model)
+    if "discovery_eligible" in row and not _bool(row, "discovery_eligible"):
+        return "데이터 갱신 대기", _text(row, "eligibility_reason", "당일 데이터 미수신")
     if _actionable(tier) or _bool(row, "entry_gate_passed"):
-        return "지금 분할 검토", "즉시매수 게이트 통과"
+        return "관찰", "가격 게이트는 통과했지만 발견 75점 미만"
     if _is_priced_steady_row(row):
         return "가격 괜찮음 · 조건 대기", _judgment_line(row, model)
     if _is_steady_row(row):
         if _float(row, "price_return1") < 0:
-            return "가격 대기 · 하락에도 누적↑", _judgment_line(row, model)
+            return "가격 대기 · 하락에도 외인 순매수", _judgment_line(row, model)
         return "가격 대기 · 차곡차곡", _judgment_line(row, model)
     if _is_cheap_row(row):
         return "주목 · 아직 대기", _judgment_line(row, model)
@@ -352,8 +371,10 @@ def _card_fields(
 
 
 def _section_of(row: pd.Series | dict) -> str:
+    if _text(row, "proposal_status") == "오늘 신규매수 검토":
+        return "buy"
     timing, _ = _timing(row)
-    if timing.startswith("지금"):
+    if timing.startswith(("지금", "오늘")):
         return "buy"
     if _is_priced_steady_row(row):
         return "priced"
