@@ -10,6 +10,7 @@ from pathlib import Path
 class ScreeningConfig:
     min_market_cap_eok: int = 1_000
     min_median_turnover_krw: int = 1_000_000_000
+    min_data_points: int = 15
     max_universe: int = 1_800
     top_n: int = 20
     bootstrap_candidates: int = 120
@@ -62,7 +63,7 @@ class ModelConfig:
     cheap_max_ma20_distance_pct: float = 1.0
     cheap_max_distance_high60_pct: float = -8.0
     dip_watch_ma20_distance_pct: float = 5.0
-    # Rolling 20-day inventory that keeps staircasing higher (Celltrion tape).
+    # Persistent daily buying: at least N meaningful buy days in the last 10.
     steady_min_net20_krw: int = 10_000_000_000
     steady_min_up_days10: int = 8
     steady_max_concentration: float = 0.36
@@ -99,6 +100,9 @@ class BriefConfig:
     leftover_slots: int = 1
     steady_max_ma20_distance_pct: float = 3.0
     high_conviction_score: float = 80.0
+    # Scores below this can remain visible, but are not promoted to today's
+    # new-buy review even when the legacy price/action gate passes.
+    buy_review_score: float = 75.0
     min_discovery_score: float = 65.0
     # Slightly looser than entry gates so "almost ready" names still surface.
     watch_min_return3_pct: float = -4.0
