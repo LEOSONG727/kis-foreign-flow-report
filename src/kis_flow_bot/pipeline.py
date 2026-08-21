@@ -8,7 +8,9 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 
+from .brief import annotate_watch_brief
 from .config import Settings
+from .eligibility import apply_candidate_eligibility
 from .features import (
     add_cross_sectional_residuals,
     build_base_features,
@@ -19,7 +21,6 @@ from .features import (
 )
 from .kis_client import KISAPIError, KISClient
 from .notify import deliver_notifications
-from .brief import annotate_watch_brief
 from .portfolio import apply_portfolio_actions, load_portfolio
 from .report import render_report
 from .scoring import score_features
@@ -123,12 +124,9 @@ def _features_and_scores(
     scored = score_features(features, settings.model, state, calibration)
     if scored.empty:
         return scored
-    liquid = (
-        (scored["adtv20"] >= settings.screening.min_median_turnover_krw)
-        & (scored["data_points"] >= 15)
-    )
+    scored = apply_candidate_eligibility(scored, settings.screening)
     watched = scored["symbol"].isin(settings.watchlist)
-    return scored[liquid | watched].sort_values(
+    return scored[scored["discovery_eligible"] | watched].sort_values(
         ["discovery_score", "timing_score", "entry_score"], ascending=[False, False, False]
     ).reset_index(drop=True)
 
@@ -245,7 +243,7 @@ def _write_outputs(
         "discovery_score", "timing_score", "distribution_score", "signal_score",
         "price_heat_penalty", "price_heat_flag", "price_heat_reason", "dip_absorption",
         "entry_readiness", "entry_gate_passed", "entry_gate_reason",
-        "score_delta", "entry_score_delta", "data_points",
+        "score_delta", "entry_score_delta", "data_points", "adtv20",
         "success_probability", "expected_value", "stage", "action",
         "campaign_regime", "large_flow_signal", "probability_source",
         "foreign_net1", "foreign_net3", "foreign_net5", "foreign_net20", "foreign_net60", "foreign_net120",
@@ -271,8 +269,15 @@ def _write_outputs(
         "add_score", "decision_bucket", "action_priority", "promotion_condition",
         "invalidation_condition", "suggested_order_krw",
         "watch_tier", "watch_priority", "flow_freshness", "flow_summary", "block_reason",
-        "next_trigger", "high_conviction", "in_daily_brief",
+        "next_trigger", "high_conviction", "discovery_grade", "proposal_status",
+        "proposal_priority", "in_daily_brief",
+        "data_fresh", "liquidity_eligible", "history_eligible", "discovery_eligible",
+        "eligibility_reason",
         "cheap_accumulation", "steady_accumulation", "steady_price_ok",
+        "foreign_buy_days10", "foreign_sell_days10", "foreign_buy_days20",
+        "foreign_buy_streak", "foreign_bought_today",
+        "foreign_inventory_up_days10", "foreign_inventory_down_days10",
+        # Legacy aliases kept during the CSV migration.
         "foreign_roll20_up_days10", "foreign_roll20_down_days10",
         "foreign_roll20_up_days20", "foreign_roll20_up_streak", "foreign_roll20_today_up",
         "screen_bucket",
