@@ -100,7 +100,7 @@
       "timing_score": 28.3
     },
     "000270": {
-      "action": "차곡차곡 누적 중 하락흡수 확인·신규매수 대기",
+      "action": "외인 지속매수 중 하락흡수 확인·신규매수 대기",
       "campaign_regime": "지속매집",
       "campaign_score": 80.8,
       "discovery_score": 91.2,
@@ -1864,7 +1864,7 @@
       "timing_score": 22.5
     },
     "011780": {
-      "action": "차곡차곡 누적 중 하락흡수 확인·신규매수 대기",
+      "action": "외인 지속매수 중 하락흡수 확인·신규매수 대기",
       "campaign_regime": "지속매집",
       "campaign_score": 91.0,
       "discovery_score": 100.0,
@@ -5238,7 +5238,7 @@
       "timing_score": 43.9
     },
     "096530": {
-      "action": "차곡차곡 누적 중 하락흡수·20일선 접촉 대기",
+      "action": "외인 지속매수 중 하락흡수·20일선 접촉 대기",
       "campaign_regime": "장기매집·재가속",
       "campaign_score": 96.3,
       "discovery_score": 94.5,
@@ -5252,7 +5252,7 @@
       "timing_score": 50.9
     },
     "096770": {
-      "action": "차곡차곡 누적 중 하락흡수·20일선 접촉 대기",
+      "action": "외인 지속매수 중 하락흡수·20일선 접촉 대기",
       "campaign_regime": "장기매집·재가속",
       "campaign_score": 82.6,
       "discovery_score": 94.9,
@@ -6722,7 +6722,7 @@
       "timing_score": 20.3
     },
     "207940": {
-      "action": "차곡차곡 누적 중 하락흡수·첫 눌림 대기",
+      "action": "외인 지속매수 중 하락흡수·첫 눌림 대기",
       "campaign_regime": "지속매집",
       "campaign_score": 93.7,
       "discovery_score": 92.9,
@@ -6820,7 +6820,7 @@
       "timing_score": 23.4
     },
     "214450": {
-      "action": "차곡차곡 누적 중 하락흡수·첫 눌림 대기",
+      "action": "외인 지속매수 중 하락흡수·첫 눌림 대기",
       "campaign_regime": "지속매집",
       "campaign_score": 63.1,
       "discovery_score": 69.4,
@@ -7506,7 +7506,7 @@
       "timing_score": 50.0
     },
     "278470": {
-      "action": "차곡차곡 누적 중 하락흡수·20일선 접촉 대기",
+      "action": "외인 지속매수 중 하락흡수·20일선 접촉 대기",
       "campaign_regime": "장기매집·재가속",
       "campaign_score": 48.6,
       "discovery_score": 61.1,
@@ -7576,7 +7576,7 @@
       "timing_score": 59.9
     },
     "282330": {
-      "action": "차곡차곡 누적 중 하락흡수·20일선 접촉 대기",
+      "action": "외인 지속매수 중 하락흡수·20일선 접촉 대기",
       "campaign_regime": "지속매집",
       "campaign_score": 95.4,
       "discovery_score": 89.7,
@@ -7716,7 +7716,7 @@
       "timing_score": 37.9
     },
     "298020": {
-      "action": "차곡차곡 누적 중 하락흡수 확인·신규매수 대기",
+      "action": "외인 지속매수 중 하락흡수 확인·신규매수 대기",
       "campaign_regime": "장기매집·재가속",
       "campaign_score": 98.7,
       "discovery_score": 100.0,
