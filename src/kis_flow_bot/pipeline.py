@@ -20,6 +20,7 @@ from .features import (
     validate_investor_amounts,
 )
 from .kis_client import KISAPIError, KISClient
+from .live_tracking import update_live_tracking
 from .notify import deliver_notifications
 from .portfolio import apply_portfolio_actions, load_portfolio
 from .report import render_report
@@ -414,6 +415,14 @@ def run_pipeline(
     write_csv(snapshots, snapshots_path)
     write_csv(opinions, opinions_path)
     latest_html = _write_outputs(scored, settings, generated_at)
+    tracking = update_live_tracking(scored, history, settings, generated_at)
+    if tracking:
+        LOGGER.info(
+            "Live evaluation updated: episodes=%d events=%d resolved20=%d",
+            tracking.episodes,
+            tracking.events,
+            tracking.resolved_20,
+        )
     report_date_text = pd.to_datetime(scored["as_of"].max()).strftime("%Y-%m-%d")
     write_state(_new_state(scored, state, report_date_text), state_path)
 
