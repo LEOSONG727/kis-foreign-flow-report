@@ -85,6 +85,13 @@ watch_min_return3_pct = -4.0
 watch_max_return20_pct = 6.0
 watch_max_rebound20_pct = 8.0
 
+[tracking]
+# 매일 실제로 제안된 후보를 보존하고 이후 5·10·20거래일 성과를 갱신
+enabled = true
+# 후보에서 이탈한 상태가 이 거래일 수 이상 이어진 뒤 재등장하면 새 에피소드로 기록
+episode_gap_sessions = 5
+model_version = "discovery-live-v1"
+
 [watchlist]
 # 기존 관심종목 + 비교 기준 7종목
 # LG에너지솔루션, LG화학, 셀트리온, 현대차, 삼성SDI, 한화에어로스페이스, HD현대중공업
