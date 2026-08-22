@@ -111,12 +111,25 @@ class BriefConfig:
 
 
 @dataclass(frozen=True)
+class TrackingConfig:
+    """Append-only live recommendation tracking.
+
+    These settings affect the evaluation ledger, not candidate scoring.
+    """
+
+    enabled: bool = True
+    episode_gap_sessions: int = 5
+    model_version: str = "discovery-live-v1"
+
+
+@dataclass(frozen=True)
 class Settings:
     root: Path
     screening: ScreeningConfig
     api: APIConfig
     model: ModelConfig
     brief: BriefConfig
+    tracking: TrackingConfig
     watchlist: tuple[str, ...]
 
     @property
@@ -149,6 +162,7 @@ def load_settings(root: Path | None = None) -> Settings:
         api=_build(APIConfig, api_values),
         model=_build(ModelConfig, raw.get("model", {})),
         brief=_build(BriefConfig, raw.get("brief", {})),
+        tracking=_build(TrackingConfig, raw.get("tracking", {})),
         watchlist=tuple(raw.get("watchlist", {}).get("symbols", [])),
     )
     settings.data_dir.mkdir(parents=True, exist_ok=True)
