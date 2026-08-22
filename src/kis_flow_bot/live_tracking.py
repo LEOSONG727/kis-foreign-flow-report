@@ -16,11 +16,17 @@ from .storage import read_csv, write_csv
 HORIZONS = (5, 10, 20)
 BUY_REVIEW = "오늘 신규매수 검토"
 TRACKED_GRADES = {"A", "B", "C"}
+CANDIDATE_COHORT = "candidate"
+NEAR_MISS_COHORT = "near_miss"
+MATCHED_CONTROL_COHORT = "matched_control"
+SHADOW_COHORTS = {NEAR_MISS_COHORT, MATCHED_CONTROL_COHORT}
 
 RUN_COLUMNS = [
     "signal_date",
     "captured_at",
     "candidate_count",
+    "near_miss_count",
+    "control_count",
     "model_version",
     "config_hash",
 ]
@@ -32,6 +38,11 @@ SNAPSHOT_COLUMNS = [
     "name",
     "market",
     "close",
+    "tracking_cohort",
+    "shadow_reason",
+    "market_cap_eok",
+    "market_cap_bucket",
+    "sector_code",
     "discovery_grade",
     "proposal_status",
     "proposal_priority",
@@ -68,10 +79,14 @@ EPISODE_COLUMNS = [
     "last_seen_at",
     "ended_at",
     "closed_at",
+    "start_cohort",
+    "current_cohort",
     "start_grade",
     "start_proposal",
     "current_grade",
     "current_proposal",
+    "first_near_miss_date",
+    "first_candidate_date",
     "first_buy_review_date",
     "model_version",
     "config_hash",
@@ -86,6 +101,9 @@ EVENT_COLUMNS = [
     "name",
     "market",
     "reference_close",
+    "tracking_cohort",
+    "shadow_reason",
+    "market_cap_bucket",
     "discovery_grade",
     "proposal_status",
     "discovery_score",
@@ -110,6 +128,9 @@ OUTCOME_COLUMNS = [
     "symbol",
     "name",
     "market",
+    "tracking_cohort",
+    "shadow_reason",
+    "market_cap_bucket",
     "discovery_grade",
     "proposal_status",
     "reference_close",
@@ -191,9 +212,26 @@ def tracking_config_hash(settings: Settings) -> str:
         "screening": asdict(settings.screening),
         "model": asdict(settings.model),
         "brief": asdict(settings.brief),
+        "tracking": asdict(settings.tracking),
     }
     encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()[:12]
+
+
+def _market_cap_bucket(value: Any) -> str:
+    market_cap = _number(value) or 0.0
+    if market_cap >= 100_000:
+        return "large_10t_plus"
+    if market_cap >= 10_000:
+        return "mid_1t_to_10t"
+    return "small_under_1t"
+
+
+def _weekly_control_key(signal_date: str, market: str, bucket: str, symbol: str) -> str:
+    timestamp = pd.Timestamp(signal_date)
+    iso = timestamp.isocalendar()
+    payload = f"{iso.year}-W{iso.week:02d}:{market}:{bucket}:{symbol}"
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def build_daily_snapshots(
@@ -201,16 +239,84 @@ def build_daily_snapshots(
     captured_at: datetime,
     model_version: str,
     config_hash: str,
+    shadow_enabled: bool = True,
+    shadow_min_score: float = 55.0,
+    shadow_controls_per_bucket: int = 2,
 ) -> pd.DataFrame:
-    """Build the immutable structured record of today's eligible A/B/C names."""
+    """Build candidate, near-miss, and matched-control snapshots.
+
+    Shadow rows are evaluation-only and never alter the user-facing report.
+    Controls rotate weekly within market and market-cap buckets so the model's
+    missed opportunities can be measured without turning every eligible stock
+    into a highly correlated daily sample.
+    """
 
     if scored.empty:
         return _blank(SNAPSHOT_COLUMNS)
+    eligible = scored[
+        scored.apply(lambda row: _truthy(row.get("discovery_eligible", False)), axis=1)
+    ].copy()
+    if eligible.empty:
+        return _blank(SNAPSHOT_COLUMNS)
+    eligible["_signal_date"] = pd.to_datetime(eligible.get("as_of"), errors="coerce").dt.strftime(
+        "%Y-%m-%d"
+    )
+    eligible["_symbol"] = eligible["symbol"].astype("string").str.zfill(6)
+    eligible["_score"] = pd.to_numeric(eligible.get("discovery_score"), errors="coerce")
+    grade_values = (
+        eligible["discovery_grade"]
+        if "discovery_grade" in eligible
+        else pd.Series("", index=eligible.index)
+    )
+    eligible["_grade"] = grade_values.astype("string")
+    eligible["_cap_bucket"] = eligible.get("market_cap_eok", pd.Series(index=eligible.index)).map(
+        _market_cap_bucket
+    )
+
+    selected: dict[int, tuple[str, str]] = {}
+    for index, source in eligible.iterrows():
+        grade = _text(source.get("_grade"))
+        score = _number(source.get("_score"))
+        if grade in TRACKED_GRADES:
+            selected[index] = (CANDIDATE_COHORT, "")
+        elif shadow_enabled and score is not None and score >= shadow_min_score:
+            selected[index] = (
+                NEAR_MISS_COHORT,
+                f"discovery_score_{shadow_min_score:.0f}_to_candidate_cutoff",
+            )
+
+    if shadow_enabled and shadow_controls_per_bucket > 0:
+        control_pool = eligible[
+            ~eligible.index.isin(selected)
+            & eligible["_score"].notna()
+            & (eligible["_score"] < shadow_min_score)
+            & eligible["_signal_date"].notna()
+        ].copy()
+        if not control_pool.empty:
+            control_pool["_control_key"] = control_pool.apply(
+                lambda row: _weekly_control_key(
+                    _text(row.get("_signal_date")),
+                    _text(row.get("market")),
+                    _text(row.get("_cap_bucket")),
+                    _text(row.get("_symbol")),
+                ),
+                axis=1,
+            )
+            for _, group in control_pool.groupby(
+                ["_signal_date", "market", "_cap_bucket"], dropna=False
+            ):
+                for index in group.sort_values("_control_key").head(shadow_controls_per_bucket).index:
+                    selected[index] = (
+                        MATCHED_CONTROL_COHORT,
+                        "weekly_market_cap_matched_control",
+                    )
+
     rows: list[dict[str, Any]] = []
-    for _, source in scored.iterrows():
-        grade = _text(source.get("discovery_grade"))
-        if grade not in TRACKED_GRADES or not _truthy(source.get("discovery_eligible", False)):
+    for index, source in eligible.iterrows():
+        if index not in selected:
             continue
+        cohort, shadow_reason = selected[index]
+        grade = _text(source.get("discovery_grade"))
         signal_date = pd.to_datetime(source.get("as_of"), errors="coerce")
         if pd.isna(signal_date):
             continue
@@ -222,6 +328,10 @@ def build_daily_snapshots(
                 "symbol": _text(source.get("symbol")).zfill(6),
                 "name": _text(source.get("name")),
                 "market": _text(source.get("market")),
+                "tracking_cohort": cohort,
+                "shadow_reason": shadow_reason,
+                "market_cap_bucket": _market_cap_bucket(source.get("market_cap_eok")),
+                "sector_code": _text(source.get("sector_code")),
                 "discovery_grade": grade,
                 "proposal_status": _text(source.get("proposal_status")),
                 "model_version": model_version,
@@ -231,11 +341,14 @@ def build_daily_snapshots(
         rows.append(row)
     if not rows:
         return _blank(SNAPSHOT_COLUMNS)
-    return (
-        pd.DataFrame(rows, columns=SNAPSHOT_COLUMNS)
-        .sort_values(["signal_date", "proposal_priority", "discovery_score", "symbol"], ascending=[True, True, False, True])
-        .reset_index(drop=True)
+    result = pd.DataFrame(rows, columns=SNAPSHOT_COLUMNS)
+    result["_cohort_order"] = result["tracking_cohort"].map(
+        {CANDIDATE_COHORT: 0, NEAR_MISS_COHORT: 1, MATCHED_CONTROL_COHORT: 2}
     )
+    return result.sort_values(
+        ["signal_date", "_cohort_order", "discovery_score", "symbol"],
+        ascending=[True, True, False, True],
+    ).drop(columns="_cohort_order").reset_index(drop=True)
 
 
 def append_official_snapshots(existing: pd.DataFrame, incoming: pd.DataFrame) -> pd.DataFrame:
@@ -296,6 +409,9 @@ def _event_from_snapshot(
         "name": _text(snapshot.get("name")),
         "market": _text(snapshot.get("market")),
         "reference_close": snapshot.get("close", pd.NA),
+        "tracking_cohort": _text(snapshot.get("tracking_cohort")),
+        "shadow_reason": _text(snapshot.get("shadow_reason")),
+        "market_cap_bucket": _text(snapshot.get("market_cap_bucket")),
         "discovery_grade": _text(snapshot.get("discovery_grade")),
         "proposal_status": _text(snapshot.get("proposal_status")),
         "discovery_score": snapshot.get("discovery_score", pd.NA),
@@ -333,6 +449,24 @@ def update_episode_ledger(
         if not events.empty
         else []
     )
+    for record in episode_records:
+        if not _text(record.get("start_cohort")) and _text(record.get("start_grade")) in TRACKED_GRADES:
+            record["start_cohort"] = CANDIDATE_COHORT
+        if not _text(record.get("current_cohort")) and _text(record.get("current_grade")) in TRACKED_GRADES:
+            record["current_cohort"] = CANDIDATE_COHORT
+        if (
+            _text(record.get("start_cohort")) == CANDIDATE_COHORT
+            and not _text(record.get("first_candidate_date"))
+        ):
+            record["first_candidate_date"] = _text(record.get("started_at"))
+        if (
+            _text(record.get("start_cohort")) == NEAR_MISS_COHORT
+            and not _text(record.get("first_near_miss_date"))
+        ):
+            record["first_near_miss_date"] = _text(record.get("started_at"))
+    for record in event_records:
+        if not _text(record.get("tracking_cohort")) and _text(record.get("discovery_grade")) in TRACKED_GRADES:
+            record["tracking_cohort"] = CANDIDATE_COHORT
     event_ids = {_text(record.get("event_id")) for record in event_records}
     current = snapshots[snapshots["signal_date"].astype(str) == current_date].copy()
     current_symbols = set(current["symbol"].astype(str))
@@ -365,6 +499,7 @@ def update_episode_ledger(
 
         proposal = _text(snapshot.get("proposal_status"))
         grade = _text(snapshot.get("discovery_grade"))
+        cohort = _text(snapshot.get("tracking_cohort"))
         if index is None:
             episode_id = f"{symbol}-{current_date.replace('-', '')}"
             episode_records.append(
@@ -377,16 +512,25 @@ def update_episode_ledger(
                     "last_seen_at": current_date,
                     "ended_at": "",
                     "closed_at": "",
+                    "start_cohort": cohort,
+                    "current_cohort": cohort,
                     "start_grade": grade,
                     "start_proposal": proposal,
                     "current_grade": grade,
                     "current_proposal": proposal,
+                    "first_near_miss_date": current_date if cohort == NEAR_MISS_COHORT else "",
+                    "first_candidate_date": current_date if cohort == CANDIDATE_COHORT else "",
                     "first_buy_review_date": current_date if proposal == BUY_REVIEW else "",
                     "model_version": _text(snapshot.get("model_version")),
                     "config_hash": _text(snapshot.get("config_hash")),
                 }
             )
-            event_type = "buy_review_entry" if proposal == BUY_REVIEW else "candidate_entry"
+            if cohort == CANDIDATE_COHORT:
+                event_type = "buy_review_entry" if proposal == BUY_REVIEW else "candidate_entry"
+            elif cohort == NEAR_MISS_COHORT:
+                event_type = "shadow_near_miss_entry"
+            else:
+                event_type = "shadow_control_entry"
             event = _event_from_snapshot(snapshot, episode_id, event_type)
             if event["event_id"] not in event_ids:
                 event_records.append(event)
@@ -395,11 +539,37 @@ def update_episode_ledger(
 
         record = episode_records[index]
         record["last_seen_at"] = current_date
+        record["current_cohort"] = cohort
         record["current_grade"] = grade
         record["current_proposal"] = proposal
-        if proposal == BUY_REVIEW and not _text(record.get("first_buy_review_date")):
+        became_candidate = (
+            cohort == CANDIDATE_COHORT and not _text(record.get("first_candidate_date"))
+        )
+        became_near_miss = (
+            cohort == NEAR_MISS_COHORT
+            and not _text(record.get("first_near_miss_date"))
+            and not _text(record.get("first_candidate_date"))
+        )
+        became_buy_review = proposal == BUY_REVIEW and not _text(
+            record.get("first_buy_review_date")
+        )
+        if became_candidate:
+            record["first_candidate_date"] = current_date
+        if became_near_miss:
+            record["first_near_miss_date"] = current_date
+        if became_buy_review:
             record["first_buy_review_date"] = current_date
-            event = _event_from_snapshot(snapshot, _text(record.get("episode_id")), "buy_review_promotion")
+        event_type = (
+            "buy_review_promotion"
+            if became_buy_review
+            else "candidate_promotion"
+            if became_candidate
+            else "shadow_near_miss_promotion"
+            if became_near_miss
+            else ""
+        )
+        if event_type:
+            event = _event_from_snapshot(snapshot, _text(record.get("episode_id")), event_type)
             if event["event_id"] not in event_ids:
                 event_records.append(event)
                 event_ids.add(event["event_id"])
@@ -482,6 +652,9 @@ def _evaluate_event(
         "symbol": symbol,
         "name": _text(event.get("name")),
         "market": _text(event.get("market")),
+        "tracking_cohort": _text(event.get("tracking_cohort")),
+        "shadow_reason": _text(event.get("shadow_reason")),
+        "market_cap_bucket": _text(event.get("market_cap_bucket")),
         "discovery_grade": _text(event.get("discovery_grade")),
         "proposal_status": _text(event.get("proposal_status")),
         "reference_close": reference_close,
@@ -593,10 +766,11 @@ def refresh_outcomes(
             market_history[column] = pd.to_numeric(market_history.get(column), errors="coerce")
         market_history = market_history.dropna(subset=["date", "symbol"])
 
-    existing_map = {
-        _text(row.get("event_id")): row
-        for row in _with_columns(existing, OUTCOME_COLUMNS).to_dict("records")
-    } if not existing.empty else {}
+    existing_rows = _with_columns(existing, OUTCOME_COLUMNS).to_dict("records") if not existing.empty else []
+    for row in existing_rows:
+        if not _text(row.get("tracking_cohort")) and _text(row.get("discovery_grade")) in TRACKED_GRADES:
+            row["tracking_cohort"] = CANDIDATE_COHORT
+    existing_map = {_text(row.get("event_id")): row for row in existing_rows}
     histories_by_symbol = {
         str(symbol).zfill(6): group
         for symbol, group in market_history.groupby("symbol", sort=False)
@@ -632,8 +806,20 @@ def _pct(value: Any) -> str:
 def _event_label(value: str) -> str:
     return {
         "candidate_entry": "후보 최초 진입",
+        "candidate_promotion": "정식 후보 승격",
         "buy_review_entry": "신규매수 검토 진입",
         "buy_review_promotion": "신규매수 검토 승격",
+        "shadow_near_miss_entry": "근접 탈락 진입",
+        "shadow_near_miss_promotion": "근접 탈락 승격",
+        "shadow_control_entry": "매칭 대조군 진입",
+    }.get(value, value)
+
+
+def _cohort_label(value: str) -> str:
+    return {
+        CANDIDATE_COHORT: "정식 A/B/C 후보",
+        NEAR_MISS_COHORT: "Shadow 근접 탈락",
+        MATCHED_CONTROL_COHORT: "Shadow 매칭 대조군",
     }.get(value, value)
 
 
@@ -644,23 +830,35 @@ def render_live_evaluation(
     generated_at: datetime,
     roundtrip_cost_pct: float,
 ) -> str:
-    resolved_20 = int(pd.to_numeric(outcomes.get("net_return_20"), errors="coerce").notna().sum()) if not outcomes.empty else 0
+    candidate = (
+        outcomes[outcomes["tracking_cohort"].astype(str) == CANDIDATE_COHORT].copy()
+        if not outcomes.empty
+        else outcomes.copy()
+    )
+    candidate_events = len(candidate)
+    shadow_events = len(outcomes) - candidate_events
+    resolved_20 = (
+        int(pd.to_numeric(candidate.get("net_return_20"), errors="coerce").notna().sum())
+        if not candidate.empty
+        else 0
+    )
     lines = [
         "# 실전 추천 누적 평가",
         "",
         f"- 갱신: {generated_at.isoformat()}",
-        f"- 후보 에피소드: {len(episodes):,}개 · 평가 이벤트: {len(events):,}개 · D+20 판정: {resolved_20:,}개",
+        f"- 전체 에피소드: {len(episodes):,}개 · 정식 후보 이벤트: {candidate_events:,}개 · Shadow 이벤트: {shadow_events:,}개",
+        f"- 정식 후보 D+20 판정: {resolved_20:,}개",
         f"- 수익률 기준: 신호 다음 거래일 시가 진입 · 왕복비용 {roundtrip_cost_pct:.1f}% · 동일 시장 중앙값 대비 초과수익",
-        "- 같은 종목의 연속 노출은 한 에피소드로 묶고, 가격 대기에서 신규매수 검토로 승격될 때만 별도 이벤트를 만듭니다.",
+        "- Shadow 대조군은 사용자 추천에 노출하지 않으며 모델이 놓친 종목과 선택 기준만 평가합니다.",
         "",
-        "## 기간별 전체 성과",
+        "## 정식 후보 기간별 성과",
         "",
         "| 기간 | 판정 수 | 비용 후 양수 비율 | 비용 후 중앙수익률 | 시장초과 중앙값 |",
         "|---|---:|---:|---:|---:|",
     ]
     for horizon in HORIZONS:
-        values = pd.to_numeric(outcomes.get(f"net_return_{horizon}"), errors="coerce") if not outcomes.empty else pd.Series(dtype=float)
-        excess = pd.to_numeric(outcomes.get(f"excess_return_{horizon}"), errors="coerce") if not outcomes.empty else pd.Series(dtype=float)
+        values = pd.to_numeric(candidate.get(f"net_return_{horizon}"), errors="coerce") if not candidate.empty else pd.Series(dtype=float)
+        excess = pd.to_numeric(candidate.get(f"excess_return_{horizon}"), errors="coerce") if not candidate.empty else pd.Series(dtype=float)
         valid = values.dropna()
         lines.append(
             f"| D+{horizon} | {len(valid):,} | "
@@ -669,12 +867,33 @@ def render_live_evaluation(
             else f"| D+{horizon} | 0 | - | - | - |"
         )
 
-    lines.extend(["", "## 등급·이벤트별 D+20", ""])
-    d20 = pd.to_numeric(outcomes.get("net_return_20"), errors="coerce") if not outcomes.empty else pd.Series(dtype=float)
-    if outcomes.empty or d20.notna().sum() == 0:
+    lines.extend(
+        [
+            "",
+            "## 정식 후보 vs Shadow 비교",
+            "",
+            "| 코호트 | 기간 | 표본 | 비용 후 양수 비율 | 비용 후 중앙수익률 | 시장초과 중앙값 |",
+            "|---|---:|---:|---:|---:|---:|",
+        ]
+    )
+    for cohort in (CANDIDATE_COHORT, NEAR_MISS_COHORT, MATCHED_CONTROL_COHORT):
+        group = outcomes[outcomes["tracking_cohort"].astype(str) == cohort] if not outcomes.empty else outcomes
+        for horizon in HORIZONS:
+            values = pd.to_numeric(group.get(f"net_return_{horizon}"), errors="coerce").dropna() if not group.empty else pd.Series(dtype=float)
+            excess = pd.to_numeric(group.get(f"excess_return_{horizon}"), errors="coerce").dropna() if not group.empty else pd.Series(dtype=float)
+            lines.append(
+                f"| {_cohort_label(cohort)} | D+{horizon} | {len(values):,} | "
+                f"{values.gt(0).mean() * 100:.1f}% | {_pct(values.median())} | {_pct(excess.median())} |"
+                if not values.empty
+                else f"| {_cohort_label(cohort)} | D+{horizon} | 0 | - | - | - |"
+            )
+
+    lines.extend(["", "## 정식 후보 등급·이벤트별 D+20", ""])
+    d20 = pd.to_numeric(candidate.get("net_return_20"), errors="coerce") if not candidate.empty else pd.Series(dtype=float)
+    if candidate.empty or d20.notna().sum() == 0:
         lines.append("아직 D+20 판정 표본이 없습니다. 실제 신호를 소급 생성하지 않고 배포 이후부터 축적합니다.")
     else:
-        working = outcomes.copy()
+        working = candidate.copy()
         working["net_return_20"] = pd.to_numeric(working["net_return_20"], errors="coerce")
         working["excess_return_20"] = pd.to_numeric(working["excess_return_20"], errors="coerce")
         lines.extend([
@@ -696,12 +915,13 @@ def render_live_evaluation(
         lines.append("아직 기록된 이벤트가 없습니다.")
     else:
         lines.extend([
-            "| 신호일 | 종목 | 이벤트 | 등급 | D+5 | D+10 | D+20 | D+20 초과 | 상태 |",
-            "|---|---|---|---:|---:|---:|---:|---:|---|",
+            "| 신호일 | 종목 | 코호트 | 이벤트 | 등급 | D+5 | D+10 | D+20 | D+20 초과 | 상태 |",
+            "|---|---|---|---|---:|---:|---:|---:|---:|---|",
         ])
         for _, row in outcomes.sort_values(["event_date", "event_id"], ascending=[False, False]).head(20).iterrows():
             lines.append(
                 f"| {_text(row.get('event_date'))} | {_text(row.get('name'))}({_text(row.get('symbol'))}) | "
+                f"{_cohort_label(_text(row.get('tracking_cohort')))} | "
                 f"{_event_label(_text(row.get('event_type')))} | {_text(row.get('discovery_grade'))} | "
                 f"{_pct(row.get('net_return_5'))} | {_pct(row.get('net_return_10'))} | "
                 f"{_pct(row.get('net_return_20'))} | {_pct(row.get('excess_return_20'))} | "
@@ -734,6 +954,9 @@ def update_live_tracking(
         generated_at,
         settings.tracking.model_version,
         config_hash,
+        shadow_enabled=settings.tracking.shadow_enabled,
+        shadow_min_score=settings.tracking.shadow_min_score,
+        shadow_controls_per_bucket=settings.tracking.shadow_controls_per_bucket,
     )
     runs_path = settings.data_dir / "signal_runs.csv"
     snapshots_path = settings.data_dir / "signal_snapshots.csv"
@@ -746,6 +969,7 @@ def update_live_tracking(
     runs = _with_columns(runs, RUN_COLUMNS) if not runs.empty else _blank(RUN_COLUMNS)
     recorded_dates = set(runs["signal_date"].astype(str))
     if current_date not in recorded_dates:
+        cohort_counts = incoming["tracking_cohort"].value_counts().to_dict()
         runs = pd.concat(
             [
                 runs,
@@ -754,7 +978,9 @@ def update_live_tracking(
                         {
                             "signal_date": current_date,
                             "captured_at": generated_at.isoformat(),
-                            "candidate_count": len(incoming),
+                            "candidate_count": int(cohort_counts.get(CANDIDATE_COHORT, 0)),
+                            "near_miss_count": int(cohort_counts.get(NEAR_MISS_COHORT, 0)),
+                            "control_count": int(cohort_counts.get(MATCHED_CONTROL_COHORT, 0)),
                             "model_version": settings.tracking.model_version,
                             "config_hash": config_hash,
                         }
@@ -790,13 +1016,19 @@ def update_live_tracking(
     write_csv(outcomes, outcomes_path)
     report_path.write_text(report, encoding="utf-8")
 
-    resolved_20 = int(pd.to_numeric(outcomes.get("net_return_20"), errors="coerce").notna().sum())
+    candidate_outcomes = outcomes[
+        outcomes["tracking_cohort"].astype(str) == CANDIDATE_COHORT
+    ]
+    resolved_20 = int(
+        pd.to_numeric(candidate_outcomes.get("net_return_20"), errors="coerce").notna().sum()
+    )
+    shadow_events = len(outcomes) - len(candidate_outcomes)
     summary_path = os.getenv("GITHUB_STEP_SUMMARY")
     if summary_path:
         with Path(summary_path).open("a", encoding="utf-8") as handle:
             handle.write(
                 "\n## 실전 추천 누적 평가\n\n"
-                f"- 에피소드 {len(episodes):,}개 · 평가 이벤트 {len(events):,}개 · D+20 판정 {resolved_20:,}개\n"
+                f"- 정식 후보 이벤트 {len(candidate_outcomes):,}개 · Shadow 이벤트 {shadow_events:,}개 · 정식 후보 D+20 판정 {resolved_20:,}개\n"
             )
     return LiveTrackingResult(
         snapshot_rows=len(snapshots),

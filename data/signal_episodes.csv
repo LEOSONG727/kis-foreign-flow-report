@@ -1,1 +1,1 @@
-episode_id,symbol,name,market,started_at,last_seen_at,ended_at,closed_at,start_grade,start_proposal,current_grade,current_proposal,first_buy_review_date,model_version,config_hash
+episode_id,symbol,name,market,started_at,last_seen_at,ended_at,closed_at,start_cohort,current_cohort,start_grade,start_proposal,current_grade,current_proposal,first_near_miss_date,first_candidate_date,first_buy_review_date,model_version,config_hash

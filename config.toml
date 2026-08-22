@@ -90,7 +90,12 @@ watch_max_rebound20_pct = 8.0
 enabled = true
 # 후보에서 이탈한 상태가 이 거래일 수 이상 이어진 뒤 재등장하면 새 에피소드로 기록
 episode_gap_sessions = 5
-model_version = "discovery-live-v1"
+model_version = "discovery-live-v2"
+# 사용자 리포트에는 보이지 않는 비교군. 55~64점 근접 탈락군은 전수 저장한다.
+shadow_enabled = true
+shadow_min_score = 55.0
+# KOSPI/KOSDAQ × 시가총액 대/중/소 구간별 주간 회전 대조군 수
+shadow_controls_per_bucket = 2
 
 [watchlist]
 # 기존 관심종목 + 비교 기준 7종목
