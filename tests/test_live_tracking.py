@@ -20,6 +20,7 @@ from kis_flow_bot.live_tracking import (
     append_official_snapshots,
     build_daily_snapshots,
     refresh_outcomes,
+    render_live_evaluation,
     update_episode_ledger,
     update_live_tracking,
 )
@@ -45,6 +46,8 @@ def _scored_row(**overrides) -> dict:
         "symbol": "000001",
         "name": "후보주",
         "market": "KOSPI",
+        "market_cap_eok": 20_000,
+        "sector_code": "10",
         "close": 100.0,
         "discovery_grade": "A",
         "proposal_status": "강한 후보·가격 대기",
@@ -99,7 +102,9 @@ def test_snapshot_keeps_only_eligible_abc_and_is_immutable_on_same_date():
             _scored_row(symbol="000004", discovery_eligible=False),
         ]
     )
-    incoming = build_daily_snapshots(scored, captured, "test-v1", "abc123")
+    incoming = build_daily_snapshots(
+        scored, captured, "test-v1", "abc123", shadow_enabled=False
+    )
     assert list(incoming["symbol"]) == ["000001", "000002"]
 
     first = append_official_snapshots(pd.DataFrame(columns=SNAPSHOT_COLUMNS), incoming)
@@ -109,6 +114,56 @@ def test_snapshot_keeps_only_eligible_abc_and_is_immutable_on_same_date():
 
     assert len(rerun) == 2
     assert set(rerun["discovery_score"]) == {84.0, 68.0}
+
+
+def test_shadow_tracks_all_near_misses_and_weekly_matched_controls():
+    captured = datetime(2026, 8, 21, 20, 35, tzinfo=ZoneInfo("Asia/Seoul"))
+    rows = [
+        _scored_row(symbol="000001", discovery_grade="A", discovery_score=84.0),
+        _scored_row(symbol="000002", discovery_grade="제외", discovery_score=64.0),
+        _scored_row(symbol="000003", discovery_grade="제외", discovery_score=55.0),
+    ]
+    rows.extend(
+        _scored_row(
+            symbol=f"0001{index:02d}",
+            discovery_grade="제외",
+            discovery_score=40.0 + index,
+        )
+        for index in range(5)
+    )
+    snapshots = build_daily_snapshots(
+        pd.DataFrame(rows),
+        captured,
+        "test-v1",
+        "abc123",
+        shadow_min_score=55.0,
+        shadow_controls_per_bucket=2,
+    )
+
+    counts = snapshots["tracking_cohort"].value_counts().to_dict()
+    assert counts == {"near_miss": 2, "matched_control": 2, "candidate": 1}
+    assert set(snapshots.loc[snapshots["tracking_cohort"] == "near_miss", "symbol"]) == {
+        "000002",
+        "000003",
+    }
+
+    same_week = pd.DataFrame(rows)
+    same_week["as_of"] = "2026-08-20"
+    rotated = build_daily_snapshots(
+        same_week,
+        captured,
+        "test-v1",
+        "abc123",
+        shadow_min_score=55.0,
+        shadow_controls_per_bucket=2,
+    )
+    first_controls = set(
+        snapshots.loc[snapshots["tracking_cohort"] == "matched_control", "symbol"]
+    )
+    second_controls = set(
+        rotated.loc[rotated["tracking_cohort"] == "matched_control", "symbol"]
+    )
+    assert first_controls == second_controls
 
 
 def test_episode_groups_repeats_and_records_first_buy_review_promotion():
@@ -148,6 +203,65 @@ def test_episode_groups_repeats_and_records_first_buy_review_promotion():
         snapshots, episodes, events, "2026-09-01", trading_dates, 5
     )
     assert len(episodes) == 2
+
+
+def test_shadow_episode_records_control_near_miss_and_candidate_promotions():
+    trading_dates = list(pd.bdate_range("2026-08-21", periods=3))
+    captured = datetime(2026, 8, 21, 20, 35, tzinfo=ZoneInfo("Asia/Seoul"))
+    shadow = build_daily_snapshots(
+        pd.DataFrame(
+            [
+                _scored_row(
+                    as_of="2026-08-21",
+                    discovery_grade="제외",
+                    discovery_score=40.0,
+                    proposal_status="관찰",
+                )
+            ]
+        ),
+        captured,
+        "test-v1",
+        "abc123",
+    )
+    episodes, events = update_episode_ledger(
+        shadow, pd.DataFrame(), pd.DataFrame(columns=EVENT_COLUMNS), "2026-08-21", trading_dates, 5
+    )
+    assert list(events["event_type"]) == ["shadow_control_entry"]
+
+    near_miss = build_daily_snapshots(
+        pd.DataFrame(
+            [
+                _scored_row(
+                    as_of="2026-08-24",
+                    discovery_grade="제외",
+                    discovery_score=62.0,
+                    proposal_status="관찰",
+                )
+            ]
+        ),
+        captured,
+        "test-v1",
+        "abc123",
+    )
+    snapshots = pd.concat([shadow, near_miss], ignore_index=True)
+    episodes, events = update_episode_ledger(
+        snapshots, episodes, events, "2026-08-24", trading_dates, 5
+    )
+    assert episodes.iloc[0]["first_near_miss_date"] == "2026-08-24"
+
+    candidate = _snapshot("2026-08-25", "강한 후보·가격 대기")
+    snapshots = pd.concat([snapshots, candidate], ignore_index=True)
+    episodes, events = update_episode_ledger(
+        snapshots, episodes, events, "2026-08-25", trading_dates, 5
+    )
+
+    assert len(episodes) == 1
+    assert episodes.iloc[0]["first_candidate_date"] == "2026-08-25"
+    assert set(events["event_type"]) == {
+        "shadow_control_entry",
+        "shadow_near_miss_promotion",
+        "candidate_promotion",
+    }
 
 
 def _history_for_outcome(ambiguous: bool = False) -> pd.DataFrame:
@@ -204,6 +318,9 @@ def _event() -> pd.DataFrame:
                 "name": "후보주",
                 "market": "KOSPI",
                 "reference_close": 100.0,
+                "tracking_cohort": "candidate",
+                "shadow_reason": "",
+                "market_cap_bucket": "mid_1t_to_10t",
                 "discovery_grade": "A",
                 "proposal_status": "강한 후보·가격 대기",
                 "model_version": "test-v1",
@@ -233,6 +350,36 @@ def test_same_day_target_and_stop_is_marked_ambiguous(tmp_path):
     )
     assert outcomes.iloc[0]["event_outcome"] == "ambiguous"
     assert outcomes.iloc[0]["days_to_event"] == 1
+
+
+def test_live_report_compares_candidate_near_miss_and_control_cohorts():
+    rows = []
+    for index, cohort in enumerate(("candidate", "near_miss", "matched_control"), 1):
+        row = {
+            "event_id": f"event-{index}",
+            "event_date": "2026-08-21",
+            "event_type": "candidate_entry" if cohort == "candidate" else "shadow_control_entry",
+            "symbol": f"00000{index}",
+            "name": f"코호트{index}",
+            "tracking_cohort": cohort,
+            "discovery_grade": "A" if cohort == "candidate" else "제외",
+            "status": "resolved",
+        }
+        for horizon in (5, 10, 20):
+            row[f"net_return_{horizon}"] = 0.01 * index
+            row[f"excess_return_{horizon}"] = 0.005 * index
+        rows.append(row)
+    report = render_live_evaluation(
+        pd.DataFrame([{"episode_id": "one"}]),
+        pd.DataFrame(rows),
+        pd.DataFrame(rows),
+        datetime(2026, 8, 21, 20, 35, tzinfo=ZoneInfo("Asia/Seoul")),
+        0.3,
+    )
+
+    assert "정식 후보 vs Shadow 비교" in report
+    assert "Shadow 근접 탈락" in report
+    assert "Shadow 매칭 대조군" in report
 
 
 def test_live_tracking_writes_files_and_does_not_rewrite_official_run(tmp_path):
