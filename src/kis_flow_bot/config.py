@@ -119,7 +119,10 @@ class TrackingConfig:
 
     enabled: bool = True
     episode_gap_sessions: int = 5
-    model_version: str = "discovery-live-v1"
+    model_version: str = "discovery-live-v2"
+    shadow_enabled: bool = True
+    shadow_min_score: float = 55.0
+    shadow_controls_per_bucket: int = 2
 
 
 @dataclass(frozen=True)
