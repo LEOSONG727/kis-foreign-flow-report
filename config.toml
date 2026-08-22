@@ -86,7 +86,7 @@ watch_max_return20_pct = 6.0
 watch_max_rebound20_pct = 8.0
 
 [tracking]
-# 매일 실제로 제안된 후보를 보존하고 이후 5·10·20거래일 성과를 갱신
+# 매일 실제로 제안된 후보를 보존하고 이후 5·10·20·40·60거래일 성과를 갱신
 enabled = true
 # 후보에서 이탈한 상태가 이 거래일 수 이상 이어진 뒤 재등장하면 새 에피소드로 기록
 episode_gap_sessions = 5
