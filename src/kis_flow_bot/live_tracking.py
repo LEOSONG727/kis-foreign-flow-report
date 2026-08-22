@@ -13,7 +13,7 @@ import pandas as pd
 from .config import Settings
 from .storage import read_csv, write_csv
 
-HORIZONS = (5, 10, 20)
+HORIZONS = (5, 10, 20, 40, 60)
 BUY_REVIEW = "오늘 신규매수 검토"
 TRACKED_GRADES = {"A", "B", "C"}
 CANDIDATE_COHORT = "candidate"
@@ -158,6 +158,16 @@ OUTCOME_COLUMNS = [
     "signal_close_return_20",
     "market_return_20",
     "excess_return_20",
+    "return_40",
+    "net_return_40",
+    "signal_close_return_40",
+    "market_return_40",
+    "excess_return_40",
+    "return_60",
+    "net_return_60",
+    "signal_close_return_60",
+    "market_return_60",
+    "excess_return_60",
     "evaluated_through",
     "model_version",
     "config_hash",
@@ -847,7 +857,7 @@ def render_live_evaluation(
         "",
         f"- 갱신: {generated_at.isoformat()}",
         f"- 전체 에피소드: {len(episodes):,}개 · 정식 후보 이벤트: {candidate_events:,}개 · Shadow 이벤트: {shadow_events:,}개",
-        f"- 정식 후보 D+20 판정: {resolved_20:,}개",
+        f"- 정식 후보 D+20 판정: {resolved_20:,}개 (D+40/60은 표본이 쌓이면 자동 표시)",
         f"- 수익률 기준: 신호 다음 거래일 시가 진입 · 왕복비용 {roundtrip_cost_pct:.1f}% · 동일 시장 중앙값 대비 초과수익",
         "- Shadow 대조군은 사용자 추천에 노출하지 않으며 모델이 놓친 종목과 선택 기준만 평가합니다.",
         "",
