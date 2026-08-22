@@ -461,7 +461,8 @@ def _market_forward_return(
 
 def _evaluate_event(
     event: pd.Series,
-    history: pd.DataFrame,
+    symbol_history: pd.DataFrame,
+    market_history: pd.DataFrame,
     target: float,
     stop: float,
     roundtrip_cost: float,
@@ -470,9 +471,9 @@ def _evaluate_event(
     symbol = _text(event.get("symbol")).zfill(6)
     event_date = pd.Timestamp(_text(event.get("event_date"))).normalize()
     reference_close = _number(event.get("reference_close"))
-    future = history[(history["symbol"] == symbol) & (history["date"] > event_date)].copy()
+    future = symbol_history[symbol_history["date"] > event_date].copy()
     future = future.sort_values("date").drop_duplicates("date", keep="last").head(max(HORIZONS))
-    evaluated_through = history["date"].max().strftime("%Y-%m-%d") if not history.empty else ""
+    evaluated_through = market_history["date"].max().strftime("%Y-%m-%d") if not market_history.empty else ""
     result: dict[str, Any] = {
         "event_id": _text(event.get("event_id")),
         "episode_id": _text(event.get("episode_id")),
@@ -552,7 +553,7 @@ def _evaluate_event(
         gross = end_close / entry_open - 1.0
         end_date = pd.Timestamp(end["date"]).normalize()
         market_return = _market_forward_return(
-            history,
+            market_history,
             _text(event.get("market")),
             entry_date,
             end_date,
@@ -581,7 +582,11 @@ def refresh_outcomes(
     if events.empty:
         return _with_columns(existing, OUTCOME_COLUMNS) if not existing.empty else _blank(OUTCOME_COLUMNS)
     market_history = history.copy()
-    if not market_history.empty:
+    if market_history.empty:
+        market_history = pd.DataFrame(
+            columns=["date", "symbol", "market", "open", "high", "low", "close"]
+        )
+    else:
         market_history["date"] = pd.to_datetime(market_history["date"], errors="coerce").dt.normalize()
         market_history["symbol"] = market_history["symbol"].astype("string").str.zfill(6)
         for column in ("open", "high", "low", "close"):
@@ -592,11 +597,17 @@ def refresh_outcomes(
         _text(row.get("event_id")): row
         for row in _with_columns(existing, OUTCOME_COLUMNS).to_dict("records")
     } if not existing.empty else {}
+    histories_by_symbol = {
+        str(symbol).zfill(6): group
+        for symbol, group in market_history.groupby("symbol", sort=False)
+    }
+    empty_symbol_history = market_history.iloc[0:0]
     cache: dict[tuple[str, str, str], float | None] = {}
     rows: list[dict[str, Any]] = []
     for _, event in events.iterrows():
         evaluated = _evaluate_event(
             event,
+            histories_by_symbol.get(_text(event.get("symbol")).zfill(6), empty_symbol_history),
             market_history,
             settings.model.backtest_target_pct / 100.0,
             settings.model.backtest_stop_pct / 100.0,
