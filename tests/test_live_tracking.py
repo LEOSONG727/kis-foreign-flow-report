@@ -340,8 +340,11 @@ def test_outcome_uses_next_session_open_and_future_rows_only(tmp_path):
     assert row["return_5"] == pytest.approx(0.0125)
     assert row["net_return_5"] == pytest.approx(0.0095)
     assert row["signal_close_return_20"] == pytest.approx(0.05)
-    assert row["event_outcome"] == "horizon"
-    assert row["status"] == "resolved"
+    # HORIZONS max is 60; with only 20 future sessions the event stays pending
+    # until the full evaluation window is available.
+    assert row["event_outcome"] == "pending"
+    assert row["status"] == "open"
+    assert row["completed_horizon"] == 20
 
 
 def test_same_day_target_and_stop_is_marked_ambiguous(tmp_path):
@@ -365,9 +368,9 @@ def test_live_report_compares_candidate_near_miss_and_control_cohorts():
             "discovery_grade": "A" if cohort == "candidate" else "제외",
             "status": "resolved",
         }
-        for horizon in (5, 10, 20):
-            row[f"net_return_{horizon}"] = 0.01 * index
-            row[f"excess_return_{horizon}"] = 0.005 * index
+        for horizon in (5, 10, 20, 40, 60):
+            row[f"net_return_{horizon}"] = 0.01 * index if horizon <= 20 else float("nan")
+            row[f"excess_return_{horizon}"] = 0.005 * index if horizon <= 20 else float("nan")
         rows.append(row)
     report = render_live_evaluation(
         pd.DataFrame([{"episode_id": "one"}]),
