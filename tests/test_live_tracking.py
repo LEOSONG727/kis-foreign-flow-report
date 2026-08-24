@@ -16,6 +16,7 @@ from kis_flow_bot.config import (
 )
 from kis_flow_bot.live_tracking import (
     EVENT_COLUMNS,
+    HORIZONS,
     SNAPSHOT_COLUMNS,
     append_official_snapshots,
     build_daily_snapshots,
@@ -264,7 +265,7 @@ def test_shadow_episode_records_control_near_miss_and_candidate_promotions():
     }
 
 
-def _history_for_outcome(ambiguous: bool = False) -> pd.DataFrame:
+def _history_for_outcome(ambiguous: bool = False, sessions: int = 20) -> pd.DataFrame:
     rows = [
         {
             "date": "2026-08-21",
@@ -277,7 +278,7 @@ def _history_for_outcome(ambiguous: bool = False) -> pd.DataFrame:
             "close": 100,
         }
     ]
-    for index, date in enumerate(pd.bdate_range("2026-08-24", periods=20), 1):
+    for index, date in enumerate(pd.bdate_range("2026-08-24", periods=sessions), 1):
         close = 100 + index * 0.25
         rows.append(
             {
@@ -337,9 +338,25 @@ def test_outcome_uses_next_session_open_and_future_rows_only(tmp_path):
     assert row["entry_date"] == "2026-08-24"
     assert row["entry_open"] == 100
     assert row["observed_sessions"] == 20
+    assert row["completed_horizon"] == 20
     assert row["return_5"] == pytest.approx(0.0125)
     assert row["net_return_5"] == pytest.approx(0.0095)
     assert row["signal_close_return_20"] == pytest.approx(0.05)
+    # D+40/60 대기 중이면 최장 시계(60) 미달 → open/pending 유지
+    assert row["status"] == "open"
+    assert row["event_outcome"] == "pending"
+
+
+def test_outcome_resolves_horizon_when_max_sessions_available(tmp_path):
+    outcomes = refresh_outcomes(
+        _event(),
+        pd.DataFrame(),
+        _history_for_outcome(sessions=max(HORIZONS)),
+        _settings(tmp_path),
+    )
+    row = outcomes.iloc[0]
+    assert row["observed_sessions"] == max(HORIZONS)
+    assert row["completed_horizon"] == max(HORIZONS)
     assert row["event_outcome"] == "horizon"
     assert row["status"] == "resolved"
 
@@ -365,7 +382,7 @@ def test_live_report_compares_candidate_near_miss_and_control_cohorts():
             "discovery_grade": "A" if cohort == "candidate" else "제외",
             "status": "resolved",
         }
-        for horizon in (5, 10, 20):
+        for horizon in HORIZONS:
             row[f"net_return_{horizon}"] = 0.01 * index
             row[f"excess_return_{horizon}"] = 0.005 * index
         rows.append(row)
@@ -380,6 +397,8 @@ def test_live_report_compares_candidate_near_miss_and_control_cohorts():
     assert "정식 후보 vs Shadow 비교" in report
     assert "Shadow 근접 탈락" in report
     assert "Shadow 매칭 대조군" in report
+    assert "D+40" in report
+    assert "D+60" in report
 
 
 def test_live_tracking_writes_files_and_does_not_rewrite_official_run(tmp_path):
