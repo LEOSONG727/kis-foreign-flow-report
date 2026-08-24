@@ -368,9 +368,9 @@ def test_live_report_compares_candidate_near_miss_and_control_cohorts():
             "discovery_grade": "A" if cohort == "candidate" else "제외",
             "status": "resolved",
         }
-        for horizon in (5, 10, 20):
-            row[f"net_return_{horizon}"] = 0.01 * index
-            row[f"excess_return_{horizon}"] = 0.005 * index
+        for horizon in (5, 10, 20, 40, 60):
+            row[f"net_return_{horizon}"] = 0.01 * index if horizon <= 20 else float("nan")
+            row[f"excess_return_{horizon}"] = 0.005 * index if horizon <= 20 else float("nan")
         rows.append(row)
     report = render_live_evaluation(
         pd.DataFrame([{"episode_id": "one"}]),
