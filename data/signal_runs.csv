@@ -1,2 +1,3 @@
 signal_date,captured_at,candidate_count,near_miss_count,control_count,model_version,config_hash
 2026-08-25,2026-08-25T20:55:16.989253+09:00,31,16,12,discovery-live-v2,1aaa4ed07c0d
+2026-08-26,2026-08-26T20:56:44.743020+09:00,27,21,12,discovery-live-v2,1aaa4ed07c0d
