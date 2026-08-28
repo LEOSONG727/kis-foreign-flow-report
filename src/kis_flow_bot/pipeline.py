@@ -19,6 +19,7 @@ from .features import (
     normalize_price_snapshot,
     validate_investor_amounts,
 )
+from .horizon import annotate_horizon, empty_horizon_state
 from .kis_client import KISAPIError, KISClient
 from .live_tracking import update_live_tracking
 from .notify import deliver_notifications
@@ -220,10 +221,18 @@ def _merge_opinions(current: pd.DataFrame, incoming: pd.DataFrame) -> pd.DataFra
     )
 
 
+def _horizon_previous(path: Path) -> dict:
+    raw = read_state(path)
+    if "mid_core" in raw or "tactical" in raw or "long_core" in raw:
+        return raw
+    return empty_horizon_state()
+
+
 def _write_outputs(
     scored: pd.DataFrame,
     settings: Settings,
     generated_at: datetime,
+    horizon=None,
 ) -> Path:
     rendered = render_report(
         scored,
@@ -232,6 +241,7 @@ def _write_outputs(
         generated_at,
         brief=settings.brief,
         model=settings.model,
+        horizon=horizon,
     )
     report_date = pd.to_datetime(scored["as_of"].max()).strftime("%Y-%m-%d")
     latest_html = settings.reports_dir / "latest.html"
@@ -282,6 +292,7 @@ def _write_outputs(
         "foreign_roll20_up_days10", "foreign_roll20_down_days10",
         "foreign_roll20_up_days20", "foreign_roll20_up_streak", "foreign_roll20_today_up",
         "screen_bucket",
+        "mid_horizon_score", "long_horizon_score", "in_mid_core", "in_long_core",
     ]
     write_csv(scored[[column for column in csv_columns if column in scored]], settings.reports_dir / "latest.csv")
     summary_path = os.getenv("GITHUB_STEP_SUMMARY")
@@ -410,11 +421,20 @@ def run_pipeline(
         raise RuntimeError("No securities passed final scoring")
     scored = apply_portfolio_actions(scored, portfolio, settings.model)
     scored = annotate_watch_brief(scored, settings.model, settings.brief)
+    horizon_path = settings.data_dir / "horizon_core.json"
+    scored, horizon_board = annotate_horizon(
+        scored,
+        _horizon_previous(horizon_path),
+        read_csv(settings.data_dir / "signal_snapshots.csv"),
+        settings.brief,
+        settings.model,
+        settings.horizon,
+    )
 
     write_csv(history, history_path)
     write_csv(snapshots, snapshots_path)
     write_csv(opinions, opinions_path)
-    latest_html = _write_outputs(scored, settings, generated_at)
+    latest_html = _write_outputs(scored, settings, generated_at, horizon_board)
     tracking = update_live_tracking(scored, history, settings, generated_at)
     if tracking:
         LOGGER.info(
@@ -425,9 +445,10 @@ def run_pipeline(
         )
     report_date_text = pd.to_datetime(scored["as_of"].max()).strftime("%Y-%m-%d")
     write_state(_new_state(scored, state, report_date_text), state_path)
+    write_state(horizon_board.to_state(), horizon_path)
 
     if notify:
-        deliver_notifications(scored, latest_html, settings.brief, settings.model)
+        deliver_notifications(scored, latest_html, settings.brief, settings.model, horizon_board)
     LOGGER.info("Report complete: %s (%d ranked securities)", latest_html, len(scored))
     return scored
 
@@ -453,11 +474,21 @@ def rerank_stored_data(settings: Settings, notify: bool = False) -> pd.DataFrame
         raise RuntimeError("No securities passed stored-data scoring")
     scored = apply_portfolio_actions(scored, portfolio, settings.model)
     scored = annotate_watch_brief(scored, settings.model, settings.brief)
-    latest_html = _write_outputs(scored, settings, generated_at)
+    horizon_path = settings.data_dir / "horizon_core.json"
+    scored, horizon_board = annotate_horizon(
+        scored,
+        _horizon_previous(horizon_path),
+        read_csv(settings.data_dir / "signal_snapshots.csv"),
+        settings.brief,
+        settings.model,
+        settings.horizon,
+    )
+    latest_html = _write_outputs(scored, settings, generated_at, horizon_board)
     report_date = pd.to_datetime(scored["as_of"].max()).strftime("%Y-%m-%d")
     write_state(_new_state(scored, state, report_date), state_path)
+    write_state(horizon_board.to_state(), horizon_path)
     if notify:
-        deliver_notifications(scored, latest_html, settings.brief, settings.model)
+        deliver_notifications(scored, latest_html, settings.brief, settings.model, horizon_board)
     LOGGER.info("Stored-data rerank complete: %s (%d ranked securities)", latest_html, len(scored))
     return scored
 

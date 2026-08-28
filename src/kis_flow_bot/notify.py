@@ -21,6 +21,7 @@ from .brief import (
     _text,
 )
 from .config import BriefConfig, ModelConfig
+from .horizon import HorizonBoard, build_horizon_board, render_horizon_plain, render_horizon_telegram
 
 LOGGER = logging.getLogger(__name__)
 LARGE_FLOW_KRW = 50_000_000_000
@@ -428,15 +429,28 @@ def _telegram_headline(headline: Headline) -> list[str]:
     return lines
 
 
+def _horizon_board(
+    scored: pd.DataFrame,
+    brief: BriefConfig | None,
+    model: ModelConfig | None,
+    horizon: HorizonBoard | None,
+) -> HorizonBoard:
+    if horizon is not None:
+        return horizon
+    return build_horizon_board(_brief_frame(scored, brief, model), brief=brief, model=model)
+
+
 def build_telegram_text(
     scored: pd.DataFrame,
     brief: BriefConfig | None = None,
     model: ModelConfig | None = None,
+    horizon: HorizonBoard | None = None,
 ) -> str:
     frame = _brief_frame(scored, brief, model)
     rows = list(iter_brief_rows(frame, brief))
     headline = build_headline(frame, brief, model)
-    lines = [f"<b>{html.escape(_title(frame))}</b>", *_telegram_headline(headline)]
+    board = _horizon_board(frame, brief, model, horizon)
+    lines = [f"<b>{html.escape(_title(frame))}</b>", *_telegram_headline(headline), *render_horizon_telegram(board)]
     if not rows:
         lines.append("<i>조회 전용 · 주문 미실행</i>")
         return "\n\n".join(line for line in lines if line)
@@ -480,21 +494,30 @@ def build_email_bodies(
     scored: pd.DataFrame,
     brief: BriefConfig | None = None,
     model: ModelConfig | None = None,
+    horizon: HorizonBoard | None = None,
 ) -> tuple[str, str]:
     frame = _brief_frame(scored, brief, model)
     rows = list(iter_brief_rows(frame, brief))
     title = _title(frame)
     headline = build_headline(frame, brief, model)
+    board = _horizon_board(frame, brief, model, horizon)
+    horizon_plain = render_horizon_plain(board)
     if not rows:
-        plain = f"{title}\n\n" + "\n".join(render_headline_plain(headline)) + "\n"
+        plain = f"{title}\n\n" + "\n".join(render_headline_plain(headline) + [""] + horizon_plain) + "\n"
+        horizon_items = "".join(
+            f"<li style='margin:4px 0'>{html.escape(line)}</li>" for line in board.verdict_lines
+        )
         html_body = (
             f"<h2>{html.escape(title)}</h2>"
             f"{render_headline_html(headline)}"
+            "<div style='border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px;margin:16px 0 0'>"
+            "<div style='font-size:12px;font-weight:700;letter-spacing:0.04em;color:#1d4ed8'>그래서 뭘 사나</div>"
+            f"<ul style='margin:8px 0 0;padding-left:20px'>{horizon_items}</ul></div>"
         )
         return plain, html_body
 
     counts = headline.verdict
-    plain_lines = [title, *render_headline_plain(headline)]
+    plain_lines = [title, *render_headline_plain(headline), "", *horizon_plain]
     cards: list[str] = []
     for rank, row in enumerate(rows, 1):
         fields = _card_fields(row, model)
@@ -523,6 +546,15 @@ def build_email_bodies(
         if headline.funnel
         else ""
     )
+    horizon_items = "".join(
+        f"<li style='margin:4px 0'>{html.escape(line)}</li>" for line in board.verdict_lines
+    )
+    horizon_html = (
+        "<div style='border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px;margin:0 0 16px'>"
+        "<div style='font-size:12px;font-weight:700;letter-spacing:0.04em;color:#1d4ed8'>그래서 뭘 사나</div>"
+        "<p style='color:#6b7280;margin:4px 0 8px'>매일 타이밍은 위 리스트, 들고 갈 자리는 여기입니다.</p>"
+        f"<ul style='margin:0;padding-left:20px'>{horizon_items}</ul></div>"
+    )
     html_body = (
         "<div style='font-family:Segoe UI,Apple SD Gothic Neo,sans-serif;color:#111827;max-width:680px'>"
         f"<h2 style='margin:0 0 6px;font-size:22px'>{html.escape(title)}</h2>"
@@ -531,6 +563,7 @@ def build_email_bodies(
         "<div style='font-weight:700;margin:4px 0 6px'>이 리스트만 보세요</div>"
         f"<p style='color:#6b7280;margin:0 0 8px'>{html.escape(counts)}</p>"
         f"<ol style='margin:0;padding-left:20px'>{item_html}</ol>{funnel_html}</div>"
+        + horizon_html
         + "".join(cards)
         + "<p style='color:#6b7280;font-size:13px;margin:8px 0 0'>조회 전용 · 주문 미실행. "
         "상세 HTML 리포트를 첨부합니다.</p></div>"
@@ -543,6 +576,7 @@ def send_telegram(
     report_path: Path,
     brief: BriefConfig | None = None,
     model: ModelConfig | None = None,
+    horizon: HorizonBoard | None = None,
 ) -> bool:
     config = _telegram_config()
     if not config:
@@ -552,7 +586,7 @@ def send_telegram(
     api = f"https://api.telegram.org/bot{token}"
     response = requests.post(
         f"{api}/sendMessage",
-        data={"chat_id": chat_id, "text": build_telegram_text(scored, brief, model), "parse_mode": "HTML"},
+        data={"chat_id": chat_id, "text": build_telegram_text(scored, brief, model, horizon), "parse_mode": "HTML"},
         timeout=20,
     )
     response.raise_for_status()
@@ -573,12 +607,13 @@ def send_email(
     report_path: Path,
     brief: BriefConfig | None = None,
     model: ModelConfig | None = None,
+    horizon: HorizonBoard | None = None,
 ) -> bool:
     config = _email_config()
     if not config:
         LOGGER.info("Email SMTP secrets are not configured; notification skipped")
         return False
-    plain, html_body = build_email_bodies(scored, brief, model)
+    plain, html_body = build_email_bodies(scored, brief, model, horizon)
     message = EmailMessage()
     message["Subject"] = build_email_subject(scored)
     message["From"] = str(config["from_addr"])
@@ -610,16 +645,17 @@ def deliver_notifications(
     report_path: Path,
     brief: BriefConfig | None = None,
     model: ModelConfig | None = None,
+    horizon: HorizonBoard | None = None,
 ) -> list[str]:
     """Send Telegram and email independently. Failures do not invalidate the report."""
     sent: list[str] = []
     try:
-        if send_telegram(scored, report_path, brief, model):
+        if send_telegram(scored, report_path, brief, model, horizon):
             sent.append("telegram")
     except Exception as exc:
         LOGGER.error("Telegram delivery failed without invalidating the report: %s", exc)
     try:
-        if send_email(scored, report_path, brief, model):
+        if send_email(scored, report_path, brief, model, horizon):
             sent.append("email")
     except Exception as exc:
         LOGGER.error("Email delivery failed without invalidating the report: %s", exc)
