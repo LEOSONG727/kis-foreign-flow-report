@@ -505,13 +505,14 @@ def build_email_bodies(
     if not rows:
         plain = f"{title}\n\n" + "\n".join(render_headline_plain(headline) + [""] + horizon_plain) + "\n"
         horizon_items = "".join(
-            f"<li style='margin:4px 0'>{html.escape(line)}</li>" for line in board.verdict_lines
+            f"<li style='margin:4px 0'>{html.escape(line)}</li>"
+            for line in (board.decision_lines or board.verdict_lines)
         )
         html_body = (
             f"<h2>{html.escape(title)}</h2>"
             f"{render_headline_html(headline)}"
             "<div style='border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px;margin:16px 0 0'>"
-            "<div style='font-size:12px;font-weight:700;letter-spacing:0.04em;color:#1d4ed8'>그래서 뭘 사나</div>"
+            "<div style='font-size:12px;font-weight:700;letter-spacing:0.04em;color:#1d4ed8'>오늘 판단</div>"
             f"<ul style='margin:8px 0 0;padding-left:20px'>{horizon_items}</ul></div>"
         )
         return plain, html_body
@@ -547,12 +548,12 @@ def build_email_bodies(
         else ""
     )
     horizon_items = "".join(
-        f"<li style='margin:4px 0'>{html.escape(line)}</li>" for line in board.verdict_lines
+        f"<li style='margin:4px 0'>{html.escape(line)}</li>" for line in board.decision_lines or board.verdict_lines
     )
     horizon_html = (
         "<div style='border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px;margin:0 0 16px'>"
-        "<div style='font-size:12px;font-weight:700;letter-spacing:0.04em;color:#1d4ed8'>그래서 뭘 사나</div>"
-        "<p style='color:#6b7280;margin:4px 0 8px'>매일 타이밍은 위 리스트, 들고 갈 자리는 여기입니다.</p>"
+        "<div style='font-size:12px;font-weight:700;letter-spacing:0.04em;color:#1d4ed8'>오늘 판단</div>"
+        "<p style='color:#6b7280;margin:4px 0 8px'>「오늘 신규매수 검토」만 사고, 코어는 게이트가 다시 열릴 때까지 기다립니다.</p>"
         f"<ul style='margin:0;padding-left:20px'>{horizon_items}</ul></div>"
     )
     html_body = (

@@ -152,6 +152,8 @@ def test_yesterday_tactical_dropout_is_not_a_sell():
     assert "하이트진로" in text
     assert "팔지" in text
     assert any("NH투자증권" in line for line in board.verdict_lines)
+    assert any("오늘 살 것" in line and "NH투자증권" in line for line in board.decision_lines)
+    assert any("팔지 말 것" in line and "하이트진로" in line for line in board.decision_lines)
 
 
 def test_telegram_and_html_keep_daily_list_then_horizon():
@@ -181,10 +183,12 @@ def test_telegram_and_html_keep_daily_list_then_horizon():
     )
     _, board = annotate_horizon(frame)
     telegram = build_telegram_text(frame, horizon=board)
-    assert telegram.index("오늘의 핵심 요약") < telegram.index("그래서 뭘 사나")
+    assert telegram.index("오늘의 핵심 요약") < telegram.index("오늘 판단")
+    assert telegram.index("오늘 판단") < telegram.index("그래서 뭘 사나")
+    assert "오늘 살 것" in telegram
     assert "중기 코어" in telegram
     rendered = render_report(frame, 5, (), datetime(2026, 8, 27, 20, 40), horizon=board)
-    assert rendered.html.index("이 리스트만 보세요") < rendered.html.index("그래서 뭘 사나")
+    assert rendered.html.index("이 리스트만 보세요") < rendered.html.index("오늘 판단")
     assert "중기 코어" in rendered.html
-    assert "장기 매집" in rendered.markdown
+    assert "오늘 판단" in rendered.markdown
     assert "그래서 뭘 사나" in rendered.markdown

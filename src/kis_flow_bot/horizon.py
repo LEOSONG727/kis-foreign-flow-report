@@ -74,6 +74,7 @@ class HorizonBoard:
     long_core: tuple[HorizonName, ...]
     continuity: tuple[ContinuityNote, ...]
     yesterday_tactical: tuple[dict[str, str], ...] = ()
+    decision_lines: tuple[str, ...] = ()
 
     def to_state(self) -> dict[str, Any]:
         return {
@@ -597,6 +598,55 @@ def _verdict(
     return (line1, line2, line3, *extra)
 
 
+def _decision(
+    tactical: list[dict[str, str]],
+    mid_core: list[HorizonName],
+    long_core: list[HorizonName],
+    continuity: list[ContinuityNote],
+) -> tuple[str, ...]:
+    """Concrete do / wait / hold for tonight's report. Not a second ranking."""
+    buy = [item for item in tactical if item.get("status") == "오늘 신규매수 검토"]
+    observe = [item for item in tactical if item.get("status") in {"관찰", "제외"}]
+    seen: set[str] = set()
+    cores: list[HorizonName] = []
+    for item in (*mid_core, *long_core):
+        if item.symbol in seen:
+            continue
+        seen.add(item.symbol)
+        cores.append(item)
+    waiting = [item for item in cores if not item.today_buyable]
+    open_cores = [item for item in cores if item.today_buyable]
+    drops = [note for note in continuity if note.kind == "tactical_dropout"]
+
+    lines: list[str] = []
+    if buy:
+        names = " → ".join(item["name"] for item in buy)
+        lines.append(f"오늘 살 것: {names}  · 현금 있을 때만 분할. 코어를 팔아 갈아타지 말 것")
+    else:
+        lines.append("오늘 살 것: 없음. 게이트가 열린 종목이 없으면 현금을 유지")
+    if open_cores:
+        lines.append(
+            "코어가 오늘 열림: "
+            + " · ".join(item.name for item in open_cores)
+            + "  · 갖고 가기로 한 종목의 분할 신규"
+        )
+    if waiting:
+        lines.append(
+            "기다릴 것: "
+            + " · ".join(item.name for item in waiting)
+            + "  · 20일 +3% 미만·저점반등 +5% 미만이 될 때까지"
+        )
+    if drops:
+        lines.append(
+            "팔지 말 것: "
+            + " · ".join(note.name for note in drops)
+            + "  · 리스트 이탈은 매도가 아님"
+        )
+    if observe:
+        lines.append("추격 금지: " + " · ".join(item["name"] for item in observe))
+    return tuple(lines)
+
+
 def build_horizon_board(
     scored: pd.DataFrame,
     previous: Mapping[str, Any] | None = None,
@@ -610,7 +660,14 @@ def build_horizon_board(
     horizon = horizon or HorizonConfig()
     previous = previous or {}
     if scored is None or scored.empty:
-        return HorizonBoard(as_of="", verdict_lines=("오늘 데이터가 없습니다.",), mid_core=(), long_core=(), continuity=())
+        return HorizonBoard(
+            as_of="",
+            verdict_lines=("오늘 데이터가 없습니다.",),
+            mid_core=(),
+            long_core=(),
+            continuity=(),
+            decision_lines=("오늘 살 것: 없음.",),
+        )
 
     frame = scored.copy()
     frame["symbol"] = frame["symbol"].astype("string").str.zfill(6)
@@ -693,6 +750,7 @@ def build_horizon_board(
     ]
     continuity = _continuity(tactical, yesterday, mid_names, long_names, lookup)
     verdict = _verdict(tactical, mid_names, long_names, continuity)
+    decision = _decision(tactical, mid_names, long_names, continuity)
     return HorizonBoard(
         as_of=as_of,
         verdict_lines=verdict,
@@ -700,6 +758,7 @@ def build_horizon_board(
         long_core=tuple(long_names),
         continuity=tuple(continuity),
         yesterday_tactical=tuple(tactical),
+        decision_lines=decision,
     )
 
 
@@ -741,7 +800,7 @@ def empty_horizon_state() -> dict[str, Any]:
 def render_horizon_plain(board: HorizonBoard) -> list[str]:
     if not board.verdict_lines:
         return []
-    lines = ["그래서 뭘 사나", *board.verdict_lines]
+    lines = ["오늘 판단", *board.decision_lines, "", "그래서 뭘 사나", *board.verdict_lines]
     if board.mid_core:
         lines.append("")
         lines.append("중기 코어")
@@ -767,11 +826,22 @@ def render_horizon_markdown(board: HorizonBoard) -> str:
     if not board.verdict_lines:
         return ""
     lines = [
-        "### 그래서 뭘 사나",
+        "### 오늘 판단",
         "",
-        "매일 타이밍은 위 리스트를 보고, 실제로 들고 갈 자리는 아래를 봅니다.",
+        "「오늘 신규매수 검토」만 사고, 코어는 그 뱃지가 다시 켜질 때까지 기다립니다. 리스트에서 빠졌다고 팔지 않습니다.",
         "",
     ]
+    for line in board.decision_lines:
+        lines.append(f"- {line}")
+    lines.extend(
+        [
+            "",
+            "### 그래서 뭘 사나",
+            "",
+            "매일 타이밍은 위 리스트를 보고, 실제로 들고 갈 자리는 아래를 봅니다.",
+            "",
+        ]
+    )
     for line in board.verdict_lines:
         lines.append(f"- {line}")
     if board.mid_core:
@@ -826,6 +896,7 @@ def render_horizon_html(board: HorizonBoard) -> str:
         return "<div class='horizon-cards'>" + "".join(cards) + "</div>"
 
     verdict = "".join(f"<li>{html.escape(line)}</li>" for line in board.verdict_lines)
+    decision = "".join(f"<li>{html.escape(line)}</li>" for line in board.decision_lines)
     notes = "".join(f"<li>{html.escape(note.text)}</li>" for note in board.continuity)
     notes_block = (
         f"<h3>어제와 오늘</h3><ul class='horizon-notes'>{notes}</ul>" if notes else ""
@@ -833,8 +904,12 @@ def render_horizon_html(board: HorizonBoard) -> str:
     return (
         '<section class="horizon">'
         '<div class="horizon-kicker">시간축 보드 · 매일 바꾸지 않는 자리</div>'
+        "<h2>오늘 판단</h2>"
+        "<p class='muted'>날짜가 아니라 조건입니다. 「오늘 신규매수 검토」일 때만 사고, "
+        "코어는 게이트가 다시 열릴 때까지 기다립니다. 빠진 종목은 매도가 아닙니다.</p>"
+        f"<ul class='horizon-verdict'>{decision}</ul>"
         "<h2>그래서 뭘 사나</h2>"
-        "<p class='muted'>위 리스트는 오늘 살 타이밍입니다. 아래는 중기·장기로 들고 갈 코어입니다. "
+        "<p class='muted'>위는 오늘 할 일, 아래는 중기·장기로 들고 갈 코어입니다. "
         "어제의 최선이 오늘 빠졌다고 종목을 갈아타지 마세요.</p>"
         f"<ul class='horizon-verdict'>{verdict}</ul>"
         "<div class='horizon-split'>"
@@ -851,7 +926,10 @@ def render_horizon_html(board: HorizonBoard) -> str:
 def render_horizon_telegram(board: HorizonBoard) -> list[str]:
     if not board.verdict_lines:
         return []
-    lines = ["<b>그래서 뭘 사나</b>"]
+    lines = ["<b>오늘 판단</b>"]
+    for line in board.decision_lines[:4]:
+        lines.append(html.escape(line))
+    lines.append("<b>그래서 뭘 사나</b>")
     for line in board.verdict_lines[:4]:
         lines.append(html.escape(line))
     if board.mid_core:
