@@ -10,6 +10,7 @@ import pandas as pd
 
 from .brief import annotate_watch_brief, select_daily_brief
 from .config import BriefConfig, ModelConfig
+from .horizon import HorizonBoard, build_horizon_board, render_horizon_html, render_horizon_markdown
 from .notify import build_headline, render_headline_html, render_headline_markdown
 
 
@@ -374,6 +375,22 @@ table{min-width:1220px}.condition{max-width:330px;white-space:normal}.condition 
 .headline li{margin:6px 0;font-size:16px}
 .headline li span{color:var(--muted);font-size:13px;margin-left:8px}
 .headline-funnel{color:var(--muted);font-size:12px;margin:12px 0 0}
+.horizon{background:linear-gradient(145deg,#151c26,#0e141d);border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin:0 0 18px}
+.horizon-kicker{color:var(--blue);font-size:12px;font-weight:800;letter-spacing:.04em}
+.horizon h2{margin:6px 0 8px;font-size:22px}
+.horizon h3{margin:16px 0 8px;font-size:16px}
+.horizon-verdict{margin:8px 0 14px;padding-left:20px}
+.horizon-verdict li{margin:6px 0;font-size:15px;line-height:1.45}
+.horizon-split{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.horizon-cards{display:grid;gap:10px}
+.horizon-card{background:#0c121a;border:1px solid var(--line);border-radius:12px;padding:14px}
+.horizon-card-head{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.horizon-card-head small{color:var(--muted)}
+.horizon-score{font-size:28px;font-weight:800;margin:6px 0}
+.horizon-score span{font-size:12px;color:var(--muted);font-weight:600;margin-left:4px}
+.horizon-notes{padding-left:20px;color:#c7d0da;font-size:13px;line-height:1.55}
+.horizon-notes li{margin:8px 0}
+@media(max-width:800px){.horizon-split{grid-template-columns:1fr}}
 """
 
 
@@ -391,6 +408,7 @@ def render_report(
     generated_at: datetime,
     brief: BriefConfig | None = None,
     model: ModelConfig | None = None,
+    horizon: HorizonBoard | None = None,
 ) -> RenderedReport:
     brief = brief or BriefConfig()
     model = model or ModelConfig()
@@ -474,10 +492,13 @@ def render_report(
     large_flow_count = int(ranked["large_flow_signal"].fillna(False).sum())
     report_date = pd.to_datetime(ranked["as_of"].max()).strftime("%Y-%m-%d") if not ranked.empty else generated_at.strftime("%Y-%m-%d")
     headline = build_headline(ranked, brief, model)
+    if horizon is None:
+        horizon = build_horizon_board(ranked, brief=brief, model=model)
 
     html_text = f"""<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>외국인 매집 리포트 {report_date}</title><style>{CSS}</style></head><body><main class="page">
 <header><div><h1>외국인 매집 레이더</h1><div class="muted">외인 수급이 좋고 가격이 아직 덜 오른 종목 · 매일 판단용 숏리스트</div></div><div class="stamp">기준일 {report_date}<br>생성 {generated_at.strftime('%Y-%m-%d %H:%M KST')}</div></header>
 {render_headline_html(headline)}
+{render_horizon_html(horizon)}
 <section class="summary"><div><b>{brief_count}</b><span>오늘 볼 종목</span></div><div><b>{buy_now_count}</b><span>오늘 신규매수 검토</span></div><div><b>{grade_a_count}</b><span>발견 A등급 · 80+</span></div><div><b>{price_wait_count}</b><span>강한 후보 · 가격 대기</span></div></section>
 <h2>오늘 볼 종목 {brief.size}</h2>
 <p class="muted">발견등급과 가격 게이트를 분리했습니다. 오늘 신규매수 검토를 먼저, 좋은 종목이지만 가격이 맞지 않는 후보를 그다음에 둡니다.</p>
@@ -496,7 +517,7 @@ def render_report(
 <h2>가격 하락 + 외국인 매수</h2>{_table(falling)}
 <h2>내 관찰 종목</h2>{_table(watched)}
 <h2>상세 분석</h2>{_detail_cards(pd.concat([daily_brief, buy_now, price_wait, observe, watched]).drop_duplicates('symbol').head(12))}
-<h2>판정 해석</h2><div class="legend"><div><b>A등급</b>발견 80점 이상. 가격 게이트까지 통과해야 오늘 신규매수 검토</div><div><b>B등급</b>발견 75~79점. 가격 게이트 통과 시 보조 신규매수 검토</div><div><b>C등급</b>발견 65~74점. 관찰만 하고 메인 신규매수 제안에서는 제외</div><div><b>지속 매수</b>최근 10일 중 외국인 일별 순매수가 8일 이상. 20일 누적선 증가와 다른 개념</div><div><b>가격 대기</b>종목 발견 품질은 높지만 추격·반등·급락 조건이 맞지 않음</div><div><b>데이터 제외</b>당일 수급 미수신·유동성·최소 이력 조건을 통과하지 못함</div></div>
+<h2>판정 해석</h2><div class="legend"><div><b>A등급</b>발견 80점 이상. 가격 게이트까지 통과해야 오늘 신규매수 검토</div><div><b>B등급</b>발견 75~79점. 가격 게이트 통과 시 보조 신규매수 검토</div><div><b>C등급</b>발견 65~74점. 관찰만 하고 메인 신규매수 제안에서는 제외</div><div><b>지속 매수</b>최근 10일 중 외국인 일별 순매수가 8일 이상. 20일 누적선 증가와 다른 개념</div><div><b>가격 대기</b>종목 발견 품질은 높지만 추격·반등·급락 조건이 맞지 않음</div><div><b>중기 코어</b>2~8주 들고 갈 자리. 오늘 타이밍에서 빠져도 팔지 않음</div><div><b>장기 매집</b>60·120일 재고가 쌓이는 자리. 눌림만 기다림</div><div><b>데이터 제외</b>당일 수급 미수신·유동성·최소 이력 조건을 통과하지 못함</div></div>
 <p class="note">오늘 신규매수 검토는 발견 75점 이상, 분산위험 25점 이하, 최근 3일 급락 진정, 20일 상승률 +3% 미만, 20일 저점 반등 +5% 미만과 당일 데이터·유동성 조건을 함께 통과해야 합니다. 결과가 0개여도 강제로 채우지 않습니다. 타이밍점수는 설명용이며 주문 API는 포함되어 있지 않습니다.</p>
 </main></body></html>"""
 
@@ -536,6 +557,7 @@ def render_report(
         [
             f"## 외국인 매집 액션 리포트 · {report_date}",
             "\n".join(brief_lines).rstrip(),
+            render_horizon_markdown(horizon),
             md_section("① 오늘 신규매수 검토", buy_now),
             md_section("② 강한 후보·가격 대기", price_wait),
             md_section("③ 관찰 후보", observe),

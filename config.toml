@@ -85,6 +85,20 @@ watch_min_return3_pct = -4.0
 watch_max_return20_pct = 6.0
 watch_max_rebound20_pct = 8.0
 
+[horizon]
+# 매일 타이밍 리스트는 바꾸지 않는다. 이 보드는 '뭘 들고 갈지'만 답한다.
+mid_slots = 3
+long_slots = 3
+mid_floor_discovery = 70.0
+mid_min_score = 62.0
+long_min_discovery = 65.0
+long_min_score = 55.0
+long_min_net60_krw = 40000000000
+long_min_net120_krw = 50000000000
+stay_buffer = 8.0
+replace_margin = 5.0
+appearance_lookback = 10
+
 [tracking]
 # 매일 실제로 제안된 후보를 보존하고 이후 5·10·20·40·60거래일 성과를 갱신
 enabled = true

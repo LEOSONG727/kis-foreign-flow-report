@@ -111,6 +111,24 @@ class BriefConfig:
 
 
 @dataclass(frozen=True)
+class HorizonConfig:
+    """Sticky mid/long boards. Does not change the daily price gate."""
+
+    mid_slots: int = 3
+    long_slots: int = 3
+    # A-grade names can enter the mid core. Floor is a hard disqualify, min_score is sticky cut.
+    mid_floor_discovery: float = 70.0
+    mid_min_score: float = 62.0
+    long_min_discovery: float = 65.0
+    long_min_score: float = 55.0
+    long_min_net60_krw: int = 40_000_000_000
+    long_min_net120_krw: int = 50_000_000_000
+    stay_buffer: float = 8.0
+    replace_margin: float = 5.0
+    appearance_lookback: int = 10
+
+
+@dataclass(frozen=True)
 class TrackingConfig:
     """Append-only live recommendation tracking.
 
@@ -133,6 +151,7 @@ class Settings:
     model: ModelConfig
     brief: BriefConfig
     tracking: TrackingConfig
+    horizon: HorizonConfig
     watchlist: tuple[str, ...]
 
     @property
@@ -166,6 +185,7 @@ def load_settings(root: Path | None = None) -> Settings:
         model=_build(ModelConfig, raw.get("model", {})),
         brief=_build(BriefConfig, raw.get("brief", {})),
         tracking=_build(TrackingConfig, raw.get("tracking", {})),
+        horizon=_build(HorizonConfig, raw.get("horizon", {})),
         watchlist=tuple(raw.get("watchlist", {}).get("symbols", [])),
     )
     settings.data_dir.mkdir(parents=True, exist_ok=True)

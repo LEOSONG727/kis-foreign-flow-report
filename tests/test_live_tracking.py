@@ -9,6 +9,7 @@ import pytest
 from kis_flow_bot.config import (
     APIConfig,
     BriefConfig,
+    HorizonConfig,
     ModelConfig,
     ScreeningConfig,
     Settings,
@@ -36,6 +37,7 @@ def _settings(tmp_path) -> Settings:
         model=ModelConfig(),
         brief=BriefConfig(),
         tracking=TrackingConfig(),
+        horizon=HorizonConfig(),
         watchlist=(),
     )
 
