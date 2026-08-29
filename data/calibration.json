@@ -1,18 +1,18 @@
 {
-  "generated_at": "2026-08-24T13:33:58+00:00",
+  "generated_at": "2026-08-29T07:43:21+00:00",
   "quality_gate_version": 2,
   "active": false,
-  "resolved_samples": 125,
+  "resolved_samples": 130,
   "minimum_resolved_samples": 300,
-  "holdout_resolved_samples": 33,
+  "holdout_resolved_samples": 36,
   "minimum_holdout_samples": 75,
   "breakeven_win_rate": 0.44999999999999996,
-  "overall_win_rate": 0.528,
-  "holdout_win_rate": 0.7272727272727273,
-  "overall_mean_realized_return": 0.013801416929769942,
-  "holdout_mean_realized_return": 0.04277823839655811,
-  "overall_mean_excess_return": 0.04884566087112071,
-  "holdout_mean_excess_return": 0.06171967668988767,
+  "overall_win_rate": 0.5307692307692308,
+  "holdout_win_rate": 0.7222222222222222,
+  "overall_mean_realized_return": 0.013754480963546699,
+  "holdout_mean_realized_return": 0.03782007653395894,
+  "overall_mean_excess_return": 0.04698531155034221,
+  "holdout_mean_excess_return": 0.0418915954581896,
   "activation_checks": {
     "resolved_samples": false,
     "holdout_samples": false,
@@ -29,10 +29,10 @@
       "label": "<64",
       "low": 0.0,
       "high": 64.0,
-      "samples": 20,
+      "samples": 21,
       "wins": 13,
-      "win_rate": 0.65,
-      "calibrated_probability": 0.625
+      "win_rate": 0.6190476190476191,
+      "calibrated_probability": 0.6
     },
     {
       "label": "64-67",
@@ -47,19 +47,19 @@
       "label": "68-71",
       "low": 68.0,
       "high": 72.0,
-      "samples": 18,
-      "wins": 6,
-      "win_rate": 0.3333333333333333,
-      "calibrated_probability": 0.36363636363636365
+      "samples": 21,
+      "wins": 8,
+      "win_rate": 0.38095238095238093,
+      "calibrated_probability": 0.4
     },
     {
       "label": "72+",
       "low": 72.0,
       "high": 101.0,
-      "samples": 70,
-      "wins": 39,
-      "win_rate": 0.5571428571428572,
-      "calibrated_probability": 0.5540540540540541
+      "samples": 71,
+      "wins": 40,
+      "win_rate": 0.5633802816901409,
+      "calibrated_probability": 0.56
     }
   ]
 }
