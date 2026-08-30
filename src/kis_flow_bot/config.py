@@ -71,6 +71,10 @@ class ModelConfig:
     persistent_entry_requires_reacceleration: bool = False
     ma20_atr_chase_multiple: float = 2.5
     rebound_atr_chase_multiple: float = 4.0
+    # 20-day MA slope over 5 sessions. A falling line is not a buy, even on a touch,
+    # unless price is down while foreigners keep buying (bullish divergence).
+    ma20_falling_slope_pct: float = -0.5
+    ma20_rising_slope_pct: float = 0.2
     structural_break_return20_pct: float = -25.0
     corporate_action_daily_return_pct: float = 33.0
     initial_order_krw: int = 10_000_000

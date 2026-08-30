@@ -387,3 +387,47 @@ def test_distribution_score_can_warn_before_full_campaign_exit():
     assert candidate["stage"] == "가격상승"
     assert candidate["distribution_score"] >= ModelConfig().distribution_exit_score
     assert candidate["action"] == "수익실현 신호·절반 익절 검토"
+
+
+def test_falling_ma20_without_divergence_blocks_fresh_entry():
+    features, index = _candidate_features()
+    features.loc[index, "ma20_slope"] = -0.012
+    features.loc[index, "ma20_falling"] = True
+    features.loc[index, "ma20_rising"] = False
+    features.loc[index, "flow_price_divergence"] = ""
+    features.loc[index, "price_return3"] = 0.0
+    features.loc[index, "price_return20"] = 0.01
+    features.loc[index, "rebound_from_low20"] = 0.02
+    candidate = score_features(features, ModelConfig()).query("symbol == '000010'").iloc[0]
+    assert candidate["entry_readiness"] == "추세확인"
+    assert not bool(candidate["entry_gate_passed"])
+    assert "우하향" in candidate["entry_gate_reason"]
+    assert "우상향" in candidate["action"]
+
+
+def test_falling_ma20_with_bullish_divergence_can_still_pass_entry():
+    features, index = _candidate_features()
+    features.loc[index, "ma20_slope"] = -0.012
+    features.loc[index, "ma20_falling"] = True
+    features.loc[index, "ma20_rising"] = False
+    features.loc[index, "flow_price_divergence"] = "bullish"
+    features.loc[index, "price_return3"] = 0.0
+    features.loc[index, "price_return20"] = -0.02
+    features.loc[index, "rebound_from_low20"] = 0.02
+    candidate = score_features(features, ModelConfig()).query("symbol == '000010'").iloc[0]
+    assert candidate["entry_readiness"] == "진입가능"
+    assert bool(candidate["entry_gate_passed"])
+
+
+def test_compressed_ma_is_not_a_hard_entry_block():
+    features, index = _candidate_features()
+    features.loc[index, "ma_compressed"] = True
+    features.loc[index, "ma20_falling"] = False
+    features.loc[index, "ma20_slope"] = 0.0
+    features.loc[index, "flow_price_divergence"] = ""
+    features.loc[index, "price_return3"] = 0.0
+    features.loc[index, "price_return20"] = 0.01
+    features.loc[index, "rebound_from_low20"] = 0.02
+    candidate = score_features(features, ModelConfig()).query("symbol == '000010'").iloc[0]
+    assert candidate["entry_readiness"] == "진입가능"
+    assert bool(candidate["entry_gate_passed"])

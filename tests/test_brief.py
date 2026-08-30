@@ -182,6 +182,25 @@ def test_flow_summary_shows_recent_windows():
     assert "당일" in text
 
 
+def test_flow_summary_names_rising_ma_and_bullish_divergence():
+    text = flow_summary(_row(ma20_rising=True, ma20_falling=False, flow_price_divergence="bullish"))
+    assert "20일선 우상향" in text
+    assert "가격↓수급↑" in text
+
+
+def test_falling_ma_without_divergence_loses_watch_priority():
+    live = _row(ma20_rising=True, ma20_falling=False, ma20_support=True)
+    falling = _row(ma20_rising=False, ma20_falling=True, flow_price_divergence="", ma20_support=True)
+    assert watch_priority(live) > watch_priority(falling)
+    assert "우상향 회복" in next_trigger(falling)
+
+
+def test_bullish_divergence_at_ma20_support_raises_watch_priority():
+    plain = _row(ma20_support=True, flow_price_divergence="")
+    split = _row(ma20_support=True, flow_price_divergence="bullish")
+    assert watch_priority(split) > watch_priority(plain)
+
+
 def test_dip_absorption_is_a_watch_name_not_an_immediate_buy():
     row = _row(
         name="셀트리온형",

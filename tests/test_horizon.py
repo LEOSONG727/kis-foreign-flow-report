@@ -70,6 +70,16 @@ def test_mid_score_ignores_closed_price_gate():
     assert wait_score > buy_score
 
 
+def test_mid_score_rewards_rising_ma_and_penalizes_falling_without_divergence():
+    base = mid_horizon_score(_accum())
+    rising = mid_horizon_score(_accum(ma20_rising=True, ma20_falling=False))
+    falling = mid_horizon_score(_accum(ma20_rising=False, ma20_falling=True, flow_price_divergence=""))
+    split = mid_horizon_score(_accum(ma20_rising=False, ma20_falling=True, flow_price_divergence="bullish"))
+    assert rising > base
+    assert falling < base
+    assert split > falling
+
+
 def test_extended_name_is_penalized_but_terminal_is_zero():
     extended = _accum(price_return20=0.22, rebound_from_low20=0.28)
     dead = _accum(campaign_regime="분산·이탈", stage="분산·이탈")

@@ -219,6 +219,19 @@ def _reason_list(row: pd.Series) -> str:
         f'20일 저점 대비 {pct(row.get("rebound_from_low20"))}·20일선 대비 {pct(row.get("ma20_distance"))}·'
         f'20일 고점 대비 {pct(row.get("distance_high20"))}'
     )
+    if bool(row.get("ma20_rising", False)):
+        reasons.append(f'20일선 우상향: 5일 기울기 {pct(row.get("ma20_slope"))}')
+    elif bool(row.get("ma20_falling", False)):
+        reasons.append(f'20일선 우하향: 5일 기울기 {pct(row.get("ma20_slope"))} · 접촉만으로 매수하지 않음')
+    div = str(row.get("flow_price_divergence") or "")
+    if div == "bullish":
+        reasons.append("가격↓수급↑ 다이버전스: 가격은 눌리는데 외인 순매수가 유지")
+    elif div == "bearish":
+        reasons.append("가격↑수급↓ 다이버전스: 가격은 오르는데 외인 순매수가 꺾임")
+    if bool(row.get("ma_compressed", False)):
+        reasons.append("이평 밀집: 횡보 구간의 돌파 추격은 하지 않음")
+    elif bool(row.get("ma_fan_up", False)):
+        reasons.append("이평 확산 우상향: 이미 벌어진 자리면 추격하지 않음")
     if bool(row.get("price_heat_flag", False)):
         reasons.append(
             f'단기 가격과열: {row.get("price_heat_reason", "-")} (진입 벌점 {number(row.get("price_heat_penalty"))}점)'

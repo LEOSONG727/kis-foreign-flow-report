@@ -39,6 +39,30 @@ def _calibrated_probability(score: float, heuristic: float, calibration: dict[st
     return heuristic
 
 
+def _flow_divergence(row: pd.Series) -> str:
+    return str(row.get("flow_price_divergence") or "").strip().lower()
+
+
+def _bullish_flow_divergence(row: pd.Series) -> bool:
+    return _flow_divergence(row) == "bullish"
+
+
+def _ma20_is_falling(row: pd.Series, model: ModelConfig | None = None) -> bool:
+    if bool(row.get("ma20_falling")):
+        return True
+    slope = float(row.get("ma20_slope", 0.0) or 0.0)
+    floor = (model.ma20_falling_slope_pct / 100.0) if model is not None else -0.005
+    return slope <= floor
+
+
+def _ma20_is_rising(row: pd.Series, model: ModelConfig | None = None) -> bool:
+    if bool(row.get("ma20_rising")):
+        return True
+    slope = float(row.get("ma20_slope", 0.0) or 0.0)
+    floor = (model.ma20_rising_slope_pct / 100.0) if model is not None else 0.002
+    return slope >= floor
+
+
 def _fundamental_score(row: pd.Series) -> tuple[float, float]:
     quality = 0.0
     if row.get("operating_profit", 0.0) > 0:
@@ -376,6 +400,14 @@ def _discovery_score(
     if not dip_absorption:
         falling_knife_penalty += 8.0 * scale(-row.get("price_return3", 0.0), 0.03, 0.08)
     ma20_bonus = 3.0 if dip_absorption and bool(row.get("ma20_support")) else 0.0
+    if _bullish_flow_divergence(row):
+        ma20_bonus += 3.0
+    if _ma20_is_rising(row):
+        ma20_bonus += 2.0
+    if _ma20_is_falling(row) and not _bullish_flow_divergence(row):
+        ma20_bonus -= 6.0
+    if bool(row.get("ma_fan_up")) and float(row.get("price_return20", 0.0) or 0.0) > 0.05:
+        ma20_bonus -= 4.0
     steady_bonus = 0.0
     if steady_accumulation:
         steady_bonus = 4.0
@@ -413,6 +445,21 @@ def _timing_score(row: pd.Series) -> float:
             else 0.0
         )
         + 5.0 * scale(row.get("ma5_slope", 0.0), -0.02, 0.03)
+        + (4.0 if _ma20_is_rising(row) else 0.0)
+        + (5.0 if _bullish_flow_divergence(row) and bool(row.get("ma20_support")) else 0.0)
+        - (8.0 if _ma20_is_falling(row) and not _bullish_flow_divergence(row) else 0.0)
+        - (
+            4.0
+            if bool(row.get("ma_fan_up")) and float(row.get("price_return20", 0.0) or 0.0) > 0.03
+            else 0.0
+        )
+        - (
+            4.0
+            if bool(row.get("ma_compressed"))
+            and not bool(row.get("ma20_support"))
+            and float(row.get("price_return20", 0.0) or 0.0) > 0.0
+            else 0.0
+        )
     )
     unextended = (
         12.0 * (1.0 - scale(row.get("price_return20", 0.0), 0.03, 0.12))
@@ -594,7 +641,14 @@ def _entry_readiness(row: pd.Series, model: ModelConfig) -> tuple[str, bool, str
             False,
             "지속매집 단독 신호: 최근 외국인 재가속 국면 확인 필요",
         )
-    return "진입가능", True, "단기 급락·20일 과열·저점반등 게이트 통과"
+    slope = float(row.get("ma20_slope", 0.0) or 0.0)
+    if _ma20_is_falling(row, model) and not _bullish_flow_divergence(row):
+        return (
+            "추세확인",
+            False,
+            f"20일선 우하향 {slope:+.1%}: 우상향 회복 또는 가격↓수급↑ 다이버전스 필요",
+        )
+    return "진입가능", True, "단기 급락·20일 과열·저점반등·20일선 기울기 게이트 통과"
 
 
 def _action(row: pd.Series, model: ModelConfig) -> str:
@@ -670,6 +724,8 @@ def _action(row: pd.Series, model: ModelConfig) -> str:
             return f"{prefix}하락흡수 확인·신규매수 대기"
         if readiness == "눌림대기":
             return f"{prefix}하락흡수·첫 눌림 대기"
+        if readiness == "추세확인":
+            return f"{prefix}하락흡수·20일선 우하향 대기"
         return f"{prefix}하락흡수 확인·신규매수 대기"
     if not entry_ready:
         if readiness == "반전확인":
@@ -678,6 +734,8 @@ def _action(row: pd.Series, model: ModelConfig) -> str:
             return "첫 눌림 대기·추격 금지"
         if readiness == "재가속확인":
             return "외국인 재가속 확인 후 분할매수"
+        if readiness == "추세확인":
+            return "20일선 우상향 회복·신규매수 대기"
         return "진입 조건 확인 대기"
     if discovery_score < model.discovery_candidate_score:
         return "매집 후보 강도 부족·대기"

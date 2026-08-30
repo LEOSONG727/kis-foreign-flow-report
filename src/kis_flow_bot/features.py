@@ -220,6 +220,53 @@ def _ma20_touches(group: pd.DataFrame, lookback: int = 3) -> tuple[bool, bool, i
     return today, count > 0, count
 
 
+MA20_SLOPE_LOOKBACK = 5
+MA20_RISING_SLOPE = 0.002
+MA20_FALLING_SLOPE = -0.005
+MA_COMPRESSED_SPREAD = 0.012
+MA_FAN_SPREAD = 0.030
+DIV_BULLISH_PRICE5 = -0.01
+DIV_BEARISH_PRICE5 = 0.025
+
+
+def _series_slope(series: pd.Series, lookback: int = MA20_SLOPE_LOOKBACK) -> float:
+    """Fractional change of a level over `lookback` sessions."""
+    clean = pd.to_numeric(series, errors="coerce").dropna()
+    if len(clean) <= lookback:
+        return 0.0
+    now = float(clean.iloc[-1])
+    prev = float(clean.iloc[-(lookback + 1)])
+    if prev <= 0 or now <= 0:
+        return 0.0
+    return now / prev - 1.0
+
+
+def _ma_regime(ma5: float, ma10: float, ma20: float, ma20_slope: float) -> dict[str, Any]:
+    """Trend shape of the 5/10/20-day averages. Compression is descriptive, not a hard gate."""
+    levels = [float(ma5), float(ma10), float(ma20)]
+    spread = (max(levels) - min(levels)) / ma20 if ma20 > 0 else 0.0
+    aligned_up = ma5 >= ma10 >= ma20 > 0
+    aligned_down = 0 < ma5 <= ma10 <= ma20
+    return {
+        "ma_spread_pct": float(spread),
+        "ma_aligned_up": bool(aligned_up),
+        "ma_aligned_down": bool(aligned_down),
+        "ma_compressed": bool(spread < MA_COMPRESSED_SPREAD),
+        "ma_fan_up": bool(aligned_up and spread > MA_FAN_SPREAD),
+        "ma20_rising": bool(ma20_slope >= MA20_RISING_SLOPE),
+        "ma20_falling": bool(ma20_slope <= MA20_FALLING_SLOPE),
+    }
+
+
+def _flow_price_divergence(price5: float, foreign_net5: float, foreign_net20: float) -> str:
+    """Multi-day price vs foreign-flow split. Empty string means no readable divergence."""
+    if price5 <= DIV_BULLISH_PRICE5 and foreign_net5 > 0 and foreign_net20 > 0:
+        return "bullish"
+    if price5 >= DIV_BEARISH_PRICE5 and foreign_net5 < 0:
+        return "bearish"
+    return ""
+
+
 def _streak(values: pd.Series, threshold: float = 0.001) -> int:
     count = 0
     for value in reversed(values.tolist()):
@@ -443,6 +490,16 @@ def build_base_features(
         ma10 = float(w10["close"].mean())
         prior_ma5 = float(group.iloc[-8:-3]["close"].mean()) if len(group) >= 8 else ma5
         ma5_slope = ma5 / prior_ma5 - 1.0 if prior_ma5 > 0 else 0.0
+        close_numeric = pd.to_numeric(group["close"], errors="coerce")
+        sma20_series = close_numeric.rolling(20, min_periods=20).mean()
+        ema20_series = close_numeric.ewm(span=20, adjust=False, min_periods=10).mean()
+        ema20_value = ema20_series.iloc[-1]
+        ema20 = float(ema20_value) if pd.notna(ema20_value) and float(ema20_value) > 0 else ma20
+        ma20_slope = _series_slope(sma20_series, MA20_SLOPE_LOOKBACK)
+        ema20_slope = _series_slope(ema20_series, MA20_SLOPE_LOOKBACK)
+        regime = _ma_regime(ma5, ma10, ma20, ma20_slope)
+        price_return5 = _return(group, 5)
+        flow_div = _flow_price_divergence(price_return5, foreign_net5, foreign_net20)
         ma20_distance = float(latest["close"] / ma20 - 1.0) if ma20 > 0 else 0.0
         ma20_atr_distance = ma20_distance / atr20 if atr20 > 0 else 0.0
         touched_ma20, touched_ma20_3, _ = _ma20_touches(group)
@@ -505,12 +562,13 @@ def build_base_features(
                 "price_return3": price_return3,
                 "price_return_prev3": price_return_prev3,
                 "price_acceleration3": price_return3 - price_return_prev3,
-                "price_return5": _return(group, 5),
+                "price_return5": price_return5,
                 "price_return10": _return(group, 10),
                 "price_return20": _return(group, 20),
                 "price_return60": _return(group, 60),
                 "price_return120": _return(group, 120),
                 "ma20": ma20,
+                "ema20": ema20,
                 "ma60": ma60,
                 "ma5": ma5,
                 "ma10": ma10,
@@ -518,6 +576,16 @@ def build_base_features(
                 "above_ma10": bool(float(latest["close"]) >= ma10),
                 "above_ma20": above_ma20,
                 "ma5_slope": ma5_slope,
+                "ma20_slope": ma20_slope,
+                "ema20_slope": ema20_slope,
+                "ma_spread_pct": regime["ma_spread_pct"],
+                "ma_aligned_up": regime["ma_aligned_up"],
+                "ma_aligned_down": regime["ma_aligned_down"],
+                "ma_compressed": regime["ma_compressed"],
+                "ma_fan_up": regime["ma_fan_up"],
+                "ma20_rising": regime["ma20_rising"],
+                "ma20_falling": regime["ma20_falling"],
+                "flow_price_divergence": flow_div,
                 "ma20_distance": ma20_distance,
                 "ma20_atr_distance": ma20_atr_distance,
                 "touched_ma20": touched_ma20,
