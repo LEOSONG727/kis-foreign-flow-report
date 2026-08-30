@@ -56,6 +56,13 @@ class HorizonName:
     appearance_days: int
     is_new: bool
     today_buyable: bool
+    ma20_slope: float = 0.0
+    ma20_rising: bool = False
+    ma20_falling: bool = False
+    ma_aligned_up: bool = False
+    ma_compressed: bool = False
+    ma_fan_up: bool = False
+    flow_price_divergence: str = ""
 
 
 @dataclass(frozen=True)
@@ -199,6 +206,14 @@ def mid_horizon_score(
         score += 3.0
     if _bool(row, "steady_accumulation"):
         score += 4.0
+    if _bool(row, "ma20_rising"):
+        score += 3.0
+    if _text(row, "flow_price_divergence") == "bullish":
+        score += 3.0
+    if _bool(row, "ma20_falling") and _text(row, "flow_price_divergence") != "bullish":
+        score -= 5.0
+    if _bool(row, "ma_fan_up") and _float(row, "price_return20") > 0.05:
+        score -= 4.0
     score -= 0.28 * _float(row, "distribution_score")
     rebound = _float(row, "rebound_from_low20")
     if rebound > 0.12:
@@ -265,6 +280,12 @@ def _why_mid(row: pd.Series | Mapping[str, Any], appearance_days: int) -> str:
         bits.append(f"최근 {appearance_days}일 후보 유지")
     if _bool(row, "large_flow_signal"):
         bits.append("500억+")
+    if _bool(row, "ma20_rising"):
+        bits.append("20일선 우상향")
+    elif _bool(row, "ma20_falling"):
+        bits.append("20일선 우하향")
+    if _text(row, "flow_price_divergence") == "bullish":
+        bits.append("가격↓수급↑")
     bits.append(_text(row, "campaign_regime", "매집"))
     status = _text(row, "proposal_status")
     if status == "오늘 신규매수 검토":
@@ -415,6 +436,13 @@ def _to_horizon_name(
         appearance_days=int(appearance_days),
         is_new=is_new,
         today_buyable=status == "오늘 신규매수 검토",
+        ma20_slope=_float(row, "ma20_slope"),
+        ma20_rising=_bool(row, "ma20_rising"),
+        ma20_falling=_bool(row, "ma20_falling"),
+        ma_aligned_up=_bool(row, "ma_aligned_up"),
+        ma_compressed=_bool(row, "ma_compressed"),
+        ma_fan_up=_bool(row, "ma_fan_up"),
+        flow_price_divergence=_text(row, "flow_price_divergence"),
     )
 
 
@@ -490,6 +518,18 @@ def _continuity(
                 ),
             )
         if was_buy:
+            extra_ma = ""
+            if (
+                row is not None
+                and symbol not in mid_symbols
+                and symbol not in long_symbols
+                and _bool(row, "ma20_falling")
+                and not _bool(row, "above_ma20")
+            ):
+                extra_ma = (
+                    " 20일선이 우하향이고 종가가 밑이면 당일 타이밍만 무효입니다. "
+                    "코어 매도로 읽지 마세요."
+                )
             return ContinuityNote(
                 kind="tactical_dropout",
                 symbol=symbol,
@@ -500,6 +540,7 @@ def _continuity(
                     "이미 샀다면 당일 타이밍 포지션으로 보고 분산 신호가 나오기 전에는 기계적으로 팔지 마세요. "
                     "아직 안 샀다면 억지로 따라가지 않아도 됩니다."
                     + extra
+                    + extra_ma
                 ),
             )
         return ContinuityNote(
@@ -828,7 +869,8 @@ def render_horizon_markdown(board: HorizonBoard) -> str:
     lines = [
         "### 오늘 판단",
         "",
-        "「오늘 신규매수 검토」만 사고, 코어는 그 뱃지가 다시 켜질 때까지 기다립니다. 리스트에서 빠졌다고 팔지 않습니다.",
+        "「오늘 신규매수 검토」만 사고, 코어는 그 뱃지가 다시 켜질 때까지 기다립니다. "
+        "리스트에서 빠졌다고 팔지 않습니다. 20일선이 우하향이면 접촉만으로 사지 않습니다.",
         "",
     ]
     for line in board.decision_lines:

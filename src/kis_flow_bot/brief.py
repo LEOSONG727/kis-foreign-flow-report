@@ -320,6 +320,8 @@ def classify_watch_tier(
         return "관심후보"
     if readiness == "반전확인" or "급락 멈춤" in action:
         return "급락진정"
+    if readiness == "추세확인":
+        return "눌림대기"
 
     near_entry = (
         _quality_accumulation(row, model)
@@ -362,6 +364,23 @@ def flow_freshness(row: pd.Series | dict) -> float:
     return score
 
 
+def _ma_slope_tag(row: pd.Series | dict) -> str:
+    if _bool(row, "ma20_rising"):
+        return "20일선 우상향"
+    if _bool(row, "ma20_falling"):
+        return "20일선 우하향"
+    return ""
+
+
+def _divergence_tag(row: pd.Series | dict) -> str:
+    value = _text(row, "flow_price_divergence")
+    if value == "bullish":
+        return "가격↓수급↑"
+    if value == "bearish":
+        return "가격↑수급↓"
+    return ""
+
+
 def flow_summary(row: pd.Series | dict) -> str:
     parts = [
         f'외인 20일 {format_eok(_float(row, "foreign_net20"))}',
@@ -378,6 +397,12 @@ def flow_summary(row: pd.Series | dict) -> str:
             parts.append("차곡차곡")
     if _bool(row, "dip_absorption"):
         parts.append("하락흡수")
+    slope_tag = _ma_slope_tag(row)
+    if slope_tag:
+        parts.append(slope_tag)
+    div_tag = _divergence_tag(row)
+    if div_tag:
+        parts.append(div_tag)
     if _bool(row, "touched_ma20"):
         parts.append("20일선 접촉")
     elif _bool(row, "near_ma20") or _bool(row, "ma20_support"):
@@ -417,6 +442,10 @@ def block_reason(row: pd.Series | dict, model: ModelConfig | None = None) -> str
         bits.append(f'20일선 {format_pct(_float(row, "ma20_distance"))} · 접촉')
     elif _float(row, "ma20_distance") > 0.01:
         bits.append(f'20일선 {format_pct(_float(row, "ma20_distance"))} · 접촉 전')
+    if _bool(row, "ma20_falling") and _text(row, "flow_price_divergence") != "bullish":
+        bits.append("20일선 우하향 · 우상향 또는 가격↓수급↑ 필요")
+    if _text(row, "flow_price_divergence") == "bullish":
+        bits.append("가격↓수급↑ 다이버전스")
     if price3 < floor3:
         bits.append(f"3일 {format_pct(price3)} · {model.entry_min_return3_pct:+.0f}% 이상 필요")
     if price20 >= cap20:
@@ -438,6 +467,13 @@ def block_reason(row: pd.Series | dict, model: ModelConfig | None = None) -> str
 
 def next_trigger(row: pd.Series | dict, model: ModelConfig | None = None) -> str:
     tier = _text(row, "watch_tier") or classify_watch_tier(row, model)
+    falling_without_div = (
+        _bool(row, "ma20_falling") and _text(row, "flow_price_divergence") != "bullish"
+    )
+    if falling_without_div:
+        if _bool(row, "dip_absorption"):
+            return "20일선 우상향 회복 + 하락일 외인 매수 유지"
+        return "20일선 우상향 회복 또는 가격↓수급↑ 다이버전스"
     if _bool(row, "steady_accumulation") or is_steady_accumulation(row):
         if _bool(row, "entry_gate_passed"):
             return "차곡차곡 유지되면 분할 신규 검토"
@@ -495,6 +531,8 @@ def watch_priority(
         + flow_freshness(row)
         + (2.0 if _bool(row, "large_flow_signal") else 0.0)
         + (8.0 if _bool(row, "dip_absorption") and _bool(row, "ma20_support") else 0.0)
+        + (8.0 if _text(row, "flow_price_divergence") == "bullish" and _bool(row, "ma20_support") else 0.0)
+        + (4.0 if _bool(row, "ma20_rising") else 0.0)
         + (6.0 if _bool(row, "ma20_support") else 0.0)
         + (12.0 if _bool(row, "steady_accumulation") or is_steady_accumulation(row, model) else 0.0)
         + (
@@ -513,6 +551,12 @@ def watch_priority(
         + 6.0 * _scale(_float(row, "foreign_20_adtv"), 0.25, 2.0)
         + closeness
         - knife
+        - (12.0 if _bool(row, "ma20_falling") and _text(row, "flow_price_divergence") != "bullish" else 0.0)
+        - (
+            6.0
+            if _bool(row, "ma_fan_up") and _float(row, "price_return20") >= 0.03
+            else 0.0
+        )
     )
 
 

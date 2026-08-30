@@ -90,6 +90,8 @@ def _invalidation_condition(row: dict) -> str:
         return "기관 흡수 중단 + 외국인 최근 3일 재매도"
     if bool(row.get("steady_accumulation")):
         return "20일 누적이 꺾임·외국인 20일 순매수 0 이하·60일 저점 이탈"
+    if bool(row.get("ma20_falling")) and not bool(row.get("above_ma20")):
+        return "당일 타이밍: 20일선 우하향·종가 이탈. 코어 매도가 아님"
     return "외국인 20일 순매수 0 이하·되팔기 100% 이상·60일 저점 이탈"
 
 
@@ -108,7 +110,7 @@ def _decision_bucket(row: dict, action: str, has_position: bool, model: ModelCon
         return "보유관리"
     if any(token in action for token in (
         "눌림", "재개", "재확인", "확인 대기", "추격 금지", "급락 멈춤",
-        "재가속 확인", "가격 반전", "강도 부족",
+        "재가속 확인", "가격 반전", "강도 부족", "우상향", "우하향",
     )):
         return "눌림·확인대기"
     if float(row.get("entry_score", 0.0)) >= model.entry_watch_score:

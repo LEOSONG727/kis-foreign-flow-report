@@ -248,6 +248,14 @@ def _setup_tags(row: pd.Series | dict) -> list[str]:
         tags.append(f"10일 중 외인 순매수 {up_days}일" if up_days else "차곡차곡")
     if _bool(row, "dip_absorption"):
         tags.append("하락흡수")
+    if _bool(row, "ma20_rising"):
+        tags.append("20일선 우상향")
+    elif _bool(row, "ma20_falling"):
+        tags.append("20일선 우하향")
+    if _text(row, "flow_price_divergence") == "bullish":
+        tags.append("가격↓수급↑")
+    elif _text(row, "flow_price_divergence") == "bearish":
+        tags.append("가격↑수급↓")
     if _bool(row, "touched_ma20"):
         tags.append("20일선 접촉")
     elif _bool(row, "ma20_support") or _bool(row, "near_ma20"):
@@ -278,6 +286,10 @@ def _price_line(row: pd.Series | dict) -> str:
     ):
         label = "접촉" if _bool(row, "touched_ma20") or _bool(row, "ma20_support") else "이격"
         parts.append(f'20일선 {format_pct(_float(row, "ma20_distance"))} {label}')
+    if _bool(row, "ma20_rising"):
+        parts.append("우상향")
+    elif _bool(row, "ma20_falling"):
+        parts.append("우하향")
     rebound = _float(row, "rebound_from_low20")
     if rebound >= 0.05:
         parts.append(f"저점 {format_pct(rebound)}")
@@ -292,6 +304,8 @@ def _judgment_line(row: pd.Series | dict, model: ModelConfig | None = None) -> s
     floor3 = model.entry_min_return3_pct / 100.0
     if price3 < floor3:
         return f"3일 {format_pct(price3)} · {model.entry_min_return3_pct:+.0f}% 이상으로 진정 필요"
+    if _bool(row, "ma20_falling") and _text(row, "flow_price_divergence") != "bullish":
+        return "20일선 우하향 · 우상향 회복 필요"
     if (
         _bool(row, "dip_absorption")
         and not _bool(row, "ma20_support")

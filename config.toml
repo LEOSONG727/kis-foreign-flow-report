@@ -49,6 +49,9 @@ entry_max_rebound20_pct = 5.0
 persistent_entry_requires_reacceleration = false
 ma20_atr_chase_multiple = 2.5
 rebound_atr_chase_multiple = 4.0
+# 20일선 5거래일 기울기. 우하향 접촉은 가격↓수급↑ 다이버전스가 없으면 매수하지 않음
+ma20_falling_slope_pct = -0.5
+ma20_rising_slope_pct = 0.2
 # 급락·권리락·분할 가능성이 있는 가격구조는 신규매수를 차단
 structural_break_return20_pct = -25.0
 corporate_action_daily_return_pct = 33.0

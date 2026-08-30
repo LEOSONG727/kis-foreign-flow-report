@@ -310,3 +310,64 @@ def test_extended_close_above_ma20_is_not_a_touch():
     assert not bool(row["touched_ma20"])
     assert not bool(row["ma20_support"])
     assert row["ma20_distance"] > 0.04
+
+
+def _one_name(symbol: str, name: str) -> pd.DataFrame:
+    return pd.DataFrame(
+        [{
+            "symbol": symbol, "name": name, "market": "KOSPI",
+            "sector_code": "0010", "market_cap_eok": 50_000,
+            "sales": 1_000, "operating_profit": 100, "net_income": 80,
+            "roe": 12, "financial_base_ym": "202512",
+        }]
+    )
+
+
+def test_rising_ma20_is_tagged_uptrend_not_falling():
+    row = build_base_features(
+        _history("000010", "우상향", 500_000_000, 80_000, 110_000),
+        _one_name("000010", "우상향"),
+    ).iloc[0]
+    assert row["ma20_slope"] > 0.005
+    assert bool(row["ma20_rising"])
+    assert not bool(row["ma20_falling"])
+    assert bool(row["ma_aligned_up"])
+    assert not bool(row["ma_compressed"])
+    assert row["ema20"] > 0
+
+
+def test_falling_ma20_without_buy_flow_is_not_bullish_divergence():
+    row = build_base_features(
+        _history("000010", "우하향", 0, 110_000, 80_000),
+        _one_name("000010", "우하향"),
+    ).iloc[0]
+    assert row["ma20_slope"] < -0.005
+    assert bool(row["ma20_falling"])
+    assert not bool(row["ma20_rising"])
+    assert row["flow_price_divergence"] != "bullish"
+
+
+def test_flat_tape_is_compressed_and_not_a_hard_entry_block():
+    row = build_base_features(
+        _flow_history([500_000_000.0] * 40, name="횡보"),
+        _one_name("000010", "횡보"),
+    ).iloc[0]
+    assert bool(row["ma_compressed"])
+    assert abs(row["ma20_slope"]) < 0.001
+    assert not bool(row["ma20_falling"])
+    assert not bool(row["ma20_rising"])
+    assert row["flow_price_divergence"] == ""
+
+
+def test_price_down_foreign_up_is_bullish_flow_divergence():
+    history = _flow_history([800_000_000.0] * 40, name="다이버전스")
+    tail = history.index[-5:]
+    history.loc[tail, "close"] = [99_000, 98_200, 97_400, 96_600, 95_800]
+    history.loc[tail, "open"] = history.loc[tail, "close"]
+    history.loc[tail, "high"] = history.loc[tail, "close"] * 1.005
+    history.loc[tail, "low"] = history.loc[tail, "close"] * 0.995
+    row = build_base_features(history, _one_name("000010", "다이버전스")).iloc[0]
+    assert row["price_return5"] < -0.01
+    assert row["foreign_net5"] > 0
+    assert row["foreign_net20"] > 0
+    assert row["flow_price_divergence"] == "bullish"
