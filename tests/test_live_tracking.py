@@ -20,6 +20,8 @@ from kis_flow_bot.live_tracking import (
     SNAPSHOT_COLUMNS,
     append_official_snapshots,
     build_daily_snapshots,
+    build_policy_daily_results,
+    moving_block_mean_interval,
     refresh_outcomes,
     render_live_evaluation,
     update_episode_ledger,
@@ -385,6 +387,123 @@ def test_live_report_compares_candidate_near_miss_and_control_cohorts():
     assert "정식 후보 vs Shadow 비교" in report
     assert "Shadow 근접 탈락" in report
     assert "Shadow 매칭 대조군" in report
+
+
+def test_policy_comparison_uses_date_weighting_and_cash_for_empty_slots():
+    events = pd.DataFrame(
+        [
+            {
+                "event_id": "wait",
+                "event_date": "2026-08-21",
+                "event_type": "candidate_entry",
+                "symbol": "000001",
+                "discovery_score": 90,
+                "timing_score": 60,
+            },
+            {
+                "event_id": "buy",
+                "event_date": "2026-08-21",
+                "event_type": "buy_review_entry",
+                "symbol": "000002",
+                "discovery_score": 80,
+                "timing_score": 70,
+            },
+        ]
+    )
+    outcomes = pd.DataFrame(
+        [
+            {
+                "event_id": "wait",
+                "event_date": "2026-08-21",
+                "event_type": "candidate_entry",
+                "symbol": "000001",
+                "tracking_cohort": "candidate",
+                "proposal_status": "강한 후보·가격 대기",
+                "net_return_5": 0.10,
+                "market_return_5": 0.02,
+            },
+            {
+                "event_id": "buy",
+                "event_date": "2026-08-21",
+                "event_type": "buy_review_entry",
+                "symbol": "000002",
+                "tracking_cohort": "candidate",
+                "proposal_status": "오늘 신규매수 검토",
+                "net_return_5": 0.04,
+                "market_return_5": 0.01,
+            },
+        ]
+    )
+
+    daily = build_policy_daily_results(events, outcomes, horizon=5, top_k=2)
+    row = daily.iloc[0]
+    assert row["candidate_return"] == pytest.approx(0.07)
+    assert row["gated_return"] == pytest.approx(0.02)
+    assert row["return_delta"] == pytest.approx(-0.05)
+    assert row["candidate_net_excess"] == pytest.approx(0.055)
+    assert row["gated_net_excess"] == pytest.approx(0.015)
+    assert row["gated_picks"] == 1
+    assert row["eligible_picks"] == 2
+
+
+def test_live_report_official_section_excludes_price_wait_candidates():
+    outcomes = pd.DataFrame(
+        [
+            {
+                "event_id": "wait",
+                "event_date": "2026-08-21",
+                "event_type": "candidate_entry",
+                "symbol": "000001",
+                "name": "대기",
+                "tracking_cohort": "candidate",
+                "proposal_status": "강한 후보·가격 대기",
+                "discovery_grade": "A",
+                "net_return_5": 0.10,
+                "market_return_5": 0.0,
+            },
+            {
+                "event_id": "buy",
+                "event_date": "2026-08-21",
+                "event_type": "buy_review_entry",
+                "symbol": "000002",
+                "name": "매수",
+                "tracking_cohort": "candidate",
+                "proposal_status": "오늘 신규매수 검토",
+                "discovery_grade": "A",
+                "net_return_5": -0.02,
+                "market_return_5": 0.0,
+            },
+        ]
+    )
+    for horizon in (10, 20, 40, 60):
+        outcomes[f"net_return_{horizon}"] = float("nan")
+        outcomes[f"market_return_{horizon}"] = float("nan")
+        outcomes[f"excess_return_{horizon}"] = float("nan")
+    outcomes["excess_return_5"] = outcomes["net_return_5"] - outcomes["market_return_5"]
+    report = render_live_evaluation(
+        pd.DataFrame(),
+        pd.DataFrame(
+            [
+                {"event_id": "wait", "discovery_score": 90, "timing_score": 50},
+                {"event_id": "buy", "discovery_score": 80, "timing_score": 60},
+            ]
+        ),
+        outcomes,
+        datetime(2026, 8, 31, 20, 35, tzinfo=ZoneInfo("Asia/Seoul")),
+        0.3,
+        policy_top_k=2,
+    )
+    official_table = report.split("## 현행 게이트 A/B", maxsplit=1)[0]
+    assert "## 공식 신규매수 검토 성과" in official_table
+    assert "| D+5 | 1 | 0.0% | -2.00% | -2.00% |" in official_table
+
+
+def test_moving_block_interval_is_deterministic_and_contains_constant_mean():
+    first = moving_block_mean_interval(pd.Series([0.01] * 10), samples=100)
+    second = moving_block_mean_interval(pd.Series([0.01] * 10), samples=100)
+    assert first == second
+    assert first[0] == pytest.approx(0.01)
+    assert first[1] == pytest.approx(0.01)
 
 
 def test_live_tracking_writes_files_and_does_not_rewrite_official_run(tmp_path):
