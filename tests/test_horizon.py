@@ -193,12 +193,11 @@ def test_telegram_and_html_keep_daily_list_then_horizon():
     )
     _, board = annotate_horizon(frame)
     telegram = build_telegram_text(frame, horizon=board)
-    assert telegram.index("오늘의 핵심 요약") < telegram.index("오늘 판단")
-    assert telegram.index("오늘 판단") < telegram.index("그래서 뭘 사나")
-    assert "오늘 살 것" in telegram
-    assert "중기 코어" in telegram
+    assert "오늘 결론 · 살 만한 종목이 있나?" in telegram
+    assert "모델상 오늘 살 후보" in telegram
+    assert "중기 코어" not in telegram
     rendered = render_report(frame, 5, (), datetime(2026, 8, 27, 20, 40), horizon=board)
-    assert rendered.html.index("이 리스트만 보세요") < rendered.html.index("오늘 판단")
+    assert rendered.html.index("살 만한 종목이 있나?") < rendered.html.index("오늘 판단")
     assert "중기 코어" in rendered.html
     assert "오늘 판단" in rendered.markdown
     assert "그래서 뭘 사나" in rendered.markdown

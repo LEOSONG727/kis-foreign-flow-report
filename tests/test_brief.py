@@ -513,5 +513,6 @@ def test_telegram_explains_why_not_to_buy():
     scored = score_features(synthetic_features(), ModelConfig())
     text = build_telegram_text(scored)
     assert "매집후보" in text
-    assert "타이밍" in text
+    assert "오늘 결론" in text
+    assert "진입" in text
     assert "막힘:" not in text

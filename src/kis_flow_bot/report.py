@@ -467,6 +467,9 @@ def render_report(
     buy_now = ranked[ranked["proposal_status"] == "오늘 신규매수 검토"].sort_values(
         wait_sort, ascending=False
     ).head(10)
+    wait_brief = daily_brief[
+        daily_brief["proposal_status"] != "오늘 신규매수 검토"
+    ].head(3)
     price_wait = ranked[ranked["proposal_status"] == "강한 후보·가격 대기"].sort_values(
         wait_sort, ascending=False
     ).head(12)
@@ -509,13 +512,13 @@ def render_report(
         horizon = build_horizon_board(ranked, brief=brief, model=model)
 
     html_text = f"""<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>외국인 매집 리포트 {report_date}</title><style>{CSS}</style></head><body><main class="page">
-<header><div><h1>외국인 매집 레이더</h1><div class="muted">외인 수급이 좋고 가격이 아직 덜 오른 종목 · 매일 판단용 숏리스트</div></div><div class="stamp">기준일 {report_date}<br>생성 {generated_at.strftime('%Y-%m-%d %H:%M KST')}</div></header>
-{render_headline_html(headline)}
-{render_horizon_html(horizon)}
-<section class="summary"><div><b>{brief_count}</b><span>오늘 볼 종목</span></div><div><b>{buy_now_count}</b><span>오늘 신규매수 검토</span></div><div><b>{grade_a_count}</b><span>발견 A등급 · 80+</span></div><div><b>{price_wait_count}</b><span>강한 후보 · 가격 대기</span></div></section>
-<h2>오늘 볼 종목 {brief.size}</h2>
-<p class="muted">발견등급과 가격 게이트를 분리했습니다. 오늘 신규매수 검토를 먼저, 좋은 종목이지만 가격이 맞지 않는 후보를 그다음에 둡니다.</p>
-{_brief_cards(daily_brief)}
+	<header><div><h1>외국인 매집 레이더</h1><div class="muted">외인 수급이 좋고 가격이 아직 덜 오른 종목 · 매일 판단용 숏리스트</div></div><div class="stamp">기준일 {report_date}<br>생성 {generated_at.strftime('%Y-%m-%d %H:%M KST')}</div></header>
+	{render_headline_html(headline)}
+	<section class="summary"><div><b>{brief_count}</b><span>오늘 볼 종목</span></div><div><b>{buy_now_count}</b><span>오늘 신규매수 검토</span></div><div><b>{grade_a_count}</b><span>발견 A등급 · 80+</span></div><div><b>{price_wait_count}</b><span>강한 후보 · 가격 대기</span></div></section>
+	<h2>다음 후보 · 아직 사지 않음</h2>
+	<p class="muted">오늘 살 후보가 없거나 최대 3개를 확인한 뒤에만 보세요. 좋은 수급이어도 가격 조건이 열리기 전에는 매수 후보가 아닙니다.</p>
+	{_brief_cards(wait_brief)}
+	{render_horizon_html(horizon)}
 <h2>① 오늘 신규매수 검토 · 발견 75+ & 가격 게이트 통과</h2>{_table(buy_now, empty_message="오늘은 발견등급과 가격 게이트를 함께 통과한 종목이 없습니다. 빈 결과도 정상입니다.")}
 <h2>② 강한 후보 · 가격 대기 · 발견 A등급</h2>{_table(price_wait, empty_message="발견 80점 이상이면서 가격만 기다리는 종목이 없습니다.")}
 <h2>③ 관찰 후보</h2>{_table(observe, empty_message="추가 관찰 후보가 없습니다.")}
@@ -531,7 +534,7 @@ def render_report(
 <h2>내 관찰 종목</h2>{_table(watched)}
 <h2>상세 분석</h2>{_detail_cards(pd.concat([daily_brief, buy_now, price_wait, observe, watched]).drop_duplicates('symbol').head(12))}
 <h2>판정 해석</h2><div class="legend"><div><b>A등급</b>발견 80점 이상. 가격 게이트까지 통과해야 오늘 신규매수 검토</div><div><b>B등급</b>발견 75~79점. 가격 게이트 통과 시 보조 신규매수 검토</div><div><b>C등급</b>발견 65~74점. 관찰만 하고 메인 신규매수 제안에서는 제외</div><div><b>지속 매수</b>최근 10일 중 외국인 일별 순매수가 8일 이상. 20일 누적선 증가와 다른 개념</div><div><b>가격 대기</b>종목 발견 품질은 높지만 추격·반등·급락 조건이 맞지 않음</div><div><b>중기 코어</b>2~8주 들고 갈 자리. 오늘 타이밍에서 빠져도 팔지 않음</div><div><b>장기 매집</b>60·120일 재고가 쌓이는 자리. 눌림만 기다림</div><div><b>데이터 제외</b>당일 수급 미수신·유동성·최소 이력 조건을 통과하지 못함</div></div>
-<p class="note">오늘 신규매수 검토는 발견 75점 이상, 분산위험 25점 이하, 최근 3일 급락 진정, 20일 상승률 +3% 미만, 20일 저점 반등 +5% 미만과 당일 데이터·유동성 조건을 함께 통과해야 합니다. 결과가 0개여도 강제로 채우지 않습니다. 타이밍점수는 설명용이며 주문 API는 포함되어 있지 않습니다.</p>
+	<p class="note">상단의 살 후보는 모델 필터를 통과한 추가 검토 대상이며 안정적인 상승을 보장하지 않습니다. 다음 거래일 시가가 신호일 종가보다 1% 초과 상승하면 추격하지 않습니다. 결과가 0개여도 강제로 채우지 않으며 주문 API는 포함되어 있지 않습니다.</p>
 </main></body></html>"""
 
     def md_section(title: str, frame: pd.DataFrame) -> str:
@@ -549,11 +552,11 @@ def render_report(
                 )
         return "\n".join(lines)
 
-    brief_lines = [render_headline_markdown(headline), "", f"### 오늘 볼 종목 {brief.size}", ""]
-    if daily_brief.empty:
+    brief_lines = [render_headline_markdown(headline), "", "### 다음 후보 · 아직 사지 않음", ""]
+    if wait_brief.empty:
         brief_lines.append("해당 없음")
     else:
-        for rank, (_, row) in enumerate(daily_brief.iterrows(), 1):
+        for rank, (_, row) in enumerate(wait_brief.iterrows(), 1):
             brief_lines.append(
                 f"{rank}. **{row['name']}** ({row['symbol']}) · {row.get('proposal_status', '')} · "
                 f"발견 {row.get('discovery_score', 0):.1f} ({row.get('discovery_grade', '-')}등급)"
@@ -579,5 +582,5 @@ def render_report(
             md_section("참고 · 추가매수", add_buys),
             md_section("참고 · 수익실현·중단", risk_actions),
         ]
-    ) + "\n\n*오늘 신규매수 검토는 발견 75점 이상과 가격·데이터 게이트를 함께 통과한 판단 보조 정보이며, 주문은 실행하지 않습니다.*\n"
+    ) + "\n\n*상단의 살 후보는 모델 필터를 통과한 추가 검토 대상이며 안정적인 상승을 보장하지 않습니다. 다음 거래일 시가가 +1% 초과 상승하면 추격하지 않으며 주문은 실행하지 않습니다.*\n"
     return RenderedReport(html=html_text, markdown=markdown)

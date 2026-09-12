@@ -39,17 +39,16 @@ def test_email_and_telegram_share_the_daily_brief():
     subject = build_email_subject(scored)
     plain, html_body = build_email_bodies(scored)
     assert "외인 매집 브리핑" in telegram
-    assert "오늘의 핵심 요약" in telegram
-    assert "이 리스트만 보세요" in telegram
-    assert telegram.index("이 리스트만 보세요") < telegram.index("타이밍")
+    assert "오늘 결론 · 살 만한 종목이 있나?" in telegram
+    assert "모델상 오늘 살 후보 없음" in telegram
+    assert "다음 후보 · 아직 사지 않음" in telegram
     assert "이노션" in telegram
-    assert "타이밍" in telegram
-    assert "수급" in telegram
+    assert "과열 진정 필요" in telegram
     assert "막힘:" not in telegram
-    assert "조회 전용" in telegram
-    assert subject == "외인 매집 브리핑 · 8월 14일"
+    assert "주문 미실행" in telegram
+    assert subject == "외인 매집 · 오늘 살 후보 없음 · 8월 14일"
     assert "이노션" in plain
-    assert "타이밍" in plain
+    assert "오늘 살 후보 없음" in plain
     assert "이노션" in html_body
     assert "상세 HTML 리포트" in html_body
 
@@ -84,9 +83,9 @@ def test_telegram_card_puts_setup_and_ma20_on_separate_lines():
     )
     text = build_telegram_text(scored)
     assert "셀트리온" in text
-    assert "타이밍" in text
-    assert "강한 후보 · 가격 대기" in text
-    assert "20일선" in text
+    assert "다음 후보 · 아직 사지 않음" in text
+    assert "오늘 살 후보 없음" in text
+    assert "진정 필요" in text
     assert "막힘" not in text
 
 
@@ -141,13 +140,45 @@ def test_headline_lists_names_before_detail_and_explains_large_flow_dropout():
     headline = build_headline(scored)
     telegram = build_telegram_text(scored)
     plain, html_body = build_email_bodies(scored)
-    assert [item.name for item in headline.items] == ["한국전력"]
+    assert not headline.items
+    assert [item.name for item in headline.wait_items] == ["한국전력"]
     assert "500억+" in headline.funnel
     assert "최종 1개" in headline.funnel
     assert "이미 오름" in headline.funnel
     assert "강도 약함" in headline.funnel
-    assert telegram.index("오늘의 핵심 요약") < telegram.index("수급")
-    assert "이 리스트만 보세요" in telegram
-    assert "이 리스트만 보세요" in plain
-    assert "이 리스트만 보세요" in html_body
-    assert "삼성전자" not in " ".join(item.name for item in headline.items)
+    assert "오늘 결론" in telegram
+    assert "다음 후보 · 아직 사지 않음" in plain
+    assert "살 만한 종목이 있나?" in html_body
+    assert "삼성전자" not in " ".join(item.name for item in headline.wait_items)
+
+
+def test_actionable_headline_shows_only_buy_candidates_with_entry_guardrail():
+    scored = annotate_watch_brief(
+        pd.DataFrame(
+            [
+                _row(
+                    name="살후보",
+                    symbol="000111",
+                    discovery_score=82.0,
+                    action="초기 분할매수",
+                    decision_bucket="신규매수",
+                    entry_gate_passed=True,
+                    price_return20=0.01,
+                    rebound_from_low20=0.02,
+                    foreign_buy_days10=9,
+                    ma20_rising=True,
+                ),
+                _row(name="대기후보", symbol="000222", discovery_score=88.0),
+            ]
+        )
+    )
+    headline = build_headline(scored)
+    telegram = build_telegram_text(scored)
+    subject = build_email_subject(scored)
+
+    assert headline.verdict == "모델상 오늘 살 후보 있음 · 1개"
+    assert [item.name for item in headline.items] == ["살후보"]
+    assert "외인 순매수 9/10일" in telegram
+    assert "다음 거래일 시가 +1% 초과" in telegram
+    assert "대기후보" not in telegram
+    assert subject == "외인 매집 · 살 후보 1개"
