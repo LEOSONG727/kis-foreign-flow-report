@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import random
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
@@ -20,6 +21,7 @@ CANDIDATE_COHORT = "candidate"
 NEAR_MISS_COHORT = "near_miss"
 MATCHED_CONTROL_COHORT = "matched_control"
 SHADOW_COHORTS = {NEAR_MISS_COHORT, MATCHED_CONTROL_COHORT}
+BUY_REVIEW_EVENT_TYPES = {"buy_review_entry", "buy_review_promotion"}
 
 RUN_COLUMNS = [
     "signal_date",
@@ -833,12 +835,164 @@ def _cohort_label(value: str) -> str:
     }.get(value, value)
 
 
+def _official_buy_reviews(outcomes: pd.DataFrame) -> pd.DataFrame:
+    """Return only first-entry/promotion events actually shown as new-buy reviews."""
+
+    if outcomes.empty:
+        return outcomes.copy()
+    event_type = outcomes.get("event_type", pd.Series("", index=outcomes.index)).astype(str)
+    proposal = outcomes.get("proposal_status", pd.Series("", index=outcomes.index)).astype(str)
+    cohort = outcomes.get("tracking_cohort", pd.Series("", index=outcomes.index)).astype(str)
+    return outcomes[
+        (cohort == CANDIDATE_COHORT)
+        & (event_type.isin(BUY_REVIEW_EVENT_TYPES) | (proposal == BUY_REVIEW))
+    ].copy()
+
+
+def build_policy_daily_results(
+    events: pd.DataFrame,
+    outcomes: pd.DataFrame,
+    horizon: int,
+    top_k: int = 5,
+) -> pd.DataFrame:
+    """Compare discovery Top-K and the current buy-review gate by signal date.
+
+    Both policies start from the same immutable candidate-event universe. Returns
+    are divided by ``top_k`` even when a policy selects fewer names; unfilled
+    slots therefore earn 0%, which prevents a low-coverage gate from winning by
+    abstaining. The result is one independent-ish observation per signal date,
+    rather than one observation per correlated stock.
+    """
+
+    columns = [
+        "event_date",
+        "candidate_return",
+        "gated_return",
+        "return_delta",
+        "candidate_net_excess",
+        "gated_net_excess",
+        "net_excess_delta",
+        "candidate_picks",
+        "gated_picks",
+        "eligible_picks",
+    ]
+    if outcomes.empty or top_k <= 0:
+        return pd.DataFrame(columns=columns)
+    net_column = f"net_return_{horizon}"
+    market_column = f"market_return_{horizon}"
+    if net_column not in outcomes:
+        return pd.DataFrame(columns=columns)
+
+    working = outcomes[
+        outcomes.get("tracking_cohort", pd.Series("", index=outcomes.index)).astype(str)
+        == CANDIDATE_COHORT
+    ].copy()
+    working[net_column] = pd.to_numeric(working[net_column], errors="coerce")
+    working = working.dropna(subset=[net_column])
+    if working.empty:
+        return pd.DataFrame(columns=columns)
+
+    if not events.empty and "event_id" in events:
+        score_columns = [
+            column
+            for column in ("event_id", "discovery_score", "timing_score")
+            if column in events
+        ]
+        metadata = events[score_columns].drop_duplicates("event_id", keep="first")
+        working = working.drop(
+            columns=[column for column in score_columns if column != "event_id" and column in working],
+            errors="ignore",
+        ).merge(metadata, on="event_id", how="left")
+    for column in ("discovery_score", "timing_score"):
+        if column not in working:
+            working[column] = pd.NA
+        working[column] = pd.to_numeric(working[column], errors="coerce").fillna(float("-inf"))
+    market = (
+        pd.to_numeric(working[market_column], errors="coerce")
+        if market_column in working
+        else pd.Series(pd.NA, index=working.index, dtype="Float64")
+    )
+    working["_net_excess"] = working[net_column] - market
+    event_type = working.get("event_type", pd.Series("", index=working.index)).astype(str)
+    proposal = working.get("proposal_status", pd.Series("", index=working.index)).astype(str)
+    working["_gate_selected"] = event_type.isin(BUY_REVIEW_EVENT_TYPES) | (proposal == BUY_REVIEW)
+
+    rows: list[dict[str, Any]] = []
+    for event_date, group in working.groupby("event_date", sort=True):
+        ranked = group.sort_values(
+            ["discovery_score", "timing_score", "symbol"],
+            ascending=[False, False, True],
+        )
+        candidate = ranked.head(top_k)
+        gated = ranked[ranked["_gate_selected"]].head(top_k)
+
+        def cash_adjusted(frame: pd.DataFrame, column: str) -> float | None:
+            values = pd.to_numeric(frame[column], errors="coerce").dropna()
+            return float(values.sum() / top_k) if not values.empty else None
+
+        candidate_return = cash_adjusted(candidate, net_column)
+        gated_return = cash_adjusted(gated, net_column)
+        candidate_excess = cash_adjusted(candidate, "_net_excess")
+        gated_excess = cash_adjusted(gated, "_net_excess")
+        rows.append(
+            {
+                "event_date": _text(event_date),
+                "candidate_return": candidate_return,
+                "gated_return": gated_return if gated_return is not None else 0.0,
+                "return_delta": (gated_return or 0.0) - (candidate_return or 0.0),
+                "candidate_net_excess": candidate_excess,
+                "gated_net_excess": gated_excess if gated_excess is not None else 0.0,
+                "net_excess_delta": (
+                    (gated_excess or 0.0) - (candidate_excess or 0.0)
+                    if candidate_excess is not None
+                    else None
+                ),
+                "candidate_picks": len(candidate),
+                "gated_picks": len(gated),
+                "eligible_picks": min(top_k, len(ranked)),
+            }
+        )
+    return pd.DataFrame(rows, columns=columns)
+
+
+def moving_block_mean_interval(
+    values: pd.Series,
+    block_size: int = 5,
+    samples: int = 2000,
+    confidence: float = 0.80,
+    seed: int = 20260912,
+) -> tuple[float | None, float | None]:
+    """Deterministic circular moving-block bootstrap interval for a mean."""
+
+    clean = [float(value) for value in pd.to_numeric(values, errors="coerce").dropna()]
+    if len(clean) < 2 or samples <= 0:
+        return None, None
+    block = max(1, min(block_size, len(clean)))
+    rng = random.Random(seed)
+    estimates: list[float] = []
+    for _ in range(samples):
+        draw: list[float] = []
+        while len(draw) < len(clean):
+            start = rng.randrange(len(clean))
+            draw.extend(clean[(start + offset) % len(clean)] for offset in range(block))
+        estimates.append(sum(draw[: len(clean)]) / len(clean))
+    estimates.sort()
+    tail = (1.0 - confidence) / 2.0
+    low_index = max(0, min(len(estimates) - 1, int(tail * len(estimates))))
+    high_index = max(0, min(len(estimates) - 1, int((1.0 - tail) * len(estimates)) - 1))
+    return estimates[low_index], estimates[high_index]
+
+
 def render_live_evaluation(
     episodes: pd.DataFrame,
     events: pd.DataFrame,
     outcomes: pd.DataFrame,
     generated_at: datetime,
     roundtrip_cost_pct: float,
+    policy_top_k: int = 5,
+    policy_block_size: int = 5,
+    policy_bootstrap_samples: int = 2000,
+    policy_min_signal_dates: int = 20,
 ) -> str:
     candidate = (
         outcomes[outcomes["tracking_cohort"].astype(str) == CANDIDATE_COHORT].copy()
@@ -852,6 +1006,7 @@ def render_live_evaluation(
         if not candidate.empty
         else 0
     )
+    official = _official_buy_reviews(outcomes)
     lines = [
         "# 실전 추천 누적 평가",
         "",
@@ -861,21 +1016,78 @@ def render_live_evaluation(
         f"- 수익률 기준: 신호 다음 거래일 시가 진입 · 왕복비용 {roundtrip_cost_pct:.1f}% · 동일 시장 중앙값 대비 초과수익",
         "- Shadow 대조군은 사용자 추천에 노출하지 않으며 모델이 놓친 종목과 선택 기준만 평가합니다.",
         "",
-        "## 정식 후보 기간별 성과",
+        "## 공식 신규매수 검토 성과",
         "",
-        "| 기간 | 판정 수 | 비용 후 양수 비율 | 비용 후 중앙수익률 | 시장초과 중앙값 |",
+        "`오늘 신규매수 검토`의 최초 진입·승격 이벤트만 집계합니다. 가격대기 A/B/C 후보는 포함하지 않습니다.",
+        "",
+        "| 기간 | 판정 수 | 비용 후 양수 비율 | 비용 후 중앙수익률 | 비용 후 시장초과 중앙값 |",
         "|---|---:|---:|---:|---:|",
     ]
     for horizon in HORIZONS:
-        values = pd.to_numeric(candidate.get(f"net_return_{horizon}"), errors="coerce") if not candidate.empty else pd.Series(dtype=float)
-        excess = pd.to_numeric(candidate.get(f"excess_return_{horizon}"), errors="coerce") if not candidate.empty else pd.Series(dtype=float)
+        values = pd.to_numeric(official.get(f"net_return_{horizon}"), errors="coerce") if not official.empty else pd.Series(dtype=float)
+        market = pd.to_numeric(official.get(f"market_return_{horizon}"), errors="coerce") if not official.empty else pd.Series(dtype=float)
+        excess = values - market
         valid = values.dropna()
         lines.append(
             f"| D+{horizon} | {len(valid):,} | "
-            f"{(valid.gt(0).mean() * 100):.1f}% | {_pct(valid.median())} | {_pct(excess.dropna().median())} |"
+                f"{(valid.gt(0).mean() * 100):.1f}% | {_pct(valid.median())} | {_pct(excess.dropna().median())} |"
             if not valid.empty
             else f"| D+{horizon} | 0 | - | - | - |"
         )
+
+    lines.extend(
+        [
+            "",
+            "## 현행 게이트 A/B",
+            "",
+            f"동일한 정식 후보 이벤트에서 A는 발견점수 상위 {policy_top_k}개, B는 그날 `오늘 신규매수 검토`로 기록된 상위 {policy_top_k}개입니다. 빈 슬롯은 현금 0%로 계산합니다.",
+            "",
+            "| 기간 | 완료 신호일 | A 무게이트 평균 | B 현행게이트 평균 | B-A | 시장초과 B-A | 게이트 커버리지 |",
+            "|---|---:|---:|---:|---:|---:|---:|",
+        ]
+    )
+    policy_by_horizon: dict[int, pd.DataFrame] = {}
+    for horizon in HORIZONS:
+        daily = build_policy_daily_results(events, outcomes, horizon, policy_top_k)
+        policy_by_horizon[horizon] = daily
+        if daily.empty:
+            lines.append(f"| D+{horizon} | 0 | - | - | - | - | - |")
+            continue
+        eligible = pd.to_numeric(daily["eligible_picks"], errors="coerce").sum()
+        selected = pd.to_numeric(daily["gated_picks"], errors="coerce").sum()
+        coverage = selected / eligible if eligible else 0.0
+        lines.append(
+            f"| D+{horizon} | {len(daily):,} | {_pct(daily['candidate_return'].mean())} | "
+            f"{_pct(daily['gated_return'].mean())} | {_pct(daily['return_delta'].mean())} | "
+            f"{_pct(daily['net_excess_delta'].mean())} | {coverage * 100:.1f}% |"
+        )
+
+    d5_policy = policy_by_horizon.get(5, pd.DataFrame())
+    lines.extend(["", "### D+5 게이트 판정", ""])
+    if d5_policy.empty:
+        lines.append("완료된 신호일이 없어 아직 판정할 수 없습니다.")
+    else:
+        low, high = moving_block_mean_interval(
+            d5_policy["return_delta"],
+            block_size=policy_block_size,
+            samples=policy_bootstrap_samples,
+        )
+        interval = f"{_pct(low)} ~ {_pct(high)}" if low is not None else "표본 부족"
+        if len(d5_policy) < policy_min_signal_dates:
+            status = "표본 축적 중"
+        elif low is not None and low > 0:
+            status = "현행 게이트 우위 근거"
+        elif high is not None and high < 0:
+            status = "무게이트 우위 근거"
+        else:
+            status = "불확실·실험 유지"
+        lines.append(
+            f"- 상태: **{status}** · 완료 신호일 {len(d5_policy):,}일 · B-A 평균 {_pct(d5_policy['return_delta'].mean())}"
+        )
+        lines.append(
+            f"- 80% 이동블록 구간({policy_block_size}일, {policy_bootstrap_samples:,}회): {interval}"
+        )
+        lines.append("- 이 판정은 모델이나 게이트를 자동 변경하지 않습니다.")
 
     lines.extend(
         [
@@ -1017,6 +1229,10 @@ def update_live_tracking(
         outcomes,
         generated_at,
         settings.model.backtest_roundtrip_cost_pct,
+        settings.tracking.policy_top_k,
+        settings.tracking.policy_block_size,
+        settings.tracking.policy_bootstrap_samples,
+        settings.tracking.policy_min_signal_dates,
     )
 
     write_csv(runs.sort_values("signal_date").reset_index(drop=True), runs_path)
