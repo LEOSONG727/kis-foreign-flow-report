@@ -113,6 +113,14 @@ shadow_enabled = true
 shadow_min_score = 55.0
 # KOSPI/KOSDAQ × 시가총액 대/중/소 구간별 주간 회전 대조군 수
 shadow_controls_per_bucket = 2
+# 동일한 정식 후보 이벤트에서 무게이트 Top-K와 현행 신규매수 게이트를 비교한다.
+# 빈 슬롯은 현금(0%)으로 계산해 적게 고르는 정책이 유리해지는 편향을 막는다.
+policy_top_k = 5
+# D+5 보유기간 중첩을 고려한 날짜 블록 부트스트랩 설정
+policy_block_size = 5
+policy_bootstrap_samples = 2000
+# 이보다 적은 완료 신호일은 결론 대신 '표본 축적 중'으로 표시
+policy_min_signal_dates = 20
 
 [watchlist]
 # 기존 관심종목 + 비교 기준 7종목
