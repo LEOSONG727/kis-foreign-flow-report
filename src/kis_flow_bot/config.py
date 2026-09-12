@@ -145,6 +145,12 @@ class TrackingConfig:
     shadow_enabled: bool = True
     shadow_min_score: float = 55.0
     shadow_controls_per_bucket: int = 2
+    # Live policy comparison. Missing slots are treated as cash so a narrow
+    # gate cannot look better merely by making fewer recommendations.
+    policy_top_k: int = 5
+    policy_block_size: int = 5
+    policy_bootstrap_samples: int = 2000
+    policy_min_signal_dates: int = 20
 
 
 @dataclass(frozen=True)
