@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .backtest import run_backtest, run_gate_sweep, run_screen_backtest
 from .config import load_settings
+from .ml_alpha import run_alpha_baseline
 from .pipeline import rerank_stored_data, run_pipeline, smoke_test
 
 
@@ -14,7 +15,15 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="KIS foreign accumulation daily report")
     parser.add_argument(
         "command",
-        choices=["run", "rerank", "smoke", "backtest", "screen-backtest", "gate-sweep"],
+        choices=[
+            "run",
+            "rerank",
+            "smoke",
+            "backtest",
+            "screen-backtest",
+            "gate-sweep",
+            "ml-alpha",
+        ],
         nargs="?",
         default="run",
     )
@@ -51,6 +60,14 @@ def main() -> None:
         return
     if args.command == "gate-sweep":
         run_gate_sweep(settings)
+        return
+    if args.command == "ml-alpha":
+        run_alpha_baseline(
+            settings.reports_dir / "screen_backtest.csv",
+            settings.data_dir / "history.csv",
+            settings.reports_dir / "ml_alpha_baseline.csv",
+            settings.reports_dir / "ml_alpha_baseline.md",
+        )
         return
     if args.command == "rerank":
         rerank_stored_data(settings, notify=not args.no_notify)
