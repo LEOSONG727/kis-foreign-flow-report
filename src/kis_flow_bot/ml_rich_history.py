@@ -150,7 +150,7 @@ def build_rich_feature_history(
         raise ValueError("At least 140 trading sessions are required for rich feature replay.")
 
     rows: list[dict[str, Any]] = []
-    start_index = 119
+    start_index = 59
     for date_index in range(start_index, len(dates) - horizon, max(1, step)):
         as_of = pd.Timestamp(dates[date_index])
         if date_index % 20 == 0:
