@@ -8,6 +8,7 @@ from pathlib import Path
 from .backtest import run_backtest, run_gate_sweep, run_screen_backtest
 from .config import load_settings
 from .ml_alpha import run_alpha_baseline
+from .ml_ranking import run_pairwise_ranking
 from .pipeline import rerank_stored_data, run_pipeline, smoke_test
 
 
@@ -23,6 +24,7 @@ def _parser() -> argparse.ArgumentParser:
             "screen-backtest",
             "gate-sweep",
             "ml-alpha",
+            "ml-ranking",
         ],
         nargs="?",
         default="run",
@@ -67,6 +69,14 @@ def main() -> None:
             settings.data_dir / "history.csv",
             settings.reports_dir / "ml_alpha_baseline.csv",
             settings.reports_dir / "ml_alpha_baseline.md",
+        )
+        return
+    if args.command == "ml-ranking":
+        run_pairwise_ranking(
+            settings.reports_dir / "screen_backtest.csv",
+            settings.data_dir / "history.csv",
+            settings.reports_dir / "ml_pairwise_ranking.csv",
+            settings.reports_dir / "ml_pairwise_ranking.md",
         )
         return
     if args.command == "rerank":
