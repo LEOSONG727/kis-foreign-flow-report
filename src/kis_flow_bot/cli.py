@@ -9,6 +9,7 @@ from .backtest import run_backtest, run_gate_sweep, run_screen_backtest
 from .config import load_settings
 from .ml_alpha import run_alpha_baseline
 from .ml_ranking import run_pairwise_ranking
+from .ml_rich_history import run_rich_history_model
 from .pipeline import rerank_stored_data, run_pipeline, smoke_test
 
 
@@ -25,6 +26,7 @@ def _parser() -> argparse.ArgumentParser:
             "gate-sweep",
             "ml-alpha",
             "ml-ranking",
+            "ml-rich",
         ],
         nargs="?",
         default="run",
@@ -38,7 +40,7 @@ def _parser() -> argparse.ArgumentParser:
         "--step",
         type=int,
         default=None,
-        help="screen-backtest 신호일 간격. 기본 1(매일 전수)",
+        help="백테스트/ML 재생 신호일 간격. 기본 1(매일 전수)",
     )
     parser.add_argument("--root", type=Path, default=Path.cwd())
     return parser
@@ -77,6 +79,13 @@ def main() -> None:
             settings.data_dir / "history.csv",
             settings.reports_dir / "ml_pairwise_ranking.csv",
             settings.reports_dir / "ml_pairwise_ranking.md",
+        )
+        return
+    if args.command == "ml-rich":
+        run_rich_history_model(
+            settings,
+            rebuild_features=True,
+            step=args.step or 1,
         )
         return
     if args.command == "rerank":
