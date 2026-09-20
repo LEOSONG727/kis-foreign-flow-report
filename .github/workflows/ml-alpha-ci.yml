@@ -4,8 +4,10 @@ on:
   pull_request:
     paths:
       - "src/kis_flow_bot/ml_alpha.py"
+      - "src/kis_flow_bot/ml_ranking.py"
       - "src/kis_flow_bot/cli.py"
       - "tests/test_ml_alpha.py"
+      - "tests/test_ml_ranking.py"
       - "pyproject.toml"
       - ".github/workflows/ml-alpha-ci.yml"
   workflow_dispatch:
@@ -27,9 +29,13 @@ jobs:
       - run: pytest
       - name: Run V3.1-A offline alpha baseline
         run: python -m kis_flow_bot ml-alpha
-      - name: Show ML report
+      - name: Run V3.1-B pairwise ranking
+        run: python -m kis_flow_bot ml-ranking
+      - name: Show ML reports
         if: always()
-        run: cat reports/ml_alpha_baseline.md || true
+        run: |
+          cat reports/ml_alpha_baseline.md || true
+          cat reports/ml_pairwise_ranking.md || true
       - name: Upload ML artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -38,5 +44,7 @@ jobs:
           path: |
             reports/ml_alpha_baseline.csv
             reports/ml_alpha_baseline.md
+            reports/ml_pairwise_ranking.csv
+            reports/ml_pairwise_ranking.md
           if-no-files-found: warn
           retention-days: 14
