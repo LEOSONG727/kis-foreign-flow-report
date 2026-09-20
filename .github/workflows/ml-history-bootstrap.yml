@@ -1,0 +1,73 @@
+name: ML history bootstrap
+
+on:
+  push:
+    branches:
+      - feature/v3-1c-rich-history-model
+    paths:
+      - ".github/workflows/ml-history-bootstrap.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: foreign-flow-data-write
+  cancel-in-progress: false
+
+jobs:
+  bootstrap-and-validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
+      KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
+      KIS_CALLS_PER_SECOND: ${{ vars.KIS_CALLS_PER_SECOND || '5' }}
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e ".[dev,ml]"
+      - run: pytest
+      - name: Validate KIS credentials
+        run: |
+          if [[ -z "$KIS_APP_KEY" || -z "$KIS_APP_SECRET" ]]; then
+            echo "KIS credentials are missing" >&2
+            exit 1
+          fi
+      - name: Backfill 500-name research universe to 550 calendar days
+        run: |
+          mkdir -p logs
+          python -m kis_flow_bot run --universe-limit 500 --no-notify 2>&1 | tee logs/ml-history-bootstrap.log
+      - name: Replay rich features and validate model
+        run: python -m kis_flow_bot ml-rich --step 2
+      - name: Show model report
+        if: always()
+        run: cat reports/ml_rich_ranking.md || true
+      - name: Upload research artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ml-history-bootstrap-${{ github.run_number }}
+          path: |
+            reports/ml_rich_features.csv
+            reports/ml_rich_tuning.csv
+            reports/ml_rich_ranking.csv
+            reports/ml_rich_ranking.md
+            logs/ml-history-bootstrap.log
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Persist research data and results
+        if: success()
+        run: |
+          git config user.name "foreign-flow-bot"
+          git config user.email "foreign-flow-bot@users.noreply.github.com"
+          git add data/history.csv data/universe.csv reports/ml_rich_features.csv reports/ml_rich_tuning.csv reports/ml_rich_ranking.csv reports/ml_rich_ranking.md logs/ml-history-bootstrap.log
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "research: backfill history and validate rich ranking model"
+          git push origin HEAD:feature/v3-1c-rich-history-model
