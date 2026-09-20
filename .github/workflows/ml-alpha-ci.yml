@@ -1,4 +1,9 @@
-name: ML alpha validation\n\non:\n  workflow_dispatch:\n\npermissions:
+name: ML alpha validation
+
+on:
+  workflow_dispatch:
+
+permissions:
   contents: read
 
 jobs:
