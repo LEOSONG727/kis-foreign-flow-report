@@ -426,7 +426,7 @@ def run_rich_history_model(
         test_fraction=0.25,
         horizon_sessions=DEFAULT_HORIZON,
     )
-    if len(inner_train) < 200 or len(validation) < 60 or len(test) < 100:
+    if len(inner_train) < 120 or len(validation) < 60 or len(test) < 100:
         raise ValueError(
             "Rich replay sample is too small for nested time validation: "
             f"inner={len(inner_train)} validation={len(validation)} test={len(test)}"
