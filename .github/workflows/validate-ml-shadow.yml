@@ -1,4 +1,4 @@
-name: Validate production ML shadow
+name: Validate production ML shadow r2
 
 on:
   push:
