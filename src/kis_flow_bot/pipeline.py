@@ -22,6 +22,7 @@ from .features import (
 from .horizon import annotate_horizon, empty_horizon_state
 from .kis_client import KISAPIError, KISClient
 from .live_tracking import update_live_tracking
+from .ml_shadow import apply_rich_shadow, update_shadow_tracking
 from .notify import deliver_notifications
 from .portfolio import apply_portfolio_actions, load_portfolio
 from .report import render_report
@@ -252,6 +253,8 @@ def _write_outputs(
     csv_columns = [
         "symbol", "name", "market", "as_of", "score", "campaign_score", "entry_score",
         "discovery_score", "timing_score", "distribution_score", "signal_score",
+        "ml_shadow_available", "ml_shadow_model", "ml_shadow_prediction",
+        "ml_shadow_score", "ml_shadow_rank", "ml_shadow_top", "ml_shadow_baseline_rank",
         "price_heat_penalty", "price_heat_flag", "price_heat_reason", "dip_absorption",
         "entry_readiness", "entry_gate_passed", "entry_gate_reason",
         "score_delta", "entry_score_delta", "data_points", "adtv20",
@@ -422,6 +425,10 @@ def run_pipeline(
     )
     if scored.empty:
         raise RuntimeError("No securities passed final scoring")
+    scored = apply_rich_shadow(
+        scored,
+        settings.reports_dir / "ml_rich_features.csv",
+    )
     scored = apply_portfolio_actions(scored, portfolio, settings.model)
     scored = annotate_watch_brief(scored, settings.model, settings.brief)
     horizon_path = settings.data_dir / "horizon_core.json"
@@ -438,6 +445,20 @@ def run_pipeline(
     write_csv(snapshots, snapshots_path)
     write_csv(opinions, opinions_path)
     latest_html = _write_outputs(scored, settings, generated_at, horizon_board)
+    try:
+        shadow_ledger = update_shadow_tracking(
+            scored,
+            history,
+            settings.data_dir / "ml_shadow_snapshots.csv",
+            roundtrip_cost_pct=settings.model.backtest_roundtrip_cost_pct,
+        )
+        LOGGER.info(
+            "ML shadow tracking updated: rows=%d resolved=%d",
+            len(shadow_ledger),
+            int(shadow_ledger.get("resolved", pd.Series(dtype=bool)).fillna(False).sum()),
+        )
+    except Exception as exc:
+        LOGGER.warning("ML shadow tracking update failed without blocking the report: %s", exc)
     tracking = update_live_tracking(scored, history, settings, generated_at)
     if tracking:
         LOGGER.info(
@@ -475,6 +496,10 @@ def rerank_stored_data(settings: Settings, notify: bool = False) -> pd.DataFrame
     )
     if scored.empty:
         raise RuntimeError("No securities passed stored-data scoring")
+    scored = apply_rich_shadow(
+        scored,
+        settings.reports_dir / "ml_rich_features.csv",
+    )
     scored = apply_portfolio_actions(scored, portfolio, settings.model)
     scored = annotate_watch_brief(scored, settings.model, settings.brief)
     horizon_path = settings.data_dir / "horizon_core.json"
@@ -487,6 +512,15 @@ def rerank_stored_data(settings: Settings, notify: bool = False) -> pd.DataFrame
         settings.horizon,
     )
     latest_html = _write_outputs(scored, settings, generated_at, horizon_board)
+    try:
+        update_shadow_tracking(
+            scored,
+            history,
+            settings.data_dir / "ml_shadow_snapshots.csv",
+            roundtrip_cost_pct=settings.model.backtest_roundtrip_cost_pct,
+        )
+    except Exception as exc:
+        LOGGER.warning("ML shadow tracking update failed without blocking rerank: %s", exc)
     report_date = pd.to_datetime(scored["as_of"].max()).strftime("%Y-%m-%d")
     write_state(_new_state(scored, state, report_date), state_path)
     write_state(horizon_board.to_state(), horizon_path)
