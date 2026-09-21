@@ -20,6 +20,8 @@ def test_report_contains_ranking_and_action():
     assert "살 만한 종목이 있나?" in rendered.html
     assert rendered.html.index("살 만한 종목이 있나?") < rendered.html.index("다음 후보 · 아직 사지 않음")
     assert "강한 후보 · 가격 대기" in rendered.html
+    assert "ML Shadow TOP 5 · 자동매수 아님" in rendered.html
+    assert "ML 학습 데이터가 아직 연결되지 않아" in rendered.html
     assert "오늘 신규매수 검토" in rendered.html
     assert "참고 · 기존 보유/후속 관리" in rendered.html
     assert "가격·단기열기" in rendered.html
@@ -31,6 +33,7 @@ def test_report_contains_ranking_and_action():
     assert "오늘 결론 · 살 만한 종목이 있나?" in rendered.markdown
     assert "저점반등 20일" in rendered.markdown
     assert "다음 후보 · 아직 사지 않음" in rendered.markdown
+    assert "ML Shadow TOP 5 · 자동매수 아님" in rendered.markdown
 
 
 def test_eok_does_not_render_negative_zero():
