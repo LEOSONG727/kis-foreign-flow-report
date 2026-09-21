@@ -1,0 +1,13 @@
+signal_date,model_version,symbol,name,market,ml_shadow_rank,ml_shadow_score,ml_shadow_prediction,discovery_rank,discovery_score,ml_top1,baseline_top1,signal_close,entry_date,entry_open,exit_date,exit_close,forward_return_20,max_drawdown_20,resolved
+2026-09-18,v3.1-c-extra-trees-r1,039490,키움증권,KOSPI,1,100.0,0.5894099721118752,2,100.0,True,False,261500.0,,,,,,,False
+2026-09-18,v3.1-c-extra-trees-r1,071050,한국금융지주,KOSPI,2,91.66666666666666,0.5750736345662266,4,96.7,False,False,183000.0,,,,,,,False
+2026-09-18,v3.1-c-extra-trees-r1,214450,파마리서치,KOSDAQ,3,83.33333333333334,0.5712607177136351,7,93.0,False,False,327000.0,,,,,,,False
+2026-09-18,v3.1-c-extra-trees-r1,073240,금호타이어,KOSPI,4,75.0,0.5634805628701722,11,90.7,False,False,7040.0,,,,,,,False
+2026-09-18,v3.1-c-extra-trees-r1,002380,KCC,KOSPI,5,66.66666666666666,0.5523189987428845,3,99.9,False,False,466000.0,,,,,,,False
+2026-09-18,v3.1-c-extra-trees-r1,046890,서울반도체,KOSDAQ,6,58.333333333333336,0.5412011338773368,5,96.3,False,False,9890.0,,,,,,,False
+2026-09-18,v3.1-c-extra-trees-r1,036460,한국가스공사,KOSPI,7,50.0,0.5392204230285207,10,91.0,False,False,35650.0,,,,,,,False
+2026-09-18,v3.1-c-extra-trees-r1,306200,세아제강,KOSPI,8,41.66666666666667,0.5365739034270447,6,95.8,False,False,148000.0,,,,,,,False
+2026-09-18,v3.1-c-extra-trees-r1,102710,이엔에프테크놀로지,KOSDAQ,9,33.33333333333333,0.5278001034603771,12,90.0,False,False,41350.0,,,,,,,False
+2026-09-18,v3.1-c-extra-trees-r1,357780,솔브레인,KOSDAQ,10,25.0,0.527085711636246,8,91.8,False,False,331000.0,,,,,,,False
+2026-09-18,v3.1-c-extra-trees-r1,236200,슈프리마,KOSDAQ,11,16.666666666666664,0.516477505963826,9,91.1,False,False,51100.0,,,,,,,False
+2026-09-18,v3.1-c-extra-trees-r1,005180,빙그레,KOSPI,12,8.333333333333332,0.5110638850758316,1,100.0,False,True,84900.0,,,,,,,False
