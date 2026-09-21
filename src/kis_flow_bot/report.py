@@ -197,6 +197,72 @@ def _table(frame: pd.DataFrame, start_rank: int = 1, empty_message: str = "해�
     )
 
 
+def _ml_shadow_frame(frame: pd.DataFrame, limit: int = 5) -> pd.DataFrame:
+    if "ml_shadow_available" not in frame or "ml_shadow_rank" not in frame:
+        return frame.head(0)
+    available = frame[
+        frame["ml_shadow_available"].fillna(False)
+        & frame["ml_shadow_rank"].notna()
+    ]
+    return available.sort_values(
+        ["ml_shadow_rank", "discovery_score"], ascending=[True, False]
+    ).head(limit)
+
+
+def _ml_shadow_table(frame: pd.DataFrame) -> str:
+    shadow = _ml_shadow_frame(frame)
+    if shadow.empty:
+        return (
+            '<div class="empty">ML 학습 데이터가 아직 연결되지 않아 기존 점수만 표시합니다. '
+            "메인 리포트와 주문 판단에는 영향이 없습니다.</div>"
+        )
+    rows = []
+    for _, row in shadow.iterrows():
+        rows.append(
+            "<tr>"
+            f'<td class="rank">{int(row.get("ml_shadow_rank", 0))}</td>'
+            f'<td><strong>{esc(row.get("name", ""))}</strong>'
+            f'<small>{esc(row.get("symbol", ""))} · {esc(row.get("market", ""))}</small></td>'
+            f'<td class="score">{number(row.get("ml_shadow_score"))}'
+            f'<small>상대순위 점수 · 확률 아님</small></td>'
+            f'<td>{int(row.get("ml_shadow_baseline_rank", 0))}'
+            f'<small>발견 {number(row.get("discovery_score"))}</small></td>'
+            f'<td>{eok(row.get("foreign_net20"))}'
+            f'<small>{number(row.get("foreign_20_adtv"))}일 ADTV</small></td>'
+            f'<td>{pct(row.get("price_return20"))}'
+            f'<small>3일 {pct(row.get("price_return3"))}</small></td>'
+            "</tr>"
+        )
+    return (
+        '<div class="table-wrap"><table><thead><tr>'
+        "<th>ML 순위</th><th>종목</th><th>ML 점수</th><th>기존 순위/점수</th>"
+        f'<th>20일 외인</th><th>가격</th></tr></thead><tbody>{"".join(rows)}</tbody></table></div>'
+    )
+
+
+def _ml_shadow_markdown(frame: pd.DataFrame) -> str:
+    shadow = _ml_shadow_frame(frame)
+    lines = [
+        "### ML Shadow TOP 5 · 자동매수 아님",
+        "",
+        "기존 발견점수 상위 12개만 ML로 재정렬합니다. ML 점수는 확률이 아니라 당일 후보 내 상대순위입니다.",
+        "",
+        "| ML 순위 | 종목 | ML 점수 | 기존 순위 | 발견점수 |",
+        "|---:|---|---:|---:|---:|",
+    ]
+    if shadow.empty:
+        lines.append("| - | 학습 데이터 미연결 | - | - | - |")
+    else:
+        for _, row in shadow.iterrows():
+            lines.append(
+                f"| {int(row.get('ml_shadow_rank', 0))} | {row.get('name', '')} "
+                f"({row.get('symbol', '')}) | {float(row.get('ml_shadow_score', 0)):.1f} | "
+                f"{int(row.get('ml_shadow_baseline_rank', 0))} | "
+                f"{float(row.get('discovery_score', 0)):.1f} |"
+            )
+    return "\n".join(lines)
+
+
 def _reason_list(row: pd.Series) -> str:
     reasons = []
     if row.get("foreign_20_adtv", 0.0) > 0:
@@ -515,6 +581,9 @@ def render_report(
 	<header><div><h1>외국인 매집 레이더</h1><div class="muted">외인 수급이 좋고 가격이 아직 덜 오른 종목 · 매일 판단용 숏리스트</div></div><div class="stamp">기준일 {report_date}<br>생성 {generated_at.strftime('%Y-%m-%d %H:%M KST')}</div></header>
 	{render_headline_html(headline)}
 	<section class="summary"><div><b>{brief_count}</b><span>오늘 볼 종목</span></div><div><b>{buy_now_count}</b><span>오늘 신규매수 검토</span></div><div><b>{grade_a_count}</b><span>발견 A등급 · 80+</span></div><div><b>{price_wait_count}</b><span>강한 후보 · 가격 대기</span></div></section>
+    <h2>ML Shadow TOP 5 · 자동매수 아님</h2>
+    <p class="muted">백테스트를 통과한 Extra Trees가 기존 발견점수 상위 12개를 재정렬합니다. ML 점수는 상승확률이 아니며 매수·알림 게이트를 바꾸지 않습니다.</p>
+    {_ml_shadow_table(ranked)}
 	<h2>다음 후보 · 아직 사지 않음</h2>
 	<p class="muted">오늘 살 후보가 없거나 최대 3개를 확인한 뒤에만 보세요. 좋은 수급이어도 가격 조건이 열리기 전에는 매수 후보가 아닙니다.</p>
 	{_brief_cards(wait_brief)}
@@ -573,6 +642,7 @@ def render_report(
         [
             f"## 외국인 매집 액션 리포트 · {report_date}",
             "\n".join(brief_lines).rstrip(),
+            _ml_shadow_markdown(ranked),
             render_horizon_markdown(horizon),
             md_section("① 오늘 신규매수 검토", buy_now),
             md_section("② 강한 후보·가격 대기", price_wait),
