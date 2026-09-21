@@ -1,0 +1,72 @@
+name: Validate production ML shadow
+
+on:
+  push:
+    branches:
+      - feature/ml-shadow-production
+    paths:
+      - ".github/workflows/validate-ml-shadow.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: foreign-flow-data-write
+  cancel-in-progress: false
+
+jobs:
+  validate-shadow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore the sealed-validation training table
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            -H "Accept: application/vnd.github.raw+json" \
+            "/repos/$GITHUB_REPOSITORY/contents/reports/ml_rich_features.csv?ref=feature/v3-1c-rich-history-model" \
+            > reports/ml_rich_features.csv
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: python -m pip install -e ".[dev,ml]"
+
+      - name: Test
+        run: pytest
+
+      - name: Rebuild report with production shadow
+        run: python -m kis_flow_bot rerank --no-notify
+
+      - name: Verify one ML and one baseline top pick
+        run: |
+          python - <<'PY'
+          import pandas as pd
+
+          ledger = pd.read_csv("data/ml_shadow_snapshots.csv")
+          current = ledger[ledger["model_version"] == "v3.1-c-extra-trees-r1"]
+          assert len(current) == 12
+          assert int(current["ml_top1"].sum()) == 1
+          assert int(current["baseline_top1"].sum()) == 1
+          print(current.sort_values("ml_shadow_rank").head(5)[
+              ["ml_shadow_rank", "name", "ml_shadow_score", "discovery_rank"]
+          ].to_string(index=False))
+          PY
+
+      - name: Persist production shadow assets
+        run: |
+          git config user.name "foreign-flow-bot"
+          git config user.email "foreign-flow-bot@users.noreply.github.com"
+          git add reports data/ml_shadow_snapshots.csv data/state.json data/horizon_core.json
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "feat: prepare production ML shadow assets"
+          git push origin HEAD:feature/ml-shadow-production
