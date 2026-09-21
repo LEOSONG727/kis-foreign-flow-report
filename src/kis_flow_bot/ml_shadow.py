@@ -20,7 +20,7 @@ from .storage import read_csv, write_csv
 
 LOGGER = logging.getLogger(__name__)
 
-SHADOW_MODEL_VERSION = "v3.1-c-extra-trees"
+SHADOW_MODEL_VERSION = "v3.1-c-extra-trees-r1"
 SHADOW_TOP_K = 12
 SHADOW_LEDGER_COLUMNS = [
     "signal_date",
@@ -143,9 +143,9 @@ def apply_rich_shadow(
 
     prediction_series = pd.Series(prediction, index=candidates.index)
     shadow_score = prediction_series.rank(method="average", pct=True) * 100.0
-    shadow_rank = prediction_series.rank(method="min", ascending=False).astype(int)
+    shadow_rank = prediction_series.rank(method="first", ascending=False).astype(int)
     baseline_rank = (
-        candidates["discovery_score"].rank(method="min", ascending=False).astype(int)
+        candidates["discovery_score"].rank(method="first", ascending=False).astype(int)
     )
 
     result.loc[candidates.index, "ml_shadow_available"] = True
