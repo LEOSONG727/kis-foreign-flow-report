@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from kis_flow_bot.ml_rich_history import RAW_FEATURES
+from kis_flow_bot.ml_shadow import RAW_FEATURES
 from kis_flow_bot.ml_shadow import (
     apply_rich_shadow,
     prepare_shadow_candidates,
