@@ -1,18 +1,18 @@
 {
-  "generated_at": "2026-09-21T00:33:05+00:00",
+  "generated_at": "2026-09-26T05:50:45+00:00",
   "quality_gate_version": 2,
   "active": false,
-  "resolved_samples": 122,
+  "resolved_samples": 121,
   "minimum_resolved_samples": 300,
   "holdout_resolved_samples": 22,
   "minimum_holdout_samples": 75,
   "breakeven_win_rate": 0.44999999999999996,
-  "overall_win_rate": 0.5327868852459017,
+  "overall_win_rate": 0.5289256198347108,
   "holdout_win_rate": 0.6818181818181818,
-  "overall_mean_realized_return": 0.014525420634861053,
-  "holdout_mean_realized_return": 0.03008501730037337,
-  "overall_mean_excess_return": 0.05044607913107592,
-  "holdout_mean_excess_return": 0.047362038309399675,
+  "overall_mean_realized_return": 0.014750607682716493,
+  "holdout_mean_realized_return": 0.029793495518718367,
+  "overall_mean_excess_return": 0.049407035135518196,
+  "holdout_mean_excess_return": 0.04386822084652352,
   "activation_checks": {
     "resolved_samples": false,
     "holdout_samples": false,
@@ -29,37 +29,37 @@
       "label": "<64",
       "low": 0.0,
       "high": 64.0,
-      "samples": 12,
-      "wins": 7,
-      "win_rate": 0.5833333333333334,
-      "calibrated_probability": 0.5625
+      "samples": 10,
+      "wins": 5,
+      "win_rate": 0.5,
+      "calibrated_probability": 0.5
     },
     {
       "label": "64-67",
       "low": 64.0,
       "high": 68.0,
-      "samples": 16,
-      "wins": 11,
-      "win_rate": 0.6875,
-      "calibrated_probability": 0.65
+      "samples": 17,
+      "wins": 12,
+      "win_rate": 0.7058823529411765,
+      "calibrated_probability": 0.6666666666666666
     },
     {
       "label": "68-71",
       "low": 68.0,
       "high": 72.0,
-      "samples": 11,
+      "samples": 10,
       "wins": 4,
-      "win_rate": 0.36363636363636365,
-      "calibrated_probability": 0.4
+      "win_rate": 0.4,
+      "calibrated_probability": 0.42857142857142855
     },
     {
       "label": "72+",
       "low": 72.0,
       "high": 101.0,
-      "samples": 83,
+      "samples": 84,
       "wins": 43,
-      "win_rate": 0.5180722891566265,
-      "calibrated_probability": 0.5172413793103449
+      "win_rate": 0.5119047619047619,
+      "calibrated_probability": 0.5113636363636364
     }
   ]
 }
