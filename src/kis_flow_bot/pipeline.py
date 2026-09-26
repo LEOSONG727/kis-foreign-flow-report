@@ -245,6 +245,16 @@ def _write_outputs(
         horizon=horizon,
     )
     report_date = pd.to_datetime(scored["as_of"].max()).strftime("%Y-%m-%d")
+    # Independent research queue; preserve official historical signals.
+    from .research_review import review_rows, render_review
+    import json
+    blocks_path = settings.data_dir / "research_event_blocks.json"
+    blocks = json.loads(blocks_path.read_text(encoding="utf-8")) if blocks_path.exists() else {}
+    research = review_rows(scored.to_dict("records"), report_date, blocks)
+    (settings.reports_dir / "research_review.md").write_text(
+        render_review(research, report_date), encoding="utf-8")
+    write_csv(pd.DataFrame(research), settings.reports_dir / "research_review.csv")
+
     latest_html = settings.reports_dir / "latest.html"
     latest_html.write_text(rendered.html, encoding="utf-8")
     (settings.reports_dir / f"{report_date}.html").write_text(rendered.html, encoding="utf-8")
@@ -542,3 +552,4 @@ def smoke_test(settings: Settings) -> None:
     LOGGER.info("Celltrion investor history rows=%d", len(celltrion))
     if not samsung or not celltrion:
         raise KISAPIError("Smoke test returned an empty market-data response")
+
