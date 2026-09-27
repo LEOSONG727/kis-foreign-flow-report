@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import html
 import os
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -247,9 +248,20 @@ def _write_outputs(
     )
     report_date = pd.to_datetime(scored["as_of"].max()).strftime("%Y-%m-%d")
     latest_html = settings.reports_dir / "latest.html"
-    latest_html.write_text(rendered.html, encoding="utf-8")
-    (settings.reports_dir / f"{report_date}.html").write_text(rendered.html, encoding="utf-8")
-    (settings.reports_dir / "latest.md").write_text(rendered.markdown, encoding="utf-8")
+    shadow_rows = scored[scored["jev_review"].notna()] if "jev_review" in scored else scored.head(0)
+    shadow_lines = [
+        f"{row['name']} ({row['symbol']}): {row['jev_review']} · 매집 {row['jev_accumulation']:.2f} · 미반응 {row['jev_underreaction']:.2f} · 과열 {row['jev_overheated']:.2f}"
+        for _, row in shadow_rows.head(20).iterrows()
+    ]
+    shadow_md = "\n\n## Jev Shadow · 참고용\n" + ("\n".join(f"- {line}" for line in shadow_lines) if shadow_lines else "- 평가 결과 없음")
+    shadow_html = "<section class='panel'><h2>Jev Shadow · 참고용</h2><p>기존 매수 후보와 순위에는 반영되지 않습니다.</p><ul>" + "".join(
+        f"<li>{html.escape(line)}</li>" for line in shadow_lines
+    ) + "</ul></section>"
+    rendered_html = rendered.html.replace("</main>", shadow_html + "</main>")
+    rendered_markdown = rendered.markdown + shadow_md + "\n"
+    latest_html.write_text(rendered_html, encoding="utf-8")
+    (settings.reports_dir / f"{report_date}.html").write_text(rendered_html, encoding="utf-8")
+    (settings.reports_dir / "latest.md").write_text(rendered_markdown, encoding="utf-8")
 
     csv_columns = [
         "symbol", "name", "market", "as_of", "score", "campaign_score", "entry_score",
@@ -307,15 +319,17 @@ def _write_outputs(
     summary_path = os.getenv("GITHUB_STEP_SUMMARY")
     if summary_path:
         with Path(summary_path).open("a", encoding="utf-8") as handle:
-            handle.write(rendered.markdown)
+            handle.write(rendered_markdown)
     return latest_html
 
 
 def _write_jev_shadow(scored: pd.DataFrame, reports_dir: Path) -> None:
-    """Store the separate shadow ledger without affecting candidate selection."""
+    """Store a separate shadow ledger without affecting candidate selection."""
     columns = ["as_of", "symbol", "name", "discovery_score", "proposal_status",
                "jev_accumulation", "jev_underreaction", "jev_overheated",
                "jev_review", "jev_review_confidence", "jev_model", "jev_error"]
+    if "jev_review" not in scored:
+        return
     observed = scored[scored["jev_review"].notna() | scored["jev_error"].notna()]
     write_csv(observed[[col for col in columns if col in observed]], reports_dir / "jev_shadow_latest.csv")
 
