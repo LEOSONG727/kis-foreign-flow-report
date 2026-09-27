@@ -24,7 +24,7 @@ def test_challenger_and_baseline_use_same_cohort_and_future_prices(tmp_path):
     assert len(first) == len(second) == 2
     assert first["baseline_rank"].tolist() == [1, 2]
     assert first["jev_rank"].tolist() == [2, 1]
-    assert first["return_20"].astype(float).tolist() == [-.05, .10]
+    assert first["return_20"].astype(float).round(5).tolist() == [-.05, .10]
     assert first["entry_date"].tolist() == ["2026-09-02", "2026-09-02"]
 
 
