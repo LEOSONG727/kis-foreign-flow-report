@@ -20,6 +20,7 @@ from .features import (
     validate_investor_amounts,
 )
 from .horizon import annotate_horizon, empty_horizon_state
+from .jev_shadow import apply_jev_shadow
 from .kis_client import KISAPIError, KISClient
 from .live_tracking import update_live_tracking
 from .ml_shadow import apply_rich_shadow, update_shadow_tracking
@@ -255,6 +256,8 @@ def _write_outputs(
         "discovery_score", "timing_score", "distribution_score", "signal_score",
         "ml_shadow_available", "ml_shadow_model", "ml_shadow_prediction",
         "ml_shadow_score", "ml_shadow_rank", "ml_shadow_top", "ml_shadow_baseline_rank",
+        "jev_accumulation", "jev_underreaction", "jev_overheated", "jev_review",
+        "jev_review_confidence", "jev_model", "jev_error",
         "price_heat_penalty", "price_heat_flag", "price_heat_reason", "dip_absorption",
         "entry_readiness", "entry_gate_passed", "entry_gate_reason",
         "score_delta", "entry_score_delta", "data_points", "adtv20",
@@ -306,6 +309,15 @@ def _write_outputs(
         with Path(summary_path).open("a", encoding="utf-8") as handle:
             handle.write(rendered.markdown)
     return latest_html
+
+
+def _write_jev_shadow(scored: pd.DataFrame, reports_dir: Path) -> None:
+    """Store the separate shadow ledger without affecting candidate selection."""
+    columns = ["as_of", "symbol", "name", "discovery_score", "proposal_status",
+               "jev_accumulation", "jev_underreaction", "jev_overheated",
+               "jev_review", "jev_review_confidence", "jev_model", "jev_error"]
+    observed = scored[scored["jev_review"].notna() | scored["jev_error"].notna()]
+    write_csv(observed[[col for col in columns if col in observed]], reports_dir / "jev_shadow_latest.csv")
 
 
 def _new_state(scored: pd.DataFrame, previous: dict, report_date: str) -> dict:
@@ -441,10 +453,13 @@ def run_pipeline(
         settings.horizon,
     )
 
+    scored = apply_jev_shadow(scored)
+
     write_csv(history, history_path)
     write_csv(snapshots, snapshots_path)
     write_csv(opinions, opinions_path)
     latest_html = _write_outputs(scored, settings, generated_at, horizon_board)
+    _write_jev_shadow(scored, settings.reports_dir)
     try:
         shadow_ledger = update_shadow_tracking(
             scored,
