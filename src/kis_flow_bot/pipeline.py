@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import html
 import os
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -20,6 +21,8 @@ from .features import (
     validate_investor_amounts,
 )
 from .horizon import annotate_horizon, empty_horizon_state
+from .jev_shadow import apply_jev_shadow
+from .jev_experiment import update_jev_experiment, write_jev_comparison
 from .kis_client import KISAPIError, KISClient
 from .live_tracking import update_live_tracking
 from .ml_shadow import apply_rich_shadow, update_shadow_tracking
@@ -246,15 +249,28 @@ def _write_outputs(
     )
     report_date = pd.to_datetime(scored["as_of"].max()).strftime("%Y-%m-%d")
     latest_html = settings.reports_dir / "latest.html"
-    latest_html.write_text(rendered.html, encoding="utf-8")
-    (settings.reports_dir / f"{report_date}.html").write_text(rendered.html, encoding="utf-8")
-    (settings.reports_dir / "latest.md").write_text(rendered.markdown, encoding="utf-8")
+    shadow_rows = scored[scored["jev_review"].notna()] if "jev_review" in scored else scored.head(0)
+    shadow_lines = [
+        f"{row['name']} ({row['symbol']}): {row['jev_review']} · 수급 취약 {row['jev_fragile_flow']:.2f} · 하락 함정 {row['jev_price_trap']:.2f} · 추격 위험 {row['jev_chase_risk']:.2f}"
+        for _, row in shadow_rows.head(20).iterrows()
+    ]
+    shadow_md = "\n\n## Jev Shadow · 참고용\n" + ("\n".join(f"- {line}" for line in shadow_lines) if shadow_lines else "- 평가 결과 없음")
+    shadow_html = "<section class='panel'><h2>Jev Shadow · 참고용</h2><p>기존 매수 후보와 순위에는 반영되지 않습니다.</p><ul>" + "".join(
+        f"<li>{html.escape(line)}</li>" for line in shadow_lines
+    ) + "</ul></section>"
+    rendered_html = rendered.html.replace("</main>", shadow_html + "</main>")
+    rendered_markdown = rendered.markdown + shadow_md + "\n"
+    latest_html.write_text(rendered_html, encoding="utf-8")
+    (settings.reports_dir / f"{report_date}.html").write_text(rendered_html, encoding="utf-8")
+    (settings.reports_dir / "latest.md").write_text(rendered_markdown, encoding="utf-8")
 
     csv_columns = [
         "symbol", "name", "market", "as_of", "score", "campaign_score", "entry_score",
         "discovery_score", "timing_score", "distribution_score", "signal_score",
         "ml_shadow_available", "ml_shadow_model", "ml_shadow_prediction",
         "ml_shadow_score", "ml_shadow_rank", "ml_shadow_top", "ml_shadow_baseline_rank",
+        "jev_fragile_flow", "jev_price_trap", "jev_chase_risk", "jev_review",
+        "jev_review_confidence", "jev_model", "jev_error",
         "price_heat_penalty", "price_heat_flag", "price_heat_reason", "dip_absorption",
         "entry_readiness", "entry_gate_passed", "entry_gate_reason",
         "score_delta", "entry_score_delta", "data_points", "adtv20",
@@ -304,8 +320,19 @@ def _write_outputs(
     summary_path = os.getenv("GITHUB_STEP_SUMMARY")
     if summary_path:
         with Path(summary_path).open("a", encoding="utf-8") as handle:
-            handle.write(rendered.markdown)
+            handle.write(rendered_markdown)
     return latest_html
+
+
+def _write_jev_shadow(scored: pd.DataFrame, reports_dir: Path) -> None:
+    """Store a separate shadow ledger without affecting candidate selection."""
+    columns = ["as_of", "symbol", "name", "discovery_score", "proposal_status",
+               "jev_fragile_flow", "jev_price_trap", "jev_chase_risk",
+               "jev_review", "jev_review_confidence", "jev_model", "jev_error"]
+    if "jev_review" not in scored:
+        return
+    observed = scored[scored["jev_review"].notna() | scored["jev_error"].notna()]
+    write_csv(observed[[col for col in columns if col in observed]], reports_dir / "jev_shadow_latest.csv")
 
 
 def _new_state(scored: pd.DataFrame, previous: dict, report_date: str) -> dict:
@@ -441,10 +468,18 @@ def run_pipeline(
         settings.horizon,
     )
 
+    scored = apply_jev_shadow(scored)
+
     write_csv(history, history_path)
     write_csv(snapshots, snapshots_path)
     write_csv(opinions, opinions_path)
     latest_html = _write_outputs(scored, settings, generated_at, horizon_board)
+    _write_jev_shadow(scored, settings.reports_dir)
+    try:
+        jev_ledger = update_jev_experiment(scored, history, settings.data_dir / "jev_experiment.csv")
+        write_jev_comparison(jev_ledger, settings.reports_dir / "jev_experiment_latest.md")
+    except Exception as exc:
+        LOGGER.warning("Jev experiment tracking failed without blocking the report: %s", type(exc).__name__)
     try:
         shadow_ledger = update_shadow_tracking(
             scored,
