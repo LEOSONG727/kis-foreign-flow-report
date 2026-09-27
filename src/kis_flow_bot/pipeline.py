@@ -22,7 +22,7 @@ from .features import (
 )
 from .horizon import annotate_horizon, empty_horizon_state
 from .jev_shadow import apply_jev_shadow
-from .jev_experiment import update_jev_experiment
+from .jev_experiment import update_jev_experiment, write_jev_comparison
 from .kis_client import KISAPIError, KISClient
 from .live_tracking import update_live_tracking
 from .ml_shadow import apply_rich_shadow, update_shadow_tracking
@@ -476,7 +476,8 @@ def run_pipeline(
     latest_html = _write_outputs(scored, settings, generated_at, horizon_board)
     _write_jev_shadow(scored, settings.reports_dir)
     try:
-        update_jev_experiment(scored, history, settings.data_dir / "jev_experiment.csv")
+        jev_ledger = update_jev_experiment(scored, history, settings.data_dir / "jev_experiment.csv")
+        write_jev_comparison(jev_ledger, settings.reports_dir / "jev_experiment_latest.md")
     except Exception as exc:
         LOGGER.warning("Jev experiment tracking failed without blocking the report: %s", type(exc).__name__)
     try:
