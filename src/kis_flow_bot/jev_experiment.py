@@ -84,3 +84,43 @@ def update_jev_experiment(scored: pd.DataFrame, history: pd.DataFrame, path: Pat
     ledger = ledger.sort_values(["signal_date", "baseline_rank", "symbol"]).reset_index(drop=True)
     write_csv(ledger[COLUMNS], path)
     return ledger[COLUMNS]
+
+
+def write_jev_comparison(ledger: pd.DataFrame, path: Path, top_n: int = 3) -> None:
+    """Summarize paired daily portfolios only after their 20-session outcome matures."""
+    lines = [
+        "# Jev Shadow 비교",
+        "",
+        "동일한 일별 후보군에서 기존 발견 순위, ML 순위, Jev 위험 진단 순위의 상위 "
+        f"{top_n}개를 비교합니다. 신호 다음 거래일 시가 진입, 20번째 거래일 종가 청산이며 "
+        "수수료와 세금은 포함되지 않습니다.",
+        "",
+    ]
+    if ledger.empty:
+        lines.append("아직 Jev 응답을 모두 받은 일별 후보군이 없습니다.")
+    else:
+        full = ledger.groupby("signal_date").filter(
+            lambda day: day["return_20"].notna().all()
+        )
+        dates = full["signal_date"].nunique()
+        lines.append(f"20거래일 결과가 확정된 신호일: {dates}일")
+        lines.append("서로 가까운 신호일은 보유 기간이 겹치므로 독립 표본으로 해석하지 않습니다.")
+        if dates < 20:
+            lines.append("20개 신호일 이상 쌓인 뒤 비교 수치를 표시합니다.")
+        else:
+            lines.extend(["", "| 순위 | 일별 상위 수익률 평균 | 일별 상위 최대 하락폭 평균 |", "|---|---:|---:|"])
+            for label, column in (("기존 발견", "baseline_rank"), ("ML", "ml_rank"), ("Jev 진단", "jev_rank")):
+                daily = []
+                for _, day in full.groupby("signal_date"):
+                    top = day[pd.to_numeric(day[column], errors="coerce") <= top_n]
+                    if len(top) == top_n:
+                        daily.append((
+                            pd.to_numeric(top["return_20"]).mean(),
+                            pd.to_numeric(top["max_drawdown_20"]).mean(),
+                        ))
+                if daily:
+                    means = pd.DataFrame(daily, columns=["return", "drawdown"]).mean()
+                    lines.append(f"| {label} ({len(daily)}일) | {means['return']:+.2%} | {means['drawdown']:+.2%} |")
+            lines.append("")
+            lines.append("Jev가 성과를 개선했다는 결론은 별도 기간 검증과 거래비용 반영 후 판단합니다.")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
