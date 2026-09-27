@@ -13,9 +13,9 @@ class Response:
         return {
             "model": "jev-1.13.0",
             "answers": {
-                "accumulation": {"type": "noul", "noul": 0.81},
-                "underreaction": {"type": "noul", "noul": 0.72},
-                "overheated": {"type": "noul", "noul": 0.18},
+                "fragile_flow": {"type": "noul", "noul": 0.81},
+                "price_trap": {"type": "noul", "noul": 0.72},
+                "chase_risk": {"type": "noul", "noul": 0.18},
                 "review": {"type": "choice", "choice": "WATCH", "confidence": 0.66},
             },
         }
