@@ -22,6 +22,7 @@ from .features import (
 )
 from .horizon import annotate_horizon, empty_horizon_state
 from .jev_shadow import apply_jev_shadow
+from .jev_experiment import update_jev_experiment
 from .kis_client import KISAPIError, KISClient
 from .live_tracking import update_live_tracking
 from .ml_shadow import apply_rich_shadow, update_shadow_tracking
@@ -250,7 +251,7 @@ def _write_outputs(
     latest_html = settings.reports_dir / "latest.html"
     shadow_rows = scored[scored["jev_review"].notna()] if "jev_review" in scored else scored.head(0)
     shadow_lines = [
-        f"{row['name']} ({row['symbol']}): {row['jev_review']} · 매집 {row['jev_accumulation']:.2f} · 미반응 {row['jev_underreaction']:.2f} · 과열 {row['jev_overheated']:.2f}"
+        f"{row['name']} ({row['symbol']}): {row['jev_review']} · 수급 취약 {row['jev_fragile_flow']:.2f} · 하락 함정 {row['jev_price_trap']:.2f} · 추격 위험 {row['jev_chase_risk']:.2f}"
         for _, row in shadow_rows.head(20).iterrows()
     ]
     shadow_md = "\n\n## Jev Shadow · 참고용\n" + ("\n".join(f"- {line}" for line in shadow_lines) if shadow_lines else "- 평가 결과 없음")
@@ -268,7 +269,7 @@ def _write_outputs(
         "discovery_score", "timing_score", "distribution_score", "signal_score",
         "ml_shadow_available", "ml_shadow_model", "ml_shadow_prediction",
         "ml_shadow_score", "ml_shadow_rank", "ml_shadow_top", "ml_shadow_baseline_rank",
-        "jev_accumulation", "jev_underreaction", "jev_overheated", "jev_review",
+        "jev_fragile_flow", "jev_price_trap", "jev_chase_risk", "jev_review",
         "jev_review_confidence", "jev_model", "jev_error",
         "price_heat_penalty", "price_heat_flag", "price_heat_reason", "dip_absorption",
         "entry_readiness", "entry_gate_passed", "entry_gate_reason",
@@ -326,7 +327,7 @@ def _write_outputs(
 def _write_jev_shadow(scored: pd.DataFrame, reports_dir: Path) -> None:
     """Store a separate shadow ledger without affecting candidate selection."""
     columns = ["as_of", "symbol", "name", "discovery_score", "proposal_status",
-               "jev_accumulation", "jev_underreaction", "jev_overheated",
+               "jev_fragile_flow", "jev_price_trap", "jev_chase_risk",
                "jev_review", "jev_review_confidence", "jev_model", "jev_error"]
     if "jev_review" not in scored:
         return
@@ -474,6 +475,10 @@ def run_pipeline(
     write_csv(opinions, opinions_path)
     latest_html = _write_outputs(scored, settings, generated_at, horizon_board)
     _write_jev_shadow(scored, settings.reports_dir)
+    try:
+        update_jev_experiment(scored, history, settings.data_dir / "jev_experiment.csv")
+    except Exception as exc:
+        LOGGER.warning("Jev experiment tracking failed without blocking the report: %s", type(exc).__name__)
     try:
         shadow_ledger = update_shadow_tracking(
             scored,
