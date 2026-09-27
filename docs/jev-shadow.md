@@ -1,9 +1,25 @@
-# Jev 진단 실험
+# Jev review — diagnostics v2
 
-현재 운영 파이프라인은 정량 규칙이 데이터 품질, 유동성, 매수 가능 구간과 후보 자격을 정합니다. ML Shadow는 같은 후보군의 과거 20거래일 결과를 학습해 **별도 순위**를 만듭니다. Jev는 모델 점수나 매수 결론을 입력받지 않고 외인 수급·가격의 원시 특징값만 받아 **수급 취약, 하락 함정, 추격 위험**을 질문합니다. Jev 응답은 추천이나 미래 수익 확률이 아닙니다.
+## Roles and model limits
 
-일일 실행은 기존 점수 순 상위 20개를 Jev에 보내고, 기존 순위와 분류를 그대로 유지합니다. API가 실패하거나 키가 없으면 기존 보고서는 계속 만들어집니다. `reports/jev_shadow_latest.csv`와 리포트의 참고 섹션에서 진단값을 확인할 수 있습니다.
+Quant code owns arithmetic, input validity, eligibility, and trading gates. Existing ML shadow estimates a historical ranking. Jev independently judges three narrow observed patterns: episodic/reversing flow, persistent price deterioration, and an extended entry. It receives explicit percent and money units grouped into short flow/price/entry evidence, without stock identity, quant score, ML rank, or a return label.
 
-비교 실험은 같은 날 상위 20개 후보를 사용해 기존 발견 순위, ML Shadow 순위, Jev의 검토 분류 및 세 위험도의 평균에 따른 순위를 기록합니다. Jev 요청이 일부라도 실패한 날은 비교군을 만들지 않습니다. `data/jev_experiment.csv`는 날짜·종목당 첫 결과를 보존하고 다음 거래일 시가 진입 기준 5·20거래일 수익률과 20일 최대 하락폭을 채웁니다. `reports/jev_experiment_latest.md`는 20일 결과가 모두 확정된 날이 20개 이상일 때 동일 날짜 상위 3개 비교를 표시합니다.
+Official documentation (https://docs.typesafe.ai/model-jaggedness/jev-1.13) recommends arithmetic in code, short relevant context, literal atomic questions, and code-enforced relationships. All three Noul questions share one request. Python derives the review route from the highest diagnostic signal; .35/.65 are frozen experimental boundaries, not calibrated financial probabilities. Missing essential observations produce INSUFFICIENT_DATA. The provider model is pinned to jev-1.13.0; prompt hash, policy, input hash, exact evidence, capture time, actual model, status and token usage are recorded. Authentication/validation errors stop remaining calls for that run.
 
-이 비교는 탐색적입니다. 연속된 날짜의 보유 기간이 겹치고, 20일 데이터가 충분해도 시장 국면과 거래비용의 영향이 남습니다. 성과가 확인되기 전에는 Jev 순위나 고정 임계값을 실전 매수 후보와 알림에 적용하지 않습니다. 이후 채택 여부는 새 기간에서 기존 모델 대비 수익률, 하락폭, 오탐, 후보 교체율을 함께 비교해서 결정합니다.
+## Prospective comparison
+
+All methods use the same discovery-eligible, fresh top-12 shortlist (matching the ML shadow limit). The existing report's ranking and trading gates are unaffected. Independent diagnostics appear in the report. A high value is agreement with a risk-pattern statement, not a loss probability.
+
+The whole first cohort of each signal date is immutable: reruns cannot insert replacement stocks. Incomplete API cohorts are retained for coverage accounting but receive no Jev rank. Successful Jev ranks use the maximum diagnostic value, with discovery rank as tie-breaker. This unvalidated aggregation cannot cancel a severe risk by averaging benign answers.
+
+The ledger persists before any outcomes mature. Duplicate price dates are removed. Outcomes require capture before the next-session opening time, preventing hindsight runs from being called prospective. Returns are measured from next available session open to 5th/20th session close. Both gross and configured roundtrip-cost-adjusted returns are kept. Worst entry-relative loss is explicitly not portfolio maximum drawdown. Corporate-action adjustment, missing/suspended sessions, delisted names and execution slippage still need a richer price source for investment-grade backtesting.
+
+Comparison reports isolate policy/model/prompt/cost cohorts and use only dates with complete outcomes and all three top-3 portfolios. It displays paired differences after 20 common dates. Overlapping holding periods are not independent observations; these summaries do not imply statistical significance or trigger automatic promotion.
+
+## Competitiveness assessment (2026-09-27)
+
+The stored ML report has 44 holdout signal dates: -2.26% average 20-day return versus -5.10% baseline; +3.50 percentage-point improvement. Its reported 95% improvement interval is -2.23 to +9.59 percentage points, including zero. Average entry-relative downside is worse (-17.65% versus -15.99%). Thus there is a research signal, but neither stable positive absolute returns nor a reliable advantage has been established. Current-universe survivorship bias and overlapping horizons remain. The historical PASS label should not be interpreted as production-readiness.
+
+The separate rule-policy report shows +0.69% average 20-day return and +4.94% market excess on its own cohort. That cohort and entry policy differ from the ML holdout; comparing the headline figures directly is invalid. Jev has no live performance record yet.
+
+Before production use: verify actual API responses; collect versioned forward outcomes; compare net paired returns and downside across multiple regimes with block-based uncertainty estimates; include costs, capacity, turnover, corporate actions and delisted stocks; require benefit versus the existing rules, not merely plausible-sounding model judgments. Jev may be removed if its incremental value is absent. Source-backed filing/news classification could add new information later, but no such feed is currently connected.

@@ -21,7 +21,7 @@ from .features import (
     validate_investor_amounts,
 )
 from .horizon import annotate_horizon, empty_horizon_state
-from .jev_shadow import apply_jev_shadow
+from .jev_shadow import OUTPUTS as JEV_OUTPUTS, apply_jev_shadow
 from .jev_experiment import update_jev_experiment, write_jev_comparison
 from .kis_client import KISAPIError, KISClient
 from .live_tracking import update_live_tracking
@@ -254,17 +254,20 @@ def _write_outputs(
         f"{row['name']} ({row['symbol']}): {row['jev_review']} · 수급 취약 {row['jev_fragile_flow']:.2f} · 하락 함정 {row['jev_price_trap']:.2f} · 추격 위험 {row['jev_chase_risk']:.2f}"
         for _, row in shadow_rows.head(20).iterrows()
     ]
+    status_counts = scored["jev_status"].value_counts().to_dict() if "jev_status" in scored else {}
     shadow_md = "\n\n## Jev Shadow · 참고용\n" + ("\n".join(f"- {line}" for line in shadow_lines) if shadow_lines else "- 평가 결과 없음")
-    shadow_html = "<section class='panel'><h2>Jev Shadow · 참고용</h2><p>기존 매수 후보와 순위에는 반영되지 않습니다.</p><ul>" + "".join(
+    shadow_md += "\n진단 상태: " + str(status_counts)
+    shadow_html = "<section class='panel'><h2>Jev Shadow · 참고용</h2><p>숫자가 높을수록 해당 위험 패턴에 대한 동의가 강합니다. 손실 확률은 아닙니다. 기존 매수 후보와 순위에는 반영되지 않습니다.</p><ul>" + "".join(
         f"<li>{html.escape(line)}</li>" for line in shadow_lines
     ) + "</ul></section>"
+    shadow_html += "<p>진단 상태: " + html.escape(str(status_counts)) + "</p>"
     rendered_html = rendered.html.replace("</main>", shadow_html + "</main>")
     rendered_markdown = rendered.markdown + shadow_md + "\n"
     latest_html.write_text(rendered_html, encoding="utf-8")
     (settings.reports_dir / f"{report_date}.html").write_text(rendered_html, encoding="utf-8")
     (settings.reports_dir / "latest.md").write_text(rendered_markdown, encoding="utf-8")
 
-    csv_columns = [
+    csv_columns = list(JEV_OUTPUTS) + [
         "symbol", "name", "market", "as_of", "score", "campaign_score", "entry_score",
         "discovery_score", "timing_score", "distribution_score", "signal_score",
         "ml_shadow_available", "ml_shadow_model", "ml_shadow_prediction",
@@ -316,7 +319,7 @@ def _write_outputs(
         "screen_bucket",
         "mid_horizon_score", "long_horizon_score", "in_mid_core", "in_long_core",
     ]
-    write_csv(scored[[column for column in csv_columns if column in scored]], settings.reports_dir / "latest.csv")
+    write_csv(scored[[column for column in dict.fromkeys(csv_columns) if column in scored]], settings.reports_dir / "latest.csv")
     summary_path = os.getenv("GITHUB_STEP_SUMMARY")
     if summary_path:
         with Path(summary_path).open("a", encoding="utf-8") as handle:
@@ -326,12 +329,10 @@ def _write_outputs(
 
 def _write_jev_shadow(scored: pd.DataFrame, reports_dir: Path) -> None:
     """Store a separate shadow ledger without affecting candidate selection."""
-    columns = ["as_of", "symbol", "name", "discovery_score", "proposal_status",
-               "jev_fragile_flow", "jev_price_trap", "jev_chase_risk",
-               "jev_review", "jev_review_confidence", "jev_model", "jev_error"]
-    if "jev_review" not in scored:
+    columns = ["as_of", "symbol", "name", "discovery_score", "proposal_status", *JEV_OUTPUTS]
+    if "jev_status" not in scored:
         return
-    observed = scored[scored["jev_review"].notna() | scored["jev_error"].notna()]
+    observed = scored[~scored["jev_status"].isin(["NOT_SELECTED", "DISABLED"])]
     write_csv(observed[[col for col in columns if col in observed]], reports_dir / "jev_shadow_latest.csv")
 
 
@@ -476,7 +477,8 @@ def run_pipeline(
     latest_html = _write_outputs(scored, settings, generated_at, horizon_board)
     _write_jev_shadow(scored, settings.reports_dir)
     try:
-        jev_ledger = update_jev_experiment(scored, history, settings.data_dir / "jev_experiment.csv")
+        jev_ledger = update_jev_experiment(scored, history, settings.data_dir / "jev_experiment.csv",
+            roundtrip_cost_pct=settings.model.backtest_roundtrip_cost_pct)
         write_jev_comparison(jev_ledger, settings.reports_dir / "jev_experiment_latest.md")
     except Exception as exc:
         LOGGER.warning("Jev experiment tracking failed without blocking the report: %s", type(exc).__name__)
@@ -577,3 +579,4 @@ def smoke_test(settings: Settings) -> None:
     LOGGER.info("Celltrion investor history rows=%d", len(celltrion))
     if not samsung or not celltrion:
         raise KISAPIError("Smoke test returned an empty market-data response")
+
