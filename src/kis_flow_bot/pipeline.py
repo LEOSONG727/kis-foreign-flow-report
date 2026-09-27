@@ -23,6 +23,7 @@ from .features import (
 from .horizon import annotate_horizon, empty_horizon_state
 from .jev_shadow import OUTPUTS as JEV_OUTPUTS, apply_jev_shadow
 from .jev_experiment import update_jev_experiment, write_jev_comparison
+from .jev_monitor import monitor as monitor_jev, save_monitor
 from .kis_client import KISAPIError, KISClient
 from .live_tracking import update_live_tracking
 from .ml_shadow import apply_rich_shadow, update_shadow_tracking
@@ -261,6 +262,10 @@ def _write_outputs(
         f"<li>{html.escape(line)}</li>" for line in shadow_lines
     ) + "</ul></section>"
     shadow_html += "<p>진단 상태: " + html.escape(str(status_counts)) + "</p>"
+    monitor_note = scored.attrs.get("jev_monitor_note", "")
+    if monitor_note:
+        shadow_html += "<section><h2>모델 감독</h2><p>" + html.escape(monitor_note).replace("\n", "<br>") + "</p></section>"
+        shadow_md += "\n\n" + monitor_note
     rendered_html = rendered.html.replace("</main>", shadow_html + "</main>")
     rendered_markdown = rendered.markdown + shadow_md + "\n"
     latest_html.write_text(rendered_html, encoding="utf-8")
@@ -474,14 +479,26 @@ def run_pipeline(
     write_csv(history, history_path)
     write_csv(snapshots, snapshots_path)
     write_csv(opinions, opinions_path)
-    latest_html = _write_outputs(scored, settings, generated_at, horizon_board)
+    jev_ledger = pd.DataFrame()
+    tracking_error = False
     _write_jev_shadow(scored, settings.reports_dir)
     try:
         jev_ledger = update_jev_experiment(scored, history, settings.data_dir / "jev_experiment.csv",
             roundtrip_cost_pct=settings.model.backtest_roundtrip_cost_pct)
         write_jev_comparison(jev_ledger, settings.reports_dir / "jev_experiment_latest.md")
     except Exception as exc:
+        tracking_error = True
         LOGGER.warning("Jev experiment tracking failed without blocking the report: %s", type(exc).__name__)
+    try:
+        health = monitor_jev(scored, jev_ledger)
+        if tracking_error:
+            health.update(decision="DIAGNOSE", source="code_tracking_guard")
+            health["note"] = "모델 감독: 성과 기록 오류 점검 필요\n이번 실행의 성과 추적에 실패했습니다."
+        scored.attrs["jev_monitor_note"] = health["note"]
+        save_monitor(health, settings.reports_dir / "jev_monitor_latest.json")
+    except Exception as exc:
+        scored.attrs["jev_monitor_note"] = "모델 감독: 감독 처리 오류 점검 필요 (" + type(exc).__name__ + ")"
+    latest_html = _write_outputs(scored, settings, generated_at, horizon_board)
     try:
         shadow_ledger = update_shadow_tracking(
             scored,
@@ -579,4 +596,5 @@ def smoke_test(settings: Settings) -> None:
     LOGGER.info("Celltrion investor history rows=%d", len(celltrion))
     if not samsung or not celltrion:
         raise KISAPIError("Smoke test returned an empty market-data response")
+
 

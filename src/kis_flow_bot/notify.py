@@ -398,6 +398,8 @@ def build_telegram_text(
     headline = build_headline(frame, brief, model)
     lines = [f"<b>{html.escape(_title(frame))}</b>", *_telegram_headline(headline)]
     lines.append("<i>모델 선별 후보이며 상승을 보장하지 않습니다 · 주문 미실행</i>")
+    if scored.attrs.get("jev_monitor_note"):
+        lines.append(html.escape(scored.attrs["jev_monitor_note"]))
     return "\n\n".join(line for line in lines if line)
 
 
@@ -426,6 +428,10 @@ def build_email_bodies(
         + "<p style='color:#6b7280;font-size:13px;margin:8px 0 0'>조회 전용 · 주문 미실행. "
         "모델 선별 후보이며 상승을 보장하지 않습니다. 상세 HTML 리포트를 첨부합니다.</p></div>"
     )
+    if scored.attrs.get("jev_monitor_note"):
+        note = scored.attrs["jev_monitor_note"]
+        plain_lines.extend(["", note])
+        html_body += "<p>" + html.escape(note).replace("\n", "<br>") + "</p>"
     return "\n".join(plain_lines), html_body
 
 
@@ -520,3 +526,4 @@ def deliver_notifications(
     if not sent:
         LOGGER.info("No notification channel delivered a report")
     return sent
+
