@@ -13,22 +13,27 @@ LOGGER = logging.getLogger(__name__)
 ENDPOINT = "https://api.typesafe.ai/v1/systemone"
 MODEL = "jev-latest"
 QUESTIONS = {
-    "accumulation": {"type": "noul", "instructions": "Do the supplied foreign-flow figures show persistent accumulation rather than a one-day spike? Judge only the supplied data."},
-    "underreaction": {"type": "noul", "instructions": "Is the stock's recent price response modest relative to the supplied foreign accumulation and market return? Judge only the supplied data."},
-    "overheated": {"type": "noul", "instructions": "Do the supplied price, moving-average distance and volatility indicate short-term chase or overheating risk? Judge only the supplied data."},
-    "review": {"type": "choice", "instructions": "Which research queue fits this snapshot? This is not a buy instruction.", "criteria": {
-        "DEEP_REVIEW": "Flow and underreaction merit further human research.",
-        "WATCH": "Monitor for clearer evidence or a better entry.",
-        "REJECT": "Insufficient or adverse evidence in this snapshot.",
+    "fragile_flow": {"type": "noul", "instructions": "Is apparent foreign accumulation fragile, concentrated in recent days, or offset by sellback or inventory reversals? Judge only supplied fields."},
+    "price_trap": {"type": "noul", "instructions": "Does sustained price weakness despite foreign buying look more like an unresolved falling-price trap than benign underreaction? Judge only supplied fields."},
+    "chase_risk": {"type": "noul", "instructions": "Does extension from moving averages or a sharp rebound make a new entry vulnerable to chasing? Judge only supplied fields."},
+    "review": {"type": "choice", "instructions": "Choose an independent research queue without predicting returns or issuing a buy instruction.", "criteria": {
+        "DEEP_REVIEW": "No obvious false-positive pattern; investigate business, filings and valuation separately.",
+        "WATCH": "Some ambiguity; await fresher flow or price confirmation.",
+        "REJECT": "A material false-positive pattern warrants investigation.",
     }},
 }
 FIELDS = (
-    "foreign_net1", "foreign_net5", "foreign_net20", "foreign_net60",
-    "foreign_buy_days10", "sellback_ratio20", "foreign_20_adtv",
-    "price_return1", "price_return5", "price_return20", "market_return20",
+    "foreign_net1", "foreign_net3", "foreign_net5", "foreign_net20", "foreign_net60",
+    "foreign_1_adtv", "foreign_5_adtv", "foreign_20_adtv",
+    "foreign_buy_days10", "foreign_buy_days20", "foreign_inventory_up_days10",
+    "foreign_inventory_down_days10", "foreign_flow_concentration20",
+    "sellback_ratio20", "foreign_acceleration3", "foreign_acceleration5",
+    "price_return1", "price_return3", "price_return5", "price_return20",
+    "price_residual20", "market_return20", "rebound_from_low20",
     "ma20_distance", "atr20_pct", "volume_ratio5_20",
 )
-OUTPUTS = ("jev_accumulation", "jev_underreaction", "jev_overheated", "jev_review", "jev_review_confidence", "jev_model", "jev_error")
+OUTPUTS = ("jev_fragile_flow", "jev_price_trap", "jev_chase_risk",
+           "jev_review", "jev_review_confidence", "jev_model", "jev_error")
 
 
 def _number(value):
@@ -41,7 +46,7 @@ def _number(value):
 
 def _state(row):
     return {
-        "units": "returns and ratios are in the bot's native units; foreign_net values are KRW 100 million",
+        "units": "returns and ratios are in the bot's native units; foreign_net values are KRW",
         "market": str(row.get("market", "")),
         "features": {field: _number(row.get(field)) for field in FIELDS},
     }
@@ -50,7 +55,7 @@ def _state(row):
 def _parse(payload):
     answers = payload["answers"]
     result = {}
-    for key in ("accumulation", "underreaction", "overheated"):
+    for key in ("fragile_flow", "price_trap", "chase_risk"):
         value = _number(answers[key]["noul"])
         if value is None or not 0 <= value <= 1:
             raise ValueError(f"Invalid Jev {key} response")
