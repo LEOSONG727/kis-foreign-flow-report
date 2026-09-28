@@ -199,3 +199,13 @@ def test_deep_backfill_walks_backwards_until_target_or_listing():
     # Each call anchors on the day before the oldest row received.
     assert all(later < earlier for earlier, later in zip(client.calls, client.calls[1:]))
     assert len(client.calls) <= 6
+
+
+def test_all_missing_feature_has_empty_ic_and_summary():
+    panel = _panel()
+    panel["empty_feature"] = np.nan
+    ic = daily_rank_ic(panel, "empty_feature", "excess20")
+    assert ic.empty
+    summary = summarize_series(ic, block=20, samples=50)
+    assert summary.dates == 0
+    assert partial_rank_ic(panel, "empty_feature", "excess20", controls=("pit_size",)).empty

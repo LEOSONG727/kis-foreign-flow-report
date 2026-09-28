@@ -306,9 +306,14 @@ def daily_rank_ic(panel: pd.DataFrame, column: str, target: str) -> pd.Series:
     frame = pd.DataFrame({"as_of": data["as_of"], "x": x, "y": y})
     counts = frame.groupby("as_of")["x"].transform("count")
     frame = frame[counts >= 20]
+    if frame.empty:
+        # An all-missing feature (e.g. financials not collected) has no IC.
+        return pd.Series(dtype=float)
     result = frame.groupby("as_of")[["x", "y"]].apply(
         lambda group: group["x"].corr(group["y"]) if group["x"].nunique() > 1 else np.nan
     )
+    if not isinstance(result, pd.Series):
+        return pd.Series(dtype=float)
     return result.dropna().astype(float)
 
 
