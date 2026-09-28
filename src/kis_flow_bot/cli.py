@@ -8,7 +8,8 @@ from pathlib import Path
 from .backtest import run_backtest, run_gate_sweep, run_screen_backtest
 from .config import load_settings
 from .pipeline import deep_backfill, rerank_stored_data, run_pipeline, smoke_test
-from .research import run_research
+from .jev_replay import run_jev_replay
+from .research import build_research_panel, run_research
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -24,6 +25,7 @@ def _parser() -> argparse.ArgumentParser:
             "gate-sweep",
             "research",
             "deep-backfill",
+            "jev-replay",
         ],
         nargs="?",
         default="run",
@@ -52,6 +54,12 @@ def _parser() -> argparse.ArgumentParser:
         default=150.0,
         help="deep-backfill 시간 예산(분). 넘으면 저장 후 종료하고 다음 실행에서 이어감",
     )
+    parser.add_argument(
+        "--max-calls",
+        type=int,
+        default=1500,
+        help="jev-replay 이번 실행 최대 API 호출 수(재실행 시 이어서 호출)",
+    )
     parser.add_argument("--root", type=Path, default=Path.cwd())
     return parser
 
@@ -76,7 +84,13 @@ def main() -> None:
         run_gate_sweep(settings)
         return
     if args.command == "research":
-        run_research(settings, workers=args.workers)
+        # One panel feeds both the rule/challenger audit and the Jev replay.
+        panel = build_research_panel(settings, workers=args.workers)
+        run_research(settings, panel=panel)
+        run_jev_replay(settings, max_calls=args.max_calls, panel=panel)
+        return
+    if args.command == "jev-replay":
+        run_jev_replay(settings, max_calls=args.max_calls, workers=args.workers)
         return
     if args.command == "deep-backfill":
         deep_backfill(

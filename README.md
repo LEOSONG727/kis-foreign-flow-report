@@ -165,6 +165,8 @@ symbol,quantity,average_price,last_buy_price,tranche_count
 - 판정을 보고 규칙 숫자를 손으로 고치면, 그 기간은 더 이상 검증 표본이 아니다. 규칙을 바꾸면 `config.toml`의 `rules_frozen_on`을 그날로 갱신한다.
 - 학습 사양(변수·릿지 강도·기간)을 바꾸면 `research.py`의 `SPEC_VERSION`을 올리고 기록을 새로 시작한다.
 - 표본 기간이 짧으면 어떤 결론도 약하다. `Deep history backfill` 워크플로(수동 실행)로 저장 이력을 `history_retention_days`(550일)까지 과거로 늘린다. 시간 예산을 넘으면 저장 후 끝나고 다시 실행하면 이어서 채운다. 550일 이력은 `history.csv` 약 60MB다.
+- Jev는 과거 신호일로 재생 검증한다(입력에 종목·날짜가 없어 미래정보가 섞이지 않음). 같은 입력으로 코드가 재현하지 못하는 Jev 고유 판단이 이후 수익을 설명하고, 이를 쓴 Top 3가 기존보다 나아야 `추가 가치 확인`이다. `추가 가치 없음`이면 일일 Jev 호출을 자동으로 멈춘다. 결과는 `reports/jev_replay.md`.
+- 모델 감독 알림은 코드가 판정한다: 작동 오류, 주간 자가검증 결과, Jev 재생 판정을 한 줄로 요약한다.
 - 2026-09 점검 결과는 [`docs/model-review-2026-09.md`](docs/model-review-2026-09.md)에 있다.
 
 ## 실전 추천 누적 평가

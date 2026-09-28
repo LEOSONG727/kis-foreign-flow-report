@@ -24,6 +24,7 @@ from .horizon import annotate_horizon, empty_horizon_state
 from .jev_shadow import OUTPUTS as JEV_OUTPUTS, apply_jev_shadow
 from .jev_experiment import update_jev_experiment, write_jev_comparison
 from .jev_monitor import monitor as monitor_jev, save_monitor
+from .jev_replay import daily_jev_allowed, load_jev_verdict
 from .kis_client import KISAPIError, KISClient
 from .live_tracking import update_live_tracking
 from .ml_shadow import apply_rich_shadow, update_shadow_tracking
@@ -258,6 +259,9 @@ def _write_outputs(
     ]
     status_counts = scored["jev_status"].value_counts().to_dict() if "jev_status" in scored else {}
     shadow_md = "\n\n## Jev Shadow · 참고용\n" + ("\n".join(f"- {line}" for line in shadow_lines) if shadow_lines else "- 평가 결과 없음")
+    if status_counts and set(status_counts) == {"VALIDATION_OFF"}:
+        shadow_lines = ["과거 재생 검증에서 추가 가치가 없어 일일 호출을 멈췄습니다 (reports/jev_replay.md)"]
+        shadow_md = "\n\n## Jev Shadow · 참고용\n- " + shadow_lines[0]
     shadow_md += "\n진단 상태: " + str(status_counts)
     shadow_html = "<section class='panel'><h2>Jev Shadow · 참고용</h2><p>숫자가 높을수록 해당 위험 패턴에 대한 동의가 강합니다. 손실 확률은 아닙니다. 기존 매수 후보와 순위에는 반영되지 않습니다.</p><ul>" + "".join(
         f"<li>{html.escape(line)}</li>" for line in shadow_lines
@@ -343,7 +347,7 @@ def _write_jev_shadow(scored: pd.DataFrame, reports_dir: Path) -> None:
     columns = ["as_of", "symbol", "name", "discovery_score", "proposal_status", *JEV_OUTPUTS]
     if "jev_status" not in scored:
         return
-    observed = scored[~scored["jev_status"].isin(["NOT_SELECTED", "DISABLED"])]
+    observed = scored[~scored["jev_status"].isin(["NOT_SELECTED", "DISABLED", "VALIDATION_OFF"])]
     write_csv(observed[[col for col in columns if col in observed]], reports_dir / "jev_shadow_latest.csv")
 
 
@@ -483,7 +487,13 @@ def run_pipeline(
         settings.horizon,
     )
 
-    scored = apply_jev_shadow(scored)
+    jev_verdict = load_jev_verdict(settings.data_dir / "jev_verdict.json")
+    if daily_jev_allowed(jev_verdict):
+        scored = apply_jev_shadow(scored)
+    else:
+        # The replay showed this exact prompt adds nothing; stop paying for it.
+        scored = apply_jev_shadow(scored, api_key="")
+        scored["jev_status"] = "VALIDATION_OFF"
 
     write_csv(history, history_path)
     write_csv(snapshots, snapshots_path)
@@ -499,7 +509,12 @@ def run_pipeline(
         tracking_error = True
         LOGGER.warning("Jev experiment tracking failed without blocking the report: %s", type(exc).__name__)
     try:
-        health = monitor_jev(scored, jev_ledger)
+        health = monitor_jev(
+            scored,
+            jev_ledger,
+            verdict=jev_verdict,
+            registry=read_state(settings.data_dir / "model_registry.json"),
+        )
         if tracking_error:
             health.update(decision="DIAGNOSE", source="code_tracking_guard")
             health["note"] = "모델 감독: 성과 기록 오류 점검 필요\n이번 실행의 성과 추적에 실패했습니다."
@@ -701,6 +716,13 @@ def deep_backfill(
             )
             if not frame.empty:
                 frames.append(frame)
+            if len(pending) <= 20:
+                LOGGER.info(
+                    "Deep backfill %s: oldest %s (was %s)",
+                    symbol,
+                    pd.to_datetime(frame["date"]).min().date() if not frame.empty else "no older rows",
+                    earliest_by_symbol.get(symbol),
+                )
         except Exception as exc:
             LOGGER.warning("Deep backfill failed for %s: %s", symbol, exc)
         if position % 50 == 0:

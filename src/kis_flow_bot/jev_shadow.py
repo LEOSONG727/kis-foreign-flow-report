@@ -127,6 +127,31 @@ def _parse(payload):
     return result
 
 
+def request_review(http, key, state, pause=time.sleep):
+    """One Jev request with bounded retries.
+
+    Returns (status, parsed values, error name, auth_failed). Shared by the
+    daily shadow and the historical replay so both see identical parsing.
+    """
+    auth_failed = False
+    for attempt in range(3):
+        try:
+            response = http.post(ENDPOINT, headers={"Authorization": f"Bearer {key}"},
+                json={"model": MODEL, "state": state, "questions": QUESTIONS},
+                timeout=(5, 12), allow_redirects=False)
+            if response.status_code in (401, 403, 422):
+                auth_failed = True
+            if response.status_code in (429, 500, 502, 503, 504, 529) and attempt < 2:
+                pause(2 ** attempt)
+                continue
+            if not 200 <= response.status_code < 300:
+                raise ValueError(f"HTTP_{response.status_code}")
+            return "OK", _parse(response.json()), None, auth_failed
+        except (requests.RequestException, ValueError, KeyError, TypeError, AttributeError) as exc:
+            return "API_ERROR", {}, type(exc).__name__, auth_failed
+    return "API_ERROR", {}, "RetryExhausted", auth_failed
+
+
 def apply_jev_shadow(scored, *, api_key=None, limit=LIMIT, session=None, pause=time.sleep):
     result = scored.copy()
     for col in OUTPUTS:
@@ -153,27 +178,14 @@ def apply_jev_shadow(scored, *, api_key=None, limit=LIMIT, session=None, pause=t
         if any(_number(row.get(field)) is None for field in REQUIRED):
             result.at[index, "jev_status"] = "INSUFFICIENT_DATA"
             continue
-        result.at[index, "jev_status"] = "API_ERROR"
-        for attempt in range(3):
-            try:
-                response = http.post(ENDPOINT, headers={"Authorization": f"Bearer {key}"},
-                    json={"model": MODEL, "state": state, "questions": QUESTIONS},
-                    timeout=(5, 12), allow_redirects=False)
-                if response.status_code in (401, 403, 422):
-                    circuit_open = True
-                if response.status_code in (429, 500, 502, 503, 504, 529) and attempt < 2:
-                    pause(2 ** attempt)
-                    continue
-                if not 200 <= response.status_code < 300:
-                    raise ValueError(f"HTTP_{response.status_code}")
-                for col, value in _parse(response.json()).items():
-                    result.at[index, col] = value
-                result.at[index, "jev_status"] = "OK"
-                break
-            except (requests.RequestException, ValueError, KeyError, TypeError, AttributeError) as exc:
-                LOGGER.warning("Jev unavailable for %s (%s)", row.get("symbol"), type(exc).__name__)
-                result.at[index, "jev_error"] = type(exc).__name__
-                break
+        status, values, error, auth_failed = request_review(http, key, state, pause)
+        circuit_open = circuit_open or auth_failed
+        result.at[index, "jev_status"] = status
+        for col, value in values.items():
+            result.at[index, col] = value
+        if error:
+            LOGGER.warning("Jev unavailable for %s (%s)", row.get("symbol"), error)
+            result.at[index, "jev_error"] = error
     if session is None:
         http.close()
     return result

@@ -24,6 +24,22 @@ The separate rule-policy report shows +0.69% average 20-day return and +4.94% ma
 
 Before production use: verify actual API responses; collect versioned forward outcomes; compare net paired returns and downside across multiple regimes with block-based uncertainty estimates; include costs, capacity, turnover, corporate actions and delisted stocks; require benefit versus the existing rules, not merely plausible-sounding model judgments. Jev may be removed if its incremental value is absent. Source-backed filing/news classification could add new information later, but no such feed is currently connected.
 
-## Automated model-health notification
+## Historical replay (2026-09-28)
 
-Every daily run now computes the latest cohort's paired performance summary in Python and asks Jev Choice for OBSERVE / DIAGNOSE / REVIEW. The notification uses fixed Korean templates. Numerical calculations, missing-data and operational-error guards remain in code; performance review is blocked before 20 common completed signal dates. Provider failures and low confidence are explicitly labeled as code fallback. The JSON record includes the evidence, proposed model decision, enforced decision and source in reports/jev_monitor_latest.json. The daily HTML, existing email and Telegram messages include the status. This is automatic triage and notification, not automatic code editing or promotion. It depends on the configured GitHub Actions job and notification secrets.
+Jev's input has no stock identity, date or score, so asking it about past signal dates cannot leak later prices. `python -m kis_flow_bot research` (weekly, and once via `validate-self-research.yml`) sends every labelled date's live-equivalent 12-name shortlist through the same request/parse code, stores answers in `data/jev_replay.csv` (resumable, keyed by date, symbol and prompt hash) and writes `reports/jev_replay.md` and `data/jev_verdict.json`.
+
+It measures three things:
+
+1. **Code replicability.** An out-of-fold code model of the same ten inputs (rank, clipped raw value and squares; contiguous date folds) predicts Jev's answer. High R² means code can reproduce Jev.
+2. **Jev's own judgment.** Answer minus that replica, correlated with the next 20-session excess return within each day's shortlist (date-block bootstrap).
+3. **Use.** Top 3 by lowest Jev risk and "discovery top 3 without REJECT" versus discovery top 3 on the same dates, with empty slots as cash.
+
+Pre-registered verdict: `ADDS_VALUE` requires the own-judgment correlation's upper bound < 0 **and** the lowest-risk top-3 improvement's lower bound > 0 over at least 40 complete dates. Otherwise `NO_VALUE`. With `NO_VALUE` for the current prompt hash and model, the daily pipeline stops calling Jev (`VALIDATION_OFF`). A new prompt or model version restarts validation automatically.
+
+## Model-health note
+
+The daily note is computed in code. The previous Jev choice call was overridden by code guards in every case that mattered. The note combines operational status, the weekly self-validation registry and the replay verdict. It requests human review when the challenger passes promotion, the rule champion turns negative after the freeze date, or the replay finds added value. It never edits code or rules.
+
+## Where Jev could add information
+
+The ten numbers above are already available to code, and the self-validation shows they carry little cross-sectional signal. Jev is most likely to add value on inputs code cannot read: for example, classifying filings or news around abnormal foreign flow (index rebalancing, block deals, rights issues) versus organic accumulation. That needs a point-in-time filing/news source (DART or KIS news titles) and can be evaluated with the same replay and gate.

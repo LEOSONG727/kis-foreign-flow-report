@@ -36,7 +36,9 @@ jobs:
         run: python -m kis_flow_bot backtest
       - name: Run daily-brief screen backtest
         run: python -m kis_flow_bot screen-backtest --step 1
-      - name: Self-validation (whole-universe IC, walk-forward challenger, promotion gate)
+      - name: Self-validation (whole-universe IC, walk-forward challenger, Jev replay)
+        env:
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
         run: python -m kis_flow_bot research
       - name: Upload backtest artifacts
         if: always()
@@ -53,7 +55,8 @@ jobs:
           git config user.email "foreign-flow-bot@users.noreply.github.com"
           git add data/calibration.json reports/backtest_latest.csv reports/backtest_thresholds.csv reports/backtest_score_bands.csv reports/backtest_latest.md reports/screen_backtest.csv reports/screen_backtest.md \
             data/learned_ranker.json data/model_registry.json \
-            reports/research_latest.md reports/research_factors.csv reports/research_oos.csv
+            reports/research_latest.md reports/research_factors.csv reports/research_oos.csv \
+            data/jev_replay.csv data/jev_verdict.json reports/jev_replay.md
           if git diff --cached --quiet; then
             echo "변경된 백테스트 결과가 없습니다."
             exit 0

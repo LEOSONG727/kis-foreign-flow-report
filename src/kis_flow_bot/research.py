@@ -37,6 +37,7 @@ import pandas as pd
 from .config import Settings
 from .eligibility import apply_candidate_eligibility
 from .features import add_cross_sectional_residuals, build_base_features
+from .jev_shadow import REQUIRED as JEV_INPUTS
 from .live_tracking import moving_block_mean_interval
 from .scoring import score_features
 from .storage import read_csv, write_csv
@@ -186,6 +187,10 @@ def _panel_one_date(date_index: int) -> pd.DataFrame:
                 *RULE_SCORES,
                 *LEARNED_FEATURES,
                 *DIAGNOSTIC_FEATURES,
+                *JEV_INPUTS,
+                "foreign_20_adtv",
+                "market_return20",
+                "timing_score",
                 "close",
                 *(f"fwd{h}" for h in PANEL_HORIZONS),
                 *(f"excess{h}" for h in PANEL_HORIZONS),
@@ -774,9 +779,14 @@ def write_research_outputs(result: dict[str, Any], settings: Settings, generated
     )
 
 
-def run_research(settings: Settings, workers: int | None = None) -> dict[str, Any]:
+def run_research(
+    settings: Settings,
+    workers: int | None = None,
+    panel: pd.DataFrame | None = None,
+) -> dict[str, Any]:
     generated_at = datetime.now(ZoneInfo("Asia/Seoul"))
-    panel = build_research_panel(settings, workers=workers)
+    if panel is None:
+        panel = build_research_panel(settings, workers=workers)
     if panel.empty:
         raise RuntimeError("Research panel is empty; at least 60 stored sessions are required")
     result = analyze_panel(panel, settings)
