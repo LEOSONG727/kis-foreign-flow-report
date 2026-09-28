@@ -93,7 +93,7 @@ def test_backtest_enters_next_open_and_uses_intraday_path_conservatively():
     assert round(result.forward_return, 3) == 0.087
 
 
-def test_market_benchmark_uses_same_market_median_and_next_open():
+def test_market_benchmark_uses_same_market_mean_and_next_open():
     history = pd.DataFrame(
         [
             {"date": "2026-01-02", "symbol": "A", "market": "KOSPI", "open": 100, "close": 100},

@@ -1,0 +1,134 @@
+{
+  "event_version": "jev-events-v1",
+  "prompt_hash": "28a92af03db774e6",
+  "model": "jev-1.13.0",
+  "rows": 1164,
+  "rows_with_filings": 1094,
+  "jev_answered": 1164,
+  "flags": [
+    {
+      "event": "dilution",
+      "source": "jev",
+      "flag_rate": 0.10051546391752578,
+      "flagged": 117,
+      "excess_flagged": -0.014649016890752322,
+      "excess_clean": 0.009471744128057286,
+      "severe_flagged": 0.358974358974359,
+      "severe_clean": 0.3562559694364852
+    },
+    {
+      "event": "dilution",
+      "source": "kw",
+      "flag_rate": 0.058419243986254296,
+      "flagged": 68,
+      "excess_flagged": 0.026159288968294774,
+      "excess_clean": 0.005861450251837512,
+      "severe_flagged": 0.35294117647058826,
+      "severe_clean": 0.35675182481751827,
+      "agreement": 0.9132302405498282
+    },
+    {
+      "event": "adverse",
+      "source": "jev",
+      "flag_rate": 0.03436426116838488,
+      "flagged": 40,
+      "excess_flagged": -0.04818290910259063,
+      "excess_clean": 0.00901272018679856,
+      "severe_flagged": 0.6,
+      "severe_clean": 0.34786476868327404
+    },
+    {
+      "event": "adverse",
+      "source": "kw",
+      "flag_rate": 0.03264604810996564,
+      "flagged": 38,
+      "excess_flagged": -0.06127027306204638,
+      "excess_clean": 0.00935279884743847,
+      "severe_flagged": 0.631578947368421,
+      "severe_clean": 0.347246891651865,
+      "agreement": 0.9810996563573883
+    },
+    {
+      "event": "catalyst",
+      "source": "jev",
+      "flag_rate": 0.14347079037800686,
+      "flagged": 167,
+      "excess_flagged": 0.001733141048753677,
+      "excess_clean": 0.007937358646656057,
+      "severe_flagged": 0.48502994011976047,
+      "severe_clean": 0.3350050150451354
+    },
+    {
+      "event": "catalyst",
+      "source": "kw",
+      "flag_rate": 0.19673539518900343,
+      "flagged": 229,
+      "excess_flagged": -0.019899345856125288,
+      "excess_clean": 0.01364698537637502,
+      "severe_flagged": 0.48034934497816595,
+      "severe_clean": 0.32620320855614976,
+      "agreement": 0.9072164948453608
+    }
+  ],
+  "dates": 97,
+  "portfolios": {
+    "baseline": {
+      "dates": 97,
+      "mean": 0.0005070089559547129,
+      "low": -0.05509836278250165,
+      "high": 0.05848114543525569,
+      "positive_share": 0.41237113402061853,
+      "effective_t": 0.008995356108044715
+    },
+    "baseline_severe": 0.3436426116838488,
+    "jev_veto": {
+      "dates": 97,
+      "mean": 0.0071015969135728675,
+      "low": -0.05049256477379043,
+      "high": 0.06746212819436613,
+      "positive_share": 0.4536082474226804,
+      "effective_t": 0.13010812007779907
+    },
+    "jev_veto_severe": 0.3264604810996563,
+    "keyword_veto": {
+      "dates": 97,
+      "mean": 0.004704360700031644,
+      "low": -0.052654198786778836,
+      "high": 0.06487067262638174,
+      "positive_share": 0.4639175257731959,
+      "effective_t": 0.08293883066824935
+    },
+    "keyword_veto_severe": 0.33333333333333337,
+    "jev_veto_minus_baseline": {
+      "dates": 97,
+      "mean": 0.006594587957618154,
+      "low": -0.003535765489373362,
+      "high": 0.016309138909873854,
+      "positive_share": 0.20618556701030927,
+      "effective_t": 0.37989634240217357
+    },
+    "keyword_veto_minus_baseline": {
+      "dates": 97,
+      "mean": 0.004197351744076931,
+      "low": -0.00298501509433197,
+      "high": 0.012685183525935374,
+      "positive_share": 0.14432989690721648,
+      "effective_t": 0.28836674684764413
+    },
+    "jev_veto_minus_keyword_veto": {
+      "dates": 97,
+      "mean": 0.0023972362135412234,
+      "low": -0.003683205588816259,
+      "high": 0.008674352903321551,
+      "positive_share": 0.18556701030927836,
+      "effective_t": 0.1474277719190406
+    }
+  },
+  "verdict": "NO_VALUE",
+  "reasons": [
+    "Jev 거부 − 키워드 거부 하한 -0.37%, 키워드 거부 − 기존 하한 -0.30%"
+  ],
+  "generated_at": "2026-09-28T18:04:14+09:00",
+  "distinct_states": 739,
+  "dart_calls": 204
+}

@@ -24,12 +24,17 @@ from .horizon import annotate_horizon, empty_horizon_state
 from .jev_shadow import OUTPUTS as JEV_OUTPUTS, apply_jev_shadow
 from .jev_experiment import update_jev_experiment, write_jev_comparison
 from .jev_monitor import monitor as monitor_jev, save_monitor
+from .jev_events import apply_event_review, event_section
+from .jev_replay import daily_jev_allowed, load_jev_verdict
 from .kis_client import KISAPIError, KISClient
 from .live_tracking import update_live_tracking
 from .ml_shadow import apply_rich_shadow, update_shadow_tracking
 from .notify import deliver_notifications
+from .paper import paper_section, update_paper_trading
 from .portfolio import apply_portfolio_actions, load_portfolio
 from .report import render_report
+from .fundamentals import attach_fundamentals, load_financials
+from .research import apply_learned_ranker, learned_section, load_learned_ranker
 from .scoring import score_features
 from .storage import (
     merge_history,
@@ -257,6 +262,9 @@ def _write_outputs(
     ]
     status_counts = scored["jev_status"].value_counts().to_dict() if "jev_status" in scored else {}
     shadow_md = "\n\n## Jev Shadow · 참고용\n" + ("\n".join(f"- {line}" for line in shadow_lines) if shadow_lines else "- 평가 결과 없음")
+    if status_counts and set(status_counts) == {"VALIDATION_OFF"}:
+        shadow_lines = ["과거 재생 검증에서 추가 가치가 없어 일일 호출을 멈췄습니다 (reports/jev_replay.md)"]
+        shadow_md = "\n\n## Jev Shadow · 참고용\n- " + shadow_lines[0]
     shadow_md += "\n진단 상태: " + str(status_counts)
     shadow_html = "<section class='panel'><h2>Jev Shadow · 참고용</h2><p>숫자가 높을수록 해당 위험 패턴에 대한 동의가 강합니다. 손실 확률은 아닙니다. 기존 매수 후보와 순위에는 반영되지 않습니다.</p><ul>" + "".join(
         f"<li>{html.escape(line)}</li>" for line in shadow_lines
@@ -266,8 +274,16 @@ def _write_outputs(
     if monitor_note:
         shadow_html += "<section><h2>모델 감독</h2><p>" + html.escape(monitor_note).replace("\n", "<br>") + "</p></section>"
         shadow_md += "\n\n" + monitor_note
-    rendered_html = rendered.html.replace("</main>", shadow_html + "</main>")
-    rendered_markdown = rendered.markdown + shadow_md + "\n"
+    data_dir = getattr(settings, "data_dir", None)
+    learned_md, learned_html = learned_section(
+        scored, load_learned_ranker(data_dir / "learned_ranker.json") if data_dir else None
+    )
+    event_md, event_html = event_section(
+        scored, load_jev_verdict(data_dir / "jev_event_verdict.json") if data_dir else None
+    )
+    paper_md, paper_html = paper_section(scored.attrs.get("paper_summary"))
+    rendered_html = rendered.html.replace("</main>", paper_html + event_html + learned_html + shadow_html + "</main>")
+    rendered_markdown = rendered.markdown + paper_md + event_md + learned_md + shadow_md + "\n"
     latest_html.write_text(rendered_html, encoding="utf-8")
     (settings.reports_dir / f"{report_date}.html").write_text(rendered_html, encoding="utf-8")
     (settings.reports_dir / "latest.md").write_text(rendered_markdown, encoding="utf-8")
@@ -277,6 +293,10 @@ def _write_outputs(
         "discovery_score", "timing_score", "distribution_score", "signal_score",
         "ml_shadow_available", "ml_shadow_model", "ml_shadow_prediction",
         "ml_shadow_score", "ml_shadow_rank", "ml_shadow_top", "ml_shadow_baseline_rank",
+        "learned_score", "learned_rank", "learned_status", "pit_size",
+        "op_yoy_mcap", "op_yield", "book_to_market", "revenue_yoy", "report_age",
+        "event_filings", "event_dilution", "event_adverse", "event_catalyst",
+        "kw_dilution", "kw_adverse", "kw_catalyst",
         "jev_fragile_flow", "jev_price_trap", "jev_chase_risk", "jev_review",
         "jev_review_confidence", "jev_model", "jev_error",
         "price_heat_penalty", "price_heat_flag", "price_heat_reason", "dip_absorption",
@@ -337,7 +357,7 @@ def _write_jev_shadow(scored: pd.DataFrame, reports_dir: Path) -> None:
     columns = ["as_of", "symbol", "name", "discovery_score", "proposal_status", *JEV_OUTPUTS]
     if "jev_status" not in scored:
         return
-    observed = scored[~scored["jev_status"].isin(["NOT_SELECTED", "DISABLED"])]
+    observed = scored[~scored["jev_status"].isin(["NOT_SELECTED", "DISABLED", "VALIDATION_OFF"])]
     write_csv(observed[[col for col in columns if col in observed]], reports_dir / "jev_shadow_latest.csv")
 
 
@@ -462,6 +482,10 @@ def run_pipeline(
         scored,
         settings.reports_dir / "ml_rich_features.csv",
     )
+    scored = attach_fundamentals(scored, load_financials(settings.data_dir))
+    scored = apply_learned_ranker(
+        scored, load_learned_ranker(settings.data_dir / "learned_ranker.json")
+    )
     scored = apply_portfolio_actions(scored, portfolio, settings.model)
     scored = annotate_watch_brief(scored, settings.model, settings.brief)
     horizon_path = settings.data_dir / "horizon_core.json"
@@ -474,7 +498,14 @@ def run_pipeline(
         settings.horizon,
     )
 
-    scored = apply_jev_shadow(scored)
+    jev_verdict = load_jev_verdict(settings.data_dir / "jev_verdict.json")
+    if daily_jev_allowed(jev_verdict):
+        scored = apply_jev_shadow(scored)
+    else:
+        # The replay showed this exact prompt adds nothing; stop paying for it.
+        scored = apply_jev_shadow(scored, api_key="")
+        scored["jev_status"] = "VALIDATION_OFF"
+    scored = apply_event_review(scored, settings)
 
     write_csv(history, history_path)
     write_csv(snapshots, snapshots_path)
@@ -490,7 +521,12 @@ def run_pipeline(
         tracking_error = True
         LOGGER.warning("Jev experiment tracking failed without blocking the report: %s", type(exc).__name__)
     try:
-        health = monitor_jev(scored, jev_ledger)
+        health = monitor_jev(
+            scored,
+            jev_ledger,
+            verdict=jev_verdict,
+            registry=read_state(settings.data_dir / "model_registry.json"),
+        )
         if tracking_error:
             health.update(decision="DIAGNOSE", source="code_tracking_guard")
             health["note"] = "모델 감독: 성과 기록 오류 점검 필요\n이번 실행의 성과 추적에 실패했습니다."
@@ -498,6 +534,10 @@ def run_pipeline(
         save_monitor(health, settings.reports_dir / "jev_monitor_latest.json")
     except Exception as exc:
         scored.attrs["jev_monitor_note"] = "모델 감독: 감독 처리 오류 점검 필요 (" + type(exc).__name__ + ")"
+    try:
+        scored.attrs["paper_summary"] = update_paper_trading(scored, history, settings, generated_at)
+    except Exception as exc:  # paper trading must never block the report
+        LOGGER.warning("Paper trading update failed without blocking the report: %s", exc)
     latest_html = _write_outputs(scored, settings, generated_at, horizon_board)
     try:
         shadow_ledger = update_shadow_tracking(
@@ -554,6 +594,10 @@ def rerank_stored_data(settings: Settings, notify: bool = False) -> pd.DataFrame
         scored,
         settings.reports_dir / "ml_rich_features.csv",
     )
+    scored = attach_fundamentals(scored, load_financials(settings.data_dir))
+    scored = apply_learned_ranker(
+        scored, load_learned_ranker(settings.data_dir / "learned_ranker.json")
+    )
     scored = apply_portfolio_actions(scored, portfolio, settings.model)
     scored = annotate_watch_brief(scored, settings.model, settings.brief)
     horizon_path = settings.data_dir / "horizon_core.json"
@@ -582,6 +626,137 @@ def rerank_stored_data(settings: Settings, notify: bool = False) -> pd.DataFrame
         deliver_notifications(scored, latest_html, settings.brief, settings.model, horizon_board)
     LOGGER.info("Stored-data rerank complete: %s (%d ranked securities)", latest_html, len(scored))
     return scored
+
+
+def _backfill_symbol_older(
+    client: KISClient,
+    symbol: str,
+    name: str,
+    market: str,
+    earliest: date,
+    target: date,
+    max_calls: int = 40,
+) -> pd.DataFrame:
+    """Walk one symbol backwards from its earliest stored day until ``target``.
+
+    Each KIS call returns the rows ending at the requested date, so the next
+    anchor is simply the day before the oldest row received. The walk stops
+    when a call adds nothing older (listing date or API depth reached).
+    """
+
+    frames: list[pd.DataFrame] = []
+    anchor = earliest - timedelta(days=1)
+    for _ in range(max_calls):
+        if anchor < target:
+            break
+        rows = client.investor_daily(symbol, anchor)
+        frame = normalize_investor_rows(symbol, name, market, rows)
+        if frame.empty:
+            break
+        oldest = pd.to_datetime(frame["date"]).min().date()
+        frames.append(frame)
+        if oldest >= anchor + timedelta(days=1) or oldest > earliest:
+            break
+        anchor = oldest - timedelta(days=1)
+    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+
+
+def deep_backfill(
+    settings: Settings,
+    days: int | None = None,
+    max_minutes: float = 150.0,
+    universe_limit: int | None = None,
+) -> pd.DataFrame:
+    """Extend stored history backwards for the whole universe (resumable).
+
+    More history is the only way to make the weekly self-validation meaningful:
+    20-session outcomes overlap, so ~6 months hold only ~6 independent periods.
+    The run saves progress every 50 symbols and stops at ``max_minutes``; the
+    next run continues from each symbol's current earliest date.
+    """
+
+    started = datetime.now(ZoneInfo("Asia/Seoul"))
+    days = min(int(days or settings.screening.history_retention_days), settings.screening.history_retention_days)
+    history_path = settings.data_dir / "history.csv"
+    history = read_csv(history_path)
+    if history.empty:
+        raise RuntimeError("Run the daily pipeline once before deep-backfill")
+    history["date"] = pd.to_datetime(history["date"], errors="coerce")
+    history["symbol"] = history["symbol"].astype("string").str.zfill(6)
+    universe = read_csv(settings.data_dir / "universe.csv")
+    universe["symbol"] = universe["symbol"].astype("string").str.zfill(6)
+    if universe_limit:
+        universe = universe.head(universe_limit)
+    latest = history["date"].max().date()
+    target = latest - timedelta(days=days)
+    earliest_by_symbol = history.groupby("symbol")["date"].min().dt.date.to_dict()
+    pending = [
+        row
+        for _, row in universe.iterrows()
+        if earliest_by_symbol.get(str(row["symbol"]), latest) > target + timedelta(days=7)
+    ]
+    LOGGER.info(
+        "Deep backfill to %s: %d/%d symbols need older history",
+        target,
+        len(pending),
+        len(universe),
+    )
+    if not pending:
+        return history
+    client = KISClient.from_env(settings.api)
+    client.authenticate()
+    frames: list[pd.DataFrame] = []
+
+    def flush() -> None:
+        nonlocal history, frames
+        if not frames:
+            return
+        history = merge_history(
+            history,
+            pd.concat(frames, ignore_index=True),
+            settings.screening.history_retention_days,
+            latest,
+        )
+        write_csv(history, history_path)
+        frames = []
+
+    for position, meta in enumerate(pending, 1):
+        symbol = str(meta["symbol"]).zfill(6)
+        try:
+            frame = _backfill_symbol_older(
+                client,
+                symbol,
+                str(meta["name"]),
+                str(meta["market"]),
+                earliest_by_symbol.get(symbol, latest + timedelta(days=1)),
+                target,
+            )
+            if not frame.empty:
+                frames.append(frame)
+            if len(pending) <= 20:
+                LOGGER.info(
+                    "Deep backfill %s: oldest %s (was %s)",
+                    symbol,
+                    pd.to_datetime(frame["date"]).min().date() if not frame.empty else "no older rows",
+                    earliest_by_symbol.get(symbol),
+                )
+        except Exception as exc:
+            LOGGER.warning("Deep backfill failed for %s: %s", symbol, exc)
+        if position % 50 == 0:
+            flush()
+            LOGGER.info("Deep backfill progress: %d/%d", position, len(pending))
+        elapsed = (datetime.now(ZoneInfo("Asia/Seoul")) - started).total_seconds() / 60.0
+        if elapsed >= max_minutes:
+            LOGGER.info("Deep backfill time budget reached at %d/%d; resume next run", position, len(pending))
+            break
+    flush()
+    LOGGER.info(
+        "Deep backfill stored %s ~ %s (%d sessions)",
+        history["date"].min().date(),
+        history["date"].max().date(),
+        history["date"].nunique(),
+    )
+    return history
 
 
 def smoke_test(settings: Settings) -> None:

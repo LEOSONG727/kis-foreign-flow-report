@@ -652,6 +652,7 @@ def build_base_features(
                 "institution_5_adtv": float(institution_net5 / adtv20) if adtv20 else 0.0,
                 "institution_20_adtv": float(institution_net20 / adtv20) if adtv20 else 0.0,
                 "market_cap_eok": _float_or(m.get("market_cap_eok")),
+                "listed_shares": _float_or(m.get("listed_shares"), np.nan),
                 "sales": _float_or(m.get("sales")),
                 "operating_profit": _float_or(m.get("operating_profit")),
                 "net_income": _float_or(m.get("net_income")),
@@ -677,6 +678,11 @@ def build_base_features(
     result = pd.DataFrame(rows)
     if result.empty:
         return result
+    # Size on the signal date. market_cap_eok is today's value from the
+    # universe master and leaks the future when replayed.
+    pit_value = result["listed_shares"] * result["close"]
+    result["pit_size"] = np.log(pit_value.where(pit_value > 0))
+    result["log_adtv20"] = np.log(result["adtv20"].clip(lower=1.0))
     holding_value = result["foreign_holding_qty"] * result["close"]
     result["foreign_ownership_days_adtv"] = np.where(
         (result["adtv20"] > 0) & holding_value.notna(),

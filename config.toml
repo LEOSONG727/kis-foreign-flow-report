@@ -122,6 +122,33 @@ policy_bootstrap_samples = 2000
 # 이보다 적은 완료 신호일은 결론 대신 '표본 축적 중'으로 표시
 policy_min_signal_dates = 20
 
+[research]
+# 자가검증 루프(주간). 사전등록 규칙이므로 결과를 보고 숫자를 바꾸지 않는다.
+# 전체 적격 종목의 순위 예측력(IC)을 재고, 학습 도전자 모델을 워크포워드로 재학습한 뒤
+# 고정된 승격 게이트로 판정한다. 규칙 모델 자체는 자동으로 수정하지 않는다.
+horizon = 20
+top_k = 5
+retrain_every = 5
+min_train_dates = 40
+ridge_alpha = 20.0
+# 120 OOS 신호일 ≈ 겹치지 않는 20일 구간 6개
+min_oos_dates = 120
+confidence = 0.90
+bootstrap_samples = 2000
+# 이 날짜 이후 신호만 규칙 튜닝에 쓰이지 않은 진짜 표본이다. 규칙을 고치면 날짜를 갱신한다.
+rules_frozen_on = "2026-09-28"
+# 0이면 CPU 수만큼 병렬
+workers = 0
+
+[paper]
+# 모의 운용(가상 자금). 전략별로 같은 규칙: 다음 날 시가 매수, 최대 10종목 동일 비중,
+# 20거래일 보유 후 다음 시가 매도, 왕복 비용은 [model] backtest_roundtrip_cost_pct.
+slots = 10
+hold_sessions = 20
+picks_per_day = 5
+initial_equity = 100000000
+start_date = "2026-09-29"
+
 [watchlist]
 # 기존 관심종목 + 비교 기준 7종목
 # LG에너지솔루션, LG화학, 셀트리온, 현대차, 삼성SDI, 한화에어로스페이스, HD현대중공업

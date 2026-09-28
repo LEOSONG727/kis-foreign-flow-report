@@ -1,52 +1,33 @@
 import pandas as pd
 
 from kis_flow_bot.jev_monitor import monitor, summarize
-from kis_flow_bot.jev_shadow import MODEL
 
 
-class Response:
-    status_code = 200
-    def json(self):
-        return {"model": MODEL, "answers": {"next_step": {
-            "type": "choice", "choice": "REVIEW", "confidence": .9}}}
-
-
-class Session:
-    def post(self, *a, **k):
-        return Response()
-
-
-def test_sample_guard_blocks_premature_improvement():
-    result = monitor(pd.DataFrame({"jev_status": ["OK"]}), pd.DataFrame(), api_key="test", session=Session())
+def test_default_is_observe_from_code():
+    result = monitor(pd.DataFrame({"jev_status": ["OK"]}), pd.DataFrame())
     assert result["decision"] == "OBSERVE"
-    assert result["model_decision"] == "REVIEW"
-    assert result["source"] == "code_sample_guard"
+    assert result["source"] == "code"
 
 
 def test_operational_errors_take_priority():
-    result = monitor(pd.DataFrame({"jev_status": ["API_ERROR", "CIRCUIT_OPEN"]}), pd.DataFrame(), api_key="test", session=Session())
+    registry = {"current": {"challenger": {"status": "PROMOTE"}}}
+    result = monitor(pd.DataFrame({"jev_status": ["API_ERROR", "CIRCUIT_OPEN"]}), pd.DataFrame(), registry=registry)
     assert result["decision"] == "DIAGNOSE"
     assert "작동 상태 점검" in result["note"]
 
 
-def test_missing_key_is_explicit():
-    result = monitor(pd.DataFrame({"jev_status": ["DISABLED"]}), pd.DataFrame(), api_key="")
-    assert result["error"] == "missing_api_key"
-    assert "코드 기준" in result["note"]
-
-
-def test_complete_paired_evidence_allows_review():
-    from kis_flow_bot.jev_experiment import VERSION
-    ledger = pd.DataFrame([{
-        "signal_date": day.strftime("%Y-%m-%d"), "experiment_version": VERSION,
-        "cohort_id": "v2", "cohort_size": 3, "symbol": str(i), "jev_status": "OK",
-        "net_return_20": -.03, "worst_entry_loss_20": -.1,
-        "baseline_rank": i, "ml_rank": i, "jev_rank": i,
-    } for day in pd.bdate_range("2026-06-01", periods=20) for i in range(1, 4)])
-    result = monitor(pd.DataFrame({"jev_status": ["OK"]}), ledger, api_key="test", session=Session())
-    assert result["evidence"]["completed_common_days"] == 20
+def test_validation_changes_request_review():
+    registry = {"current": {"champion": {"status": "NEGATIVE"}, "challenger": {"status": "NO_EDGE"}}}
+    result = monitor(pd.DataFrame({"jev_status": ["OK"]}), pd.DataFrame(), registry=registry)
     assert result["decision"] == "REVIEW"
-    assert result["source"] == "jev"
+    assert "역방향 예측" in result["note"]
+
+
+def test_replay_verdict_is_reported_and_validation_off_is_not_an_error():
+    frame = pd.DataFrame({"jev_status": ["VALIDATION_OFF"] * 3})
+    result = monitor(frame, pd.DataFrame(), verdict={"verdict": "NO_VALUE"})
+    assert result["decision"] == "OBSERVE"
+    assert "일일 호출 중지" in result["note"]
 
 
 def test_notes_reach_both_notification_builders(monkeypatch):

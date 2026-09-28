@@ -1,28 +1,19 @@
-"""Use Jev to triage model-health evidence and send a bounded status note."""
+"""Model-health triage computed in code, sent as a bounded status note."""
 from __future__ import annotations
 
 import json
-import math
-import os
 from datetime import datetime, timezone
 
 import pandas as pd
-import requests
 
 from .jev_experiment import VERSION
-from .jev_shadow import ENDPOINT, MODEL
 
-CHOICES = {
-    "OBSERVE": "Continue collecting prospective evidence; no review is warranted yet.",
-    "DIAGNOSE": "Inspect missing data, API failures, or a tracking problem.",
-    "REVIEW": "Prepare a human review of the challenger; do not change production rules.",
-}
 LABELS = {"OBSERVE": "계속 관찰", "DIAGNOSE": "작동 상태 점검", "REVIEW": "개선 검토 필요"}
 
 
 def summarize(scored, ledger):
     counts = scored.get("jev_status", pd.Series(dtype=str)).value_counts().to_dict()
-    problems = sum(int(counts.get(k, 0)) for k in ("API_ERROR", "CIRCUIT_OPEN", "INSUFFICIENT_DATA", "DISABLED"))
+    problems = sum(int(counts.get(k, 0)) for k in ("API_ERROR", "CIRCUIT_OPEN", "INSUFFICIENT_DATA"))
     rows = []
     cohort = "none"
     recorded = 0
@@ -63,58 +54,50 @@ def summarize(scored, ledger):
     return evidence
 
 
-def monitor(scored, ledger, *, api_key=None, session=None):
+def monitor(scored, ledger, *, verdict=None, registry=None):
+    """Code-only model-health triage.
+
+    The earlier version asked Jev to pick a queue and then overrode it with
+    code guards in every case that mattered, so the call added cost without
+    changing the outcome. The decision now comes from computed evidence:
+    operational failures, the weekly self-validation registry and the Jev
+    replay verdict.
+    """
     evidence = summarize(scored, ledger)
-    fallback = "DIAGNOSE" if evidence["operational_status"] == "issues_present" else "OBSERVE"
+    current = (registry or {}).get("current") or {}
+    champion = (current.get("champion") or {}).get("status")
+    challenger = (current.get("challenger") or {}).get("status")
+    replay = (verdict or {}).get("verdict")
+    evidence.update(
+        champion_status=champion or "unavailable",
+        challenger_status=challenger or "unavailable",
+        jev_replay_verdict=replay or "unavailable",
+    )
+    if evidence["operational_status"] == "issues_present":
+        decision = "DIAGNOSE"
+    elif challenger == "PROMOTE" or champion == "NEGATIVE" or replay == "ADDS_VALUE":
+        decision = "REVIEW"
+    else:
+        decision = "OBSERVE"
     result = {"captured_at": datetime.now(timezone.utc).isoformat(), "evidence": evidence,
-              "decision": fallback, "source": "code_fallback", "model": None, "error": None}
-    key = api_key if api_key is not None else os.getenv("TYPESAFE_API_KEY", "")
-    if key:
-        http = session or requests.Session()
-        try:
-            response = http.post(ENDPOINT, headers={"Authorization": f"Bearer {key}"},
-                json={"model": MODEL, "state": evidence, "questions": {
-                    "next_step": {"type": "choice", "instructions": "Which review queue fits the computed model-health evidence? Respect sample_status. Return a review queue, not code changes or trading instructions.", "criteria": CHOICES}}},
-                timeout=(5, 12), allow_redirects=False)
-            if not 200 <= response.status_code < 300:
-                raise ValueError("HTTP failure")
-            body = response.json()
-            answer = body["answers"]["next_step"]
-            confidence = answer["confidence"]
-            if (body.get("model") != MODEL or answer.get("type") != "choice"
-                or answer.get("choice") not in CHOICES or isinstance(confidence, bool)
-                or not isinstance(confidence, (int, float)) or not math.isfinite(confidence)
-                or not 0 <= confidence <= 1):
-                raise ValueError("Invalid monitor response")
-            result.update(model=body["model"], model_decision=answer["choice"], confidence=confidence,
-                          decision=answer["choice"] if confidence >= .6 else fallback,
-                          source="jev" if confidence >= .6 else "code_low_confidence")
-            if evidence["operational_status"] == "issues_present":
-                result.update(decision="DIAGNOSE", source="code_guard")
-            elif evidence["completed_common_days"] < 20 and result["decision"] == "REVIEW":
-                result.update(decision="OBSERVE", source="code_sample_guard")
-        except (requests.RequestException, ValueError, KeyError, TypeError, AttributeError) as exc:
-            result["error"] = type(exc).__name__
-        finally:
-            if session is None:
-                http.close()
-    else:
-        result["error"] = "missing_api_key"
-    evidence_days = evidence["completed_common_days"]
-    label = LABELS[result["decision"]]
-    origin = "Jev 판단" if result["source"] == "jev" else "코드 기준 판단"
-    note = f"모델 감독: {label} ({origin})\n20일 성과 비교 가능: {evidence_days}일 / 기록 {evidence['recorded_signal_days']}일"
-    if evidence_days < 20:
-        note += "\n성과 표본 축적 중이며 기준 변경은 보류합니다."
-    else:
-        note += "\n" + evidence["return_difference"]
-        note += "\n" + evidence["entry_loss_difference"]
+              "decision": decision, "source": "code", "model": None, "error": None}
+    labels = {
+        "INSUFFICIENT_DATA": "표본 부족", "NO_EDGE": "예측력 미확인", "NOT_BETTER": "현행 대비 우위 없음",
+        "PROMOTE": "승격 기준 통과", "VALIDATED": "실전 예측력 확인", "NEGATIVE": "역방향 예측",
+        "NO_VALUE": "추가 가치 없음", "ADDS_VALUE": "추가 가치 확인",
+    }
+    note = f"모델 감독: {LABELS[decision]}"
+    if champion or challenger:
+        note += (f"\n자가검증: 현행 {labels.get(champion, champion or '-')}"
+                 f" · 도전자 {labels.get(challenger, challenger or '-')}")
+    if replay:
+        note += f"\nJev 과거 검증: {labels.get(replay, replay)}"
+        if replay == "NO_VALUE":
+            note += " (일일 호출 중지)"
     if evidence["operational_status"] == "issues_present":
         note += "\n진단 상태: " + str(evidence["status_counts"])
-    if result["error"]:
-        note += "\n감독 API 미확인: " + result["error"]
-    if result["decision"] == "REVIEW":
-        note += "\n입력·질문·위험 기준의 검토가 필요합니다. 자동 수정은 하지 않습니다."
+    if decision == "REVIEW":
+        note += "\n검증 결과가 바뀌었습니다. 사람이 검토하세요. 자동 수정은 하지 않습니다."
     result["note"] = note
     return result
 
