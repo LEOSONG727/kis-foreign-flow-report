@@ -24,6 +24,7 @@ from .horizon import annotate_horizon, empty_horizon_state
 from .jev_shadow import OUTPUTS as JEV_OUTPUTS, apply_jev_shadow
 from .jev_experiment import update_jev_experiment, write_jev_comparison
 from .jev_monitor import monitor as monitor_jev, save_monitor
+from .earnings_quality import apply_earnings_quality, eq_section
 from .jev_events import apply_event_review, event_section
 from .jev_replay import daily_jev_allowed, load_jev_verdict
 from .kis_client import KISAPIError, KISClient
@@ -282,8 +283,13 @@ def _write_outputs(
         scored, load_jev_verdict(data_dir / "jev_event_verdict.json") if data_dir else None
     )
     paper_md, paper_html = paper_section(scored.attrs.get("paper_summary"))
-    rendered_html = rendered.html.replace("</main>", paper_html + event_html + learned_html + shadow_html + "</main>")
-    rendered_markdown = rendered.markdown + paper_md + event_md + learned_md + shadow_md + "\n"
+    eq_md, eq_html = eq_section(
+        scored, load_jev_verdict(data_dir / "earnings_quality_verdict.json") if data_dir else None
+    )
+    rendered_html = rendered.html.replace(
+        "</main>", paper_html + eq_html + event_html + learned_html + shadow_html + "</main>"
+    )
+    rendered_markdown = rendered.markdown + paper_md + eq_md + event_md + learned_md + shadow_md + "\n"
     latest_html.write_text(rendered_html, encoding="utf-8")
     (settings.reports_dir / f"{report_date}.html").write_text(rendered_html, encoding="utf-8")
     (settings.reports_dir / "latest.md").write_text(rendered_markdown, encoding="utf-8")
@@ -297,6 +303,7 @@ def _write_outputs(
         "op_yoy_mcap", "op_yield", "book_to_market", "revenue_yoy", "report_age",
         "event_filings", "event_dilution", "event_adverse", "event_catalyst",
         "kw_dilution", "kw_adverse", "kw_catalyst",
+        "eq_one_off", "eq_recurring", "eq_kw_veto",
         "jev_fragile_flow", "jev_price_trap", "jev_chase_risk", "jev_review",
         "jev_review_confidence", "jev_model", "jev_error",
         "price_heat_penalty", "price_heat_flag", "price_heat_reason", "dip_absorption",
@@ -506,6 +513,7 @@ def run_pipeline(
         scored = apply_jev_shadow(scored, api_key="")
         scored["jev_status"] = "VALIDATION_OFF"
     scored = apply_event_review(scored, settings)
+    scored = apply_earnings_quality(scored, settings)
 
     write_csv(history, history_path)
     write_csv(snapshots, snapshots_path)

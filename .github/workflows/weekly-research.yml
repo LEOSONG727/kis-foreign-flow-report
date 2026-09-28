@@ -50,7 +50,9 @@ jobs:
             data/jev_replay.csv data/jev_verdict.json reports/jev_replay.md \
             data/dart_corp_codes.csv data/dart_filings.csv data/dart_coverage.json data/dart_financials.csv \
             data/jev_event_answers.csv data/jev_event_verdict.json reports/jev_events.md \
-            reports/portfolio_backtest.md reports/portfolio_backtest.csv; do
+            reports/portfolio_backtest.md reports/portfolio_backtest.csv \
+            data/dart_documents.csv data/earnings_quality_answers.csv data/earnings_quality_verdict.json \
+            reports/earnings_quality.md; do
             if [[ -e "$f" ]]; then git add "$f"; fi
           done
           if git diff --cached --quiet; then

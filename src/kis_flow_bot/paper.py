@@ -39,6 +39,7 @@ STRATEGY_LABELS = {
     "learned_top5": "학습 모델 상위 5",
     "filing_veto_top5": "발견 상위 5 · 공시 희석·악재 제외",
     "value_top5": "사전등록 가설 H1 상위 5 (영업이익 수익률·순자산·저변동성)",
+    "value_clean_top5": "H1 상위 5 · Jev 일회성 이익 제외 (가설 H3)",
 }
 VALUE_HYPOTHESIS = "H1-value-quality-lowvol"
 SIGNAL_COLUMNS = ["as_of", "strategy", "rank", "symbol", "name", "captured_at"]
@@ -249,6 +250,11 @@ def live_signals(scored: pd.DataFrame, picks: int = 5) -> pd.DataFrame:
         hypothesis = next(h for h in HYPOTHESES if h.id == VALUE_HYPOTHESIS)
         scored_value = ordered.assign(_value=hypothesis_score(ordered.assign(as_of=as_of), hypothesis))
         chosen["value_top5"] = scored_value.sort_values("_value", ascending=False).head(picks)
+        if "eq_one_off" in scored_value and scored_value["eq_one_off"].notna().any():
+            one_off = scored_value["eq_one_off"].fillna(0.0) >= 0.5
+            chosen["value_clean_top5"] = (
+                scored_value[~one_off].sort_values("_value", ascending=False).head(picks)
+            )
     if "kw_dilution" in ordered:
         risky = ordered["kw_dilution"].fillna(False).astype(bool) | ordered["kw_adverse"].fillna(False).astype(bool)
         chosen["filing_veto_top5"] = ordered[~risky].head(picks)
