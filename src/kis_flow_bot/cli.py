@@ -8,6 +8,7 @@ from pathlib import Path
 from .backtest import run_backtest, run_gate_sweep, run_screen_backtest
 from .config import load_settings
 from .pipeline import deep_backfill, rerank_stored_data, run_pipeline, smoke_test
+from .earnings_quality import run_earnings_quality
 from .jev_events import run_event_replay
 from .jev_replay import run_jev_replay
 from .research import build_research_panel, run_research
@@ -28,6 +29,7 @@ def _parser() -> argparse.ArgumentParser:
             "deep-backfill",
             "jev-replay",
             "event-replay",
+            "earnings-quality",
         ],
         nargs="?",
         default="run",
@@ -91,6 +93,10 @@ def main() -> None:
         run_research(settings, panel=panel)
         run_jev_replay(settings, max_calls=args.max_calls, panel=panel)
         run_event_replay(settings, max_calls=args.max_calls, panel=panel)
+        run_earnings_quality(settings, panel=panel, max_calls=args.max_calls)
+        return
+    if args.command == "earnings-quality":
+        run_earnings_quality(settings, max_calls=args.max_calls, workers=args.workers)
         return
     if args.command == "event-replay":
         run_event_replay(settings, max_calls=args.max_calls, workers=args.workers)

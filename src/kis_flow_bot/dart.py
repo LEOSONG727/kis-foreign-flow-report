@@ -8,8 +8,10 @@ re-download the same range.
 
 from __future__ import annotations
 
+import html
 import io
 import json
+import re
 import logging
 import os
 import time
@@ -41,6 +43,14 @@ FILING_COLUMNS = [
 
 class DartError(RuntimeError):
     pass
+
+
+def xml_to_text(markup: str) -> str:
+    """Strip DART XML/HTML tags and collapse whitespace."""
+
+    text = re.sub(r"<[^>]+>", " ", markup)
+    text = html.unescape(text)
+    return re.sub(r"\s+", " ", text).strip()
 
 
 class DartClient:
@@ -78,6 +88,27 @@ class DartClient:
                 self.pause(self.min_interval)
             return response
         return response
+
+    def document_text(self, rcept_no: str, max_chars: int = 6000) -> str:
+        """Plain text of one filing (document.xml returns a zip of DART XML)."""
+
+        response = self._get("document.xml", {"rcept_no": rcept_no})
+        if response.status_code != 200:
+            raise DartError(f"document HTTP {response.status_code}")
+        try:
+            archive = zipfile.ZipFile(io.BytesIO(response.content))
+        except zipfile.BadZipFile as exc:
+            raise DartError(f"document error: {response.content[:200]!r}") from exc
+        parts = []
+        for name in sorted(archive.namelist()):
+            raw = archive.read(name)
+            for encoding in ("utf-8", "cp949"):
+                try:
+                    parts.append(raw.decode(encoding))
+                    break
+                except UnicodeDecodeError:
+                    continue
+        return xml_to_text(" ".join(parts))[:max_chars]
 
     def corp_codes(self) -> pd.DataFrame:
         """Listed companies: stock code → DART corp code."""

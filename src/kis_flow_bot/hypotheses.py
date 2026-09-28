@@ -51,6 +51,10 @@ HYPOTHESES: tuple[Hypothesis, ...] = (
 )
 # H2 (filing veto) lives in jev_events: removing names with an adverse filing
 # in the last 30 days from the discovery top 3 lowers severe-loss share.
+# H3 (earnings quality) lives in earnings_quality: dropping H1 candidates whose
+# latest profit explanation Jev judges one-off beats both plain H1 and the
+# same veto by keywords. H3 was registered before any answer was seen, so
+# every labelled date counts as evidence.
 
 
 def hypothesis_score(frame: pd.DataFrame, hypothesis: Hypothesis, date_column: str = "as_of") -> pd.Series:
