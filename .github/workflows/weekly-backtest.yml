@@ -39,6 +39,7 @@ jobs:
       - name: Self-validation (whole-universe IC, walk-forward challenger, Jev replay)
         env:
           TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
         run: python -m kis_flow_bot research
       - name: Upload backtest artifacts
         if: always()
@@ -53,10 +54,15 @@ jobs:
         run: |
           git config user.name "foreign-flow-bot"
           git config user.email "foreign-flow-bot@users.noreply.github.com"
-          git add data/calibration.json reports/backtest_latest.csv reports/backtest_thresholds.csv reports/backtest_score_bands.csv reports/backtest_latest.md reports/screen_backtest.csv reports/screen_backtest.md \
+          for f in data/calibration.json reports/backtest_latest.csv reports/backtest_thresholds.csv \
+            reports/backtest_score_bands.csv reports/backtest_latest.md reports/screen_backtest.csv reports/screen_backtest.md \
             data/learned_ranker.json data/model_registry.json \
             reports/research_latest.md reports/research_factors.csv reports/research_oos.csv \
-            data/jev_replay.csv data/jev_verdict.json reports/jev_replay.md
+            data/jev_replay.csv data/jev_verdict.json reports/jev_replay.md \
+            data/dart_corp_codes.csv data/dart_filings.csv data/dart_coverage.json \
+            data/jev_event_answers.csv data/jev_event_verdict.json reports/jev_events.md; do
+            if [[ -e "$f" ]]; then git add "$f"; fi
+          done
           if git diff --cached --quiet; then
             echo "변경된 백테스트 결과가 없습니다."
             exit 0

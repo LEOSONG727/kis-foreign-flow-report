@@ -43,3 +43,11 @@ The daily note is computed in code. The previous Jev choice call was overridden 
 ## Where Jev could add information
 
 The ten numbers above are already available to code, and the self-validation shows they carry little cross-sectional signal. Jev is most likely to add value on inputs code cannot read: for example, classifying filings or news around abnormal foreign flow (index rebalancing, block deals, rights issues) versus organic accumulation. That needs a point-in-time filing/news source (DART or KIS news titles) and can be evaluated with the same replay and gate.
+
+## Filing review (jev-events-v1)
+
+Jev now reads what code does not: DART filing titles received during the 30 days up to the signal date. Company names become `회사`, dates become "within 7 days" or "8-30 days before", and the filer is reduced to "the company itself" or "another party". Three narrow questions ask about dilution supply (rights issues, CB/BW/EB, treasury-share disposal), serious adverse events (litigation, embezzlement, audit, suspension, delisting review) and positive catalysts (supply contracts, buybacks and cancellation, dividends). Answers are cached per distinct filing state, so consecutive days with the same filings cost one call.
+
+A keyword rule reads the same titles. `python -m kis_flow_bot event-replay` (also part of the weekly `research`) compares, on each labelled date's 12-name shortlist, discovery top 3 against top 3 after removing dilution/adverse names by Jev and by keywords (next-ranked names fill in; empty slots are cash). It also reports excess return and the share of holdings falling 15% below entry. Verdicts: `ADDS_VALUE` only when Jev's veto beats the keyword veto (lower bound > 0) and beats the baseline on average; `KEYWORDS_ENOUGH` when the keyword veto alone beats the baseline, in which case code should use it and Jev is unnecessary; otherwise `NO_VALUE`.
+
+Daily runs record the shortlist's filing flags in `data/jev_event_live.csv` before outcomes exist and show them in the report as reference only. Ranking and buy gates do not change until a verdict supports it.

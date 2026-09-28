@@ -179,6 +179,13 @@ def _panel_one_date(date_index: int) -> pd.DataFrame:
             scored[column] = np.nan
         benchmark = scored.groupby("market")[column].transform("mean")
         scored[f"excess{horizon}"] = scored[column] - benchmark
+    # Worst entry-relative low over the 20-session hold (tail-risk label).
+    if date_index + 20 < len(dates):
+        entry = opens.loc[dates[date_index + 1]]
+        window = ctx["lows"].loc[dates[date_index + 1] : dates[date_index + 20]].min()
+        scored["worst20"] = (window / entry.where(entry > 0) - 1.0).reindex(scored["symbol"]).to_numpy()
+    else:
+        scored["worst20"] = np.nan
 
     keep = list(
         dict.fromkeys(
@@ -194,6 +201,7 @@ def _panel_one_date(date_index: int) -> pd.DataFrame:
                 "close",
                 *(f"fwd{h}" for h in PANEL_HORIZONS),
                 *(f"excess{h}" for h in PANEL_HORIZONS),
+                "worst20",
             ]
         )
     )
@@ -211,7 +219,7 @@ def _load_inputs(settings: Settings) -> dict[str, Any]:
     history["date"] = pd.to_datetime(history["date"], errors="coerce")
     history["symbol"] = history["symbol"].astype("string").str.zfill(6)
     history = history.dropna(subset=["date"])
-    for column in ("open", "close"):
+    for column in ("open", "close", "low"):
         history[column] = pd.to_numeric(history[column], errors="coerce")
     snapshots = read_csv(settings.data_dir / "holdings.csv")
     opinions = read_csv(settings.data_dir / "opinions.csv")
@@ -227,6 +235,7 @@ def _load_inputs(settings: Settings) -> dict[str, Any]:
         "dates": [pd.Timestamp(value) for value in sorted(history["date"].unique())],
         "opens": history.pivot_table(index="date", columns="symbol", values="open", aggfunc="last"),
         "closes": history.pivot_table(index="date", columns="symbol", values="close", aggfunc="last"),
+        "lows": history.pivot_table(index="date", columns="symbol", values="low", aggfunc="last"),
     }
 
 

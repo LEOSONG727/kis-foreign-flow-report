@@ -24,6 +24,7 @@ from .horizon import annotate_horizon, empty_horizon_state
 from .jev_shadow import OUTPUTS as JEV_OUTPUTS, apply_jev_shadow
 from .jev_experiment import update_jev_experiment, write_jev_comparison
 from .jev_monitor import monitor as monitor_jev, save_monitor
+from .jev_events import apply_event_review, event_section
 from .jev_replay import daily_jev_allowed, load_jev_verdict
 from .kis_client import KISAPIError, KISClient
 from .live_tracking import update_live_tracking
@@ -275,8 +276,11 @@ def _write_outputs(
     learned_md, learned_html = learned_section(
         scored, load_learned_ranker(data_dir / "learned_ranker.json") if data_dir else None
     )
-    rendered_html = rendered.html.replace("</main>", learned_html + shadow_html + "</main>")
-    rendered_markdown = rendered.markdown + learned_md + shadow_md + "\n"
+    event_md, event_html = event_section(
+        scored, load_jev_verdict(data_dir / "jev_event_verdict.json") if data_dir else None
+    )
+    rendered_html = rendered.html.replace("</main>", event_html + learned_html + shadow_html + "</main>")
+    rendered_markdown = rendered.markdown + event_md + learned_md + shadow_md + "\n"
     latest_html.write_text(rendered_html, encoding="utf-8")
     (settings.reports_dir / f"{report_date}.html").write_text(rendered_html, encoding="utf-8")
     (settings.reports_dir / "latest.md").write_text(rendered_markdown, encoding="utf-8")
@@ -287,6 +291,8 @@ def _write_outputs(
         "ml_shadow_available", "ml_shadow_model", "ml_shadow_prediction",
         "ml_shadow_score", "ml_shadow_rank", "ml_shadow_top", "ml_shadow_baseline_rank",
         "learned_score", "learned_rank", "learned_status", "pit_size",
+        "event_filings", "event_dilution", "event_adverse", "event_catalyst",
+        "kw_dilution", "kw_adverse", "kw_catalyst",
         "jev_fragile_flow", "jev_price_trap", "jev_chase_risk", "jev_review",
         "jev_review_confidence", "jev_model", "jev_error",
         "price_heat_penalty", "price_heat_flag", "price_heat_reason", "dip_absorption",
@@ -494,6 +500,7 @@ def run_pipeline(
         # The replay showed this exact prompt adds nothing; stop paying for it.
         scored = apply_jev_shadow(scored, api_key="")
         scored["jev_status"] = "VALIDATION_OFF"
+    scored = apply_event_review(scored, settings)
 
     write_csv(history, history_path)
     write_csv(snapshots, snapshots_path)

@@ -127,7 +127,7 @@ def _parse(payload):
     return result
 
 
-def request_review(http, key, state, pause=time.sleep):
+def request_review(http, key, state, pause=time.sleep, questions=None, parser=None):
     """One Jev request with bounded retries.
 
     Returns (status, parsed values, error name, auth_failed). Shared by the
@@ -137,8 +137,8 @@ def request_review(http, key, state, pause=time.sleep):
     for attempt in range(3):
         try:
             response = http.post(ENDPOINT, headers={"Authorization": f"Bearer {key}"},
-                json={"model": MODEL, "state": state, "questions": QUESTIONS},
-                timeout=(5, 12), allow_redirects=False)
+                json={"model": MODEL, "state": state, "questions": questions or QUESTIONS},
+                timeout=(5, 20), allow_redirects=False)
             if response.status_code in (401, 403, 422):
                 auth_failed = True
             if response.status_code in (429, 500, 502, 503, 504, 529) and attempt < 2:
@@ -146,7 +146,7 @@ def request_review(http, key, state, pause=time.sleep):
                 continue
             if not 200 <= response.status_code < 300:
                 raise ValueError(f"HTTP_{response.status_code}")
-            return "OK", _parse(response.json()), None, auth_failed
+            return "OK", (parser or _parse)(response.json()), None, auth_failed
         except (requests.RequestException, ValueError, KeyError, TypeError, AttributeError) as exc:
             return "API_ERROR", {}, type(exc).__name__, auth_failed
     return "API_ERROR", {}, "RetryExhausted", auth_failed

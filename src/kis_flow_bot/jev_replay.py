@@ -541,7 +541,11 @@ def run_jev_replay(
     shortlist = replay_shortlists(panel, horizon)
     ledger_path = settings.data_dir / "jev_replay.csv"
     ledger = read_csv(ledger_path)
-    if key:
+    previous = load_jev_verdict(settings.data_dir / "jev_verdict.json")
+    if key and not daily_jev_allowed(previous):
+        # Already judged useless for this prompt/model: evaluate, do not pay again.
+        LOGGER.info("Jev replay skips new calls: prompt %s already judged NO_VALUE", PROMPT_HASH)
+    elif key:
         ledger = run_replay_calls(shortlist, ledger, api_key=key, max_calls=max_calls, session=session)
     else:
         LOGGER.warning("TYPESAFE_API_KEY is missing; evaluating stored replay answers only")
