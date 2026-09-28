@@ -7,14 +7,24 @@ from pathlib import Path
 
 from .backtest import run_backtest, run_gate_sweep, run_screen_backtest
 from .config import load_settings
-from .pipeline import rerank_stored_data, run_pipeline, smoke_test
+from .pipeline import deep_backfill, rerank_stored_data, run_pipeline, smoke_test
+from .research import run_research
 
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="KIS foreign accumulation daily report")
     parser.add_argument(
         "command",
-        choices=["run", "rerank", "smoke", "backtest", "screen-backtest", "gate-sweep"],
+        choices=[
+            "run",
+            "rerank",
+            "smoke",
+            "backtest",
+            "screen-backtest",
+            "gate-sweep",
+            "research",
+            "deep-backfill",
+        ],
         nargs="?",
         default="run",
     )
@@ -28,6 +38,19 @@ def _parser() -> argparse.ArgumentParser:
         type=int,
         default=None,
         help="screen-backtest 신호일 간격. 기본 1(매일 전수)",
+    )
+    parser.add_argument("--workers", type=int, default=None, help="research 병렬 프로세스 수")
+    parser.add_argument(
+        "--days",
+        type=int,
+        default=None,
+        help="deep-backfill 목표 기간(달력일). 기본은 history_retention_days",
+    )
+    parser.add_argument(
+        "--max-minutes",
+        type=float,
+        default=150.0,
+        help="deep-backfill 시간 예산(분). 넘으면 저장 후 종료하고 다음 실행에서 이어감",
     )
     parser.add_argument("--root", type=Path, default=Path.cwd())
     return parser
@@ -51,6 +74,17 @@ def main() -> None:
         return
     if args.command == "gate-sweep":
         run_gate_sweep(settings)
+        return
+    if args.command == "research":
+        run_research(settings, workers=args.workers)
+        return
+    if args.command == "deep-backfill":
+        deep_backfill(
+            settings,
+            days=args.days,
+            max_minutes=args.max_minutes,
+            universe_limit=args.universe_limit,
+        )
         return
     if args.command == "rerank":
         rerank_stored_data(settings, notify=not args.no_notify)

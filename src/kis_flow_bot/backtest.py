@@ -269,7 +269,13 @@ def market_forward_benchmarks(
     end_date: pd.Timestamp,
     roundtrip_cost: float = 0.0,
 ) -> dict[str, float]:
-    """Median next-open to horizon-close return by market for an excess-return check."""
+    """Equal-weight mean next-open to horizon-close return by market.
+
+    The median is not a fair benchmark for a *mean* of picks: single-stock
+    returns are right-skewed, so a randomly chosen stock beats the median by
+    about +2.8% over 20 sessions in the stored history. Comparing a mean with a
+    mean keeps a random basket at zero excess.
+    """
     future = history[
         (history["date"] > pd.Timestamp(as_of))
         & (history["date"] <= pd.Timestamp(end_date))
@@ -291,7 +297,7 @@ def market_forward_benchmarks(
     frame = pd.DataFrame(rows)
     if frame.empty:
         return {}
-    return frame.groupby("market")["return"].median().astype(float).to_dict()
+    return frame.groupby("market")["return"].mean().astype(float).to_dict()
 
 
 def build_calibration(
@@ -723,7 +729,7 @@ def run_backtest(settings: Settings) -> pd.DataFrame:
                         market_forward = float(
                             market_benchmarks.get(
                                 market,
-                                np.median(list(market_benchmarks.values())) if market_benchmarks else 0.0,
+                                np.mean(list(market_benchmarks.values())) if market_benchmarks else 0.0,
                             )
                         )
                         context = history[
@@ -860,7 +866,7 @@ def run_screen_backtest(
     - Features and scores use only bars dated on or before the signal day.
     - The same eligibility, grade/status, and select_daily_brief() policy as production.
     - Fills at the next session open, then holds 20 sessions with 0.3% round-trip cost.
-    - Excess is versus the same-market median over the same window.
+    - Excess is versus the same-market equal-weight mean over the same window.
     - One symbol cannot re-fire inside the horizon.
     - Dates are sampled every `step` sessions so the run finishes; this is
       documented in the report and is not a daily all-name search.
@@ -937,7 +943,7 @@ def run_screen_backtest(
                     market_forward = float(
                         market_benchmarks.get(
                             market,
-                            np.median(list(market_benchmarks.values())) if market_benchmarks else 0.0,
+                            np.mean(list(market_benchmarks.values())) if market_benchmarks else 0.0,
                         )
                     )
                     signal_rows.append(
@@ -1004,7 +1010,7 @@ def _write_screen_backtest_report(settings: Settings, results: pd.DataFrame, ste
         "실전 숏리스트(`select_daily_brief`)와 같은 규칙입니다. 종목을 고른 뒤 규칙을 맞추지 않았습니다.",
         "",
         f"- 신호일 종가 이후 정보 사용 안 함 · 다음 거래일 시가 진입 · {settings.model.backtest_horizon_days}거래일",
-        f"- 왕복 비용 {settings.model.backtest_roundtrip_cost_pct:.1f}% · 같은 시장 중앙값 대비 초과수익",
+        f"- 왕복 비용 {settings.model.backtest_roundtrip_cost_pct:.1f}% · 같은 시장 동일가중 평균 대비 초과수익",
         f"- 샘플링: {'매일 전수' if step <= 1 else f'{step}거래일마다 1회'}",
         f"- 같은 종목은 {settings.model.backtest_horizon_days}거래일 안에 재진입하지 않음",
         f"- 시간 홀드아웃 컷: {cut.date() if cut is not None else '-'}",
@@ -1297,7 +1303,7 @@ def _gate_sweep_one_date(date_index: int) -> tuple[int, list[dict]]:
         market_forward = float(
             market_benchmarks.get(
                 market,
-                np.median(list(market_benchmarks.values())) if market_benchmarks else 0.0,
+                np.mean(list(market_benchmarks.values())) if market_benchmarks else 0.0,
             )
         )
         context = history[

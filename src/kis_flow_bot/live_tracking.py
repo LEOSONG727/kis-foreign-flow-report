@@ -633,7 +633,7 @@ def _market_forward_return(
     paired = starts.merge(ends, on="symbol", how="inner")
     paired = paired[(paired["entry_open"] > 0) & (paired["end_close"] > 0)]
     result = (
-        float((paired["end_close"] / paired["entry_open"] - 1.0).median())
+        float((paired["end_close"] / paired["entry_open"] - 1.0).mean())
         if not paired.empty
         else None
     )
@@ -1013,14 +1013,14 @@ def render_live_evaluation(
         f"- 갱신: {generated_at.isoformat()}",
         f"- 전체 에피소드: {len(episodes):,}개 · 정식 후보 이벤트: {candidate_events:,}개 · Shadow 이벤트: {shadow_events:,}개",
         f"- 정식 후보 D+20 판정: {resolved_20:,}개 (D+40/60은 표본이 쌓이면 자동 표시)",
-        f"- 수익률 기준: 신호 다음 거래일 시가 진입 · 왕복비용 {roundtrip_cost_pct:.1f}% · 동일 시장 중앙값 대비 초과수익",
+        f"- 수익률 기준: 신호 다음 거래일 시가 진입 · 왕복비용 {roundtrip_cost_pct:.1f}% · 동일 시장 동일가중 평균 대비 초과수익",
         "- Shadow 대조군은 사용자 추천에 노출하지 않으며 모델이 놓친 종목과 선택 기준만 평가합니다.",
         "",
         "## 공식 신규매수 검토 성과",
         "",
         "`오늘 신규매수 검토`의 최초 진입·승격 이벤트만 집계합니다. 가격대기 A/B/C 후보는 포함하지 않습니다.",
         "",
-        "| 기간 | 판정 수 | 비용 후 양수 비율 | 비용 후 중앙수익률 | 비용 후 시장초과 중앙값 |",
+        "| 기간 | 판정 수 | 비용 후 양수 비율 | 비용 후 중앙수익률 | 비용 후 시장초과 평균 |",
         "|---|---:|---:|---:|---:|",
     ]
     for horizon in HORIZONS:
@@ -1030,7 +1030,7 @@ def render_live_evaluation(
         valid = values.dropna()
         lines.append(
             f"| D+{horizon} | {len(valid):,} | "
-                f"{(valid.gt(0).mean() * 100):.1f}% | {_pct(valid.median())} | {_pct(excess.dropna().median())} |"
+                f"{(valid.gt(0).mean() * 100):.1f}% | {_pct(valid.median())} | {_pct(excess.dropna().mean())} |"
             if not valid.empty
             else f"| D+{horizon} | 0 | - | - | - |"
         )
@@ -1094,7 +1094,7 @@ def render_live_evaluation(
             "",
             "## 정식 후보 vs Shadow 비교",
             "",
-            "| 코호트 | 기간 | 표본 | 비용 후 양수 비율 | 비용 후 중앙수익률 | 시장초과 중앙값 |",
+            "| 코호트 | 기간 | 표본 | 비용 후 양수 비율 | 비용 후 중앙수익률 | 시장초과 평균 |",
             "|---|---:|---:|---:|---:|---:|",
         ]
     )
@@ -1105,7 +1105,7 @@ def render_live_evaluation(
             excess = pd.to_numeric(group.get(f"excess_return_{horizon}"), errors="coerce").dropna() if not group.empty else pd.Series(dtype=float)
             lines.append(
                 f"| {_cohort_label(cohort)} | D+{horizon} | {len(values):,} | "
-                f"{values.gt(0).mean() * 100:.1f}% | {_pct(values.median())} | {_pct(excess.median())} |"
+                f"{values.gt(0).mean() * 100:.1f}% | {_pct(values.median())} | {_pct(excess.mean())} |"
                 if not values.empty
                 else f"| {_cohort_label(cohort)} | D+{horizon} | 0 | - | - | - |"
             )
@@ -1119,7 +1119,7 @@ def render_live_evaluation(
         working["net_return_20"] = pd.to_numeric(working["net_return_20"], errors="coerce")
         working["excess_return_20"] = pd.to_numeric(working["excess_return_20"], errors="coerce")
         lines.extend([
-            "| 발견등급 | 이벤트 | 표본 | 양수 비율 | 비용 후 중앙수익률 | 시장초과 중앙값 |",
+            "| 발견등급 | 이벤트 | 표본 | 양수 비율 | 비용 후 중앙수익률 | 시장초과 평균 |",
             "|---|---|---:|---:|---:|---:|",
         ])
         for (grade, event_type), group in working.dropna(subset=["net_return_20"]).groupby(
@@ -1129,7 +1129,7 @@ def render_live_evaluation(
             lines.append(
                 f"| {_text(grade)} | {_event_label(_text(event_type))} | {len(group):,} | "
                 f"{values.gt(0).mean() * 100:.1f}% | {_pct(values.median())} | "
-                f"{_pct(group['excess_return_20'].median())} |"
+                f"{_pct(pd.to_numeric(group['excess_return_20'], errors='coerce').mean())} |"
             )
 
     lines.extend(["", "## 최근 평가 이벤트", ""])

@@ -154,6 +154,32 @@ class TrackingConfig:
 
 
 @dataclass(frozen=True)
+class ResearchConfig:
+    """Self-validation loop. Pre-registered: change only with a new spec_version.
+
+    Every weekly run rebuilds the full eligible cross-section from stored
+    history, measures what each score actually predicts, retrains the learned
+    challenger walk-forward and applies a fixed promotion gate. Nothing here
+    edits the rule model; the gate only decides what the report may claim.
+    """
+
+    horizon: int = 20
+    top_k: int = 5
+    # Walk-forward: refit every N signal dates on data whose labels were
+    # already known (purge = horizon sessions).
+    retrain_every: int = 5
+    min_train_dates: int = 40
+    ridge_alpha: float = 20.0
+    # Promotion gate. 120 OOS dates are about six non-overlapping 20-day periods.
+    min_oos_dates: int = 120
+    confidence: float = 0.90
+    bootstrap_samples: int = 2000
+    # Signals after this date were never seen while the rules were tuned.
+    rules_frozen_on: str = ""
+    workers: int = 0
+
+
+@dataclass(frozen=True)
 class Settings:
     root: Path
     screening: ScreeningConfig
@@ -163,6 +189,7 @@ class Settings:
     tracking: TrackingConfig
     horizon: HorizonConfig
     watchlist: tuple[str, ...]
+    research: ResearchConfig = ResearchConfig()
 
     @property
     def data_dir(self) -> Path:
@@ -197,6 +224,7 @@ def load_settings(root: Path | None = None) -> Settings:
         tracking=_build(TrackingConfig, raw.get("tracking", {})),
         horizon=_build(HorizonConfig, raw.get("horizon", {})),
         watchlist=tuple(raw.get("watchlist", {}).get("symbols", [])),
+        research=_build(ResearchConfig, raw.get("research", {})),
     )
     settings.data_dir.mkdir(parents=True, exist_ok=True)
     settings.reports_dir.mkdir(parents=True, exist_ok=True)

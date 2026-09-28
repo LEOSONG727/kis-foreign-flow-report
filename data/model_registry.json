@@ -1,0 +1,97 @@
+{
+  "current": {
+    "generated_at": "2026-09-28T14:12:34+09:00",
+    "spec_version": "ridge-rank-pit-v1",
+    "rules_frozen_on": "2026-09-28",
+    "horizon": 20,
+    "panel_dates": 116,
+    "labelled_dates": 97,
+    "last_labelled": "2026-08-26",
+    "champion": {
+      "in_sample_ic": {
+        "dates": 97,
+        "mean": 0.04234644963499893,
+        "low": -0.005838211637311897,
+        "high": 0.08879209291940199,
+        "positive_share": 0.711340206185567,
+        "effective_t": 1.090096577646014
+      },
+      "in_sample_partial_ic": {
+        "dates": 97,
+        "mean": 0.014270580004523756,
+        "low": -0.01028985545271157,
+        "high": 0.038985247258391725,
+        "positive_share": 0.6391752577319587,
+        "effective_t": 0.643773682449837
+      },
+      "post_freeze_ic": {
+        "dates": 0,
+        "mean": null,
+        "low": null,
+        "high": null,
+        "positive_share": null,
+        "effective_t": null
+      },
+      "top_k_excess": {
+        "dates": 97,
+        "mean": 0.000955726208923387,
+        "low": -0.04716726032591013,
+        "high": 0.0524487110933217,
+        "positive_share": 0.4536082474226804,
+        "effective_t": 0.020900373812154385
+      },
+      "status": "INSUFFICIENT_DATA"
+    },
+    "challenger": {
+      "status": "INSUFFICIENT_DATA",
+      "reasons": [
+        "OOS 신호일 38/120"
+      ],
+      "oos_ic": {
+        "dates": 38,
+        "mean": -0.03534438186468525,
+        "low": -0.09415112427121448,
+        "high": 0.022174632061876795,
+        "positive_share": 0.39473684210526316,
+        "effective_t": -0.3072013607761198
+      },
+      "ic_delta_vs_champion": {
+        "dates": 38,
+        "mean": -0.011432023603128071,
+        "low": -0.05417845180659454,
+        "high": 0.030042616617370132,
+        "positive_share": 0.4473684210526316,
+        "effective_t": -0.15324654600549342
+      },
+      "oos_top_k_excess": {
+        "dates": 38,
+        "mean": -0.018589377886379217,
+        "low": -0.04272622166487498,
+        "high": 0.005731050895353072,
+        "positive_share": 0.39473684210526316,
+        "effective_t": -0.37702081837960455
+      },
+      "champion_top_k_excess_same_dates": {
+        "dates": 38,
+        "mean": -0.0720091638629169,
+        "low": -0.0934796514586921,
+        "high": -0.051246781416676435,
+        "positive_share": 0.13157894736842105,
+        "effective_t": -1.5986863549445631
+      }
+    }
+  },
+  "history": [
+    {
+      "generated_at": "2026-09-28T14:12:34+09:00",
+      "spec_version": "ridge-rank-pit-v1",
+      "labelled_dates": 97,
+      "champion_status": "INSUFFICIENT_DATA",
+      "champion_post_freeze_ic": null,
+      "challenger_status": "INSUFFICIENT_DATA",
+      "challenger_oos_ic": -0.03534438186468525,
+      "challenger_oos_dates": 38,
+      "ic_delta": -0.011432023603128071
+    }
+  ]
+}
