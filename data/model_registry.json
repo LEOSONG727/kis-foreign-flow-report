@@ -1,6 +1,6 @@
 {
   "current": {
-    "generated_at": "2026-09-28T14:12:34+09:00",
+    "generated_at": "2026-09-28T15:16:12+09:00",
     "spec_version": "ridge-rank-pit-v1",
     "rules_frozen_on": "2026-09-28",
     "horizon": 20,
@@ -11,8 +11,8 @@
       "in_sample_ic": {
         "dates": 97,
         "mean": 0.04234644963499893,
-        "low": -0.005838211637311897,
-        "high": 0.08879209291940199,
+        "low": -0.005838211637311896,
+        "high": 0.08879209291940202,
         "positive_share": 0.711340206185567,
         "effective_t": 1.090096577646014
       },
@@ -20,7 +20,7 @@
         "dates": 97,
         "mean": 0.014270580004523756,
         "low": -0.01028985545271157,
-        "high": 0.038985247258391725,
+        "high": 0.03898524725839173,
         "positive_share": 0.6391752577319587,
         "effective_t": 0.643773682449837
       },
@@ -35,8 +35,8 @@
       "top_k_excess": {
         "dates": 97,
         "mean": 0.000955726208923387,
-        "low": -0.04716726032591013,
-        "high": 0.0524487110933217,
+        "low": -0.04716726032591015,
+        "high": 0.05244871109332171,
         "positive_share": 0.4536082474226804,
         "effective_t": 0.020900373812154385
       },
@@ -51,7 +51,7 @@
         "dates": 38,
         "mean": -0.03534438186468525,
         "low": -0.09415112427121448,
-        "high": 0.022174632061876795,
+        "high": 0.0221746320618768,
         "positive_share": 0.39473684210526316,
         "effective_t": -0.3072013607761198
       },
@@ -59,15 +59,15 @@
         "dates": 38,
         "mean": -0.011432023603128071,
         "low": -0.05417845180659454,
-        "high": 0.030042616617370132,
+        "high": 0.030042616617370118,
         "positive_share": 0.4473684210526316,
         "effective_t": -0.15324654600549342
       },
       "oos_top_k_excess": {
         "dates": 38,
         "mean": -0.018589377886379217,
-        "low": -0.04272622166487498,
-        "high": 0.005731050895353072,
+        "low": -0.04272622166487499,
+        "high": 0.00573105089535307,
         "positive_share": 0.39473684210526316,
         "effective_t": -0.37702081837960455
       },
@@ -84,6 +84,17 @@
   "history": [
     {
       "generated_at": "2026-09-28T14:12:34+09:00",
+      "spec_version": "ridge-rank-pit-v1",
+      "labelled_dates": 97,
+      "champion_status": "INSUFFICIENT_DATA",
+      "champion_post_freeze_ic": null,
+      "challenger_status": "INSUFFICIENT_DATA",
+      "challenger_oos_ic": -0.03534438186468525,
+      "challenger_oos_dates": 38,
+      "ic_delta": -0.011432023603128071
+    },
+    {
+      "generated_at": "2026-09-28T15:16:12+09:00",
       "spec_version": "ridge-rank-pit-v1",
       "labelled_dates": 97,
       "champion_status": "INSUFFICIENT_DATA",
