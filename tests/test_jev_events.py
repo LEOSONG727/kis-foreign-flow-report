@@ -151,6 +151,18 @@ def _panel(dates=45, names=14, seed=3):
     return pd.DataFrame(rows)
 
 
+def _busy_filings():
+    """Routine filings for every panel symbol so the sample looks like a real market."""
+    base = _filings()
+    extra = []
+    for n in range(3, 14):
+        symbol = f"{100 + n:06d}"
+        for day in ("20260225", "20260320"):
+            extra.append({"symbol": symbol, "corp_code": "0" * 8, "corp_name": f"회사{n}", "rcept_no": f"{symbol}{day}",
+                          "rcept_dt": day, "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서", "flr_nm": "누군가", "rm": ""})
+    return pd.concat([base, pd.DataFrame(extra)], ignore_index=True)
+
+
 def test_replay_caches_answers_and_jev_equal_to_keywords_cannot_win(tmp_path):
     (tmp_path / "config.toml").write_text((ROOT / "config.toml").read_text(encoding="utf-8"), encoding="utf-8")
     settings = load_settings(tmp_path)
@@ -158,7 +170,7 @@ def test_replay_caches_answers_and_jev_equal_to_keywords_cannot_win(tmp_path):
     result = run_event_replay(
         settings,
         panel=_panel(),
-        dart_client=FakeDart(_filings()),
+        dart_client=FakeDart(_busy_filings()),
         jev_key="k",
         session=jev,
     )
@@ -170,7 +182,7 @@ def test_replay_caches_answers_and_jev_equal_to_keywords_cannot_win(tmp_path):
     assert all(value == 1.0 for value in agreement)
     assert (tmp_path / "reports" / "jev_events.md").exists()
     calls = jev.calls
-    run_event_replay(settings, panel=_panel(), dart_client=FakeDart(_filings()), jev_key="k", session=jev)
+    run_event_replay(settings, panel=_panel(), dart_client=FakeDart(_busy_filings()), jev_key="k", session=jev)
     assert jev.calls == calls
 
 
@@ -195,3 +207,12 @@ def test_daily_review_without_dart_key_is_a_no_op(tmp_path, monkeypatch):
     result = apply_event_review(scored, settings, jev_key="")
     assert result["event_filings"].isna().all()
     assert all(f"event_{name}" in result for name in EVENTS)
+
+
+def test_missing_filings_are_insufficient_not_no_value(tmp_path, monkeypatch):
+    monkeypatch.delenv("DART_API_KEY", raising=False)
+    (tmp_path / "config.toml").write_text((ROOT / "config.toml").read_text(encoding="utf-8"), encoding="utf-8")
+    settings = load_settings(tmp_path)
+    result = run_event_replay(settings, panel=_panel(), jev_key="")
+    assert result["rows_with_filings"] == 0
+    assert result["verdict"] == "INSUFFICIENT_DATA"

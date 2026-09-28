@@ -306,8 +306,9 @@ def attach_answers(rows: pd.DataFrame, ledger: pd.DataFrame) -> pd.DataFrame:
         column = f"event_{name}"
         result[column] = pd.to_numeric(result[column], errors="coerce")
         result.loc[empty, column] = 0.0
-        result[f"jev_{name}"] = result[column] >= FLAG_THRESHOLD
-        result.loc[result[column].isna(), f"jev_{name}"] = pd.NA
+        flag = (result[column] >= FLAG_THRESHOLD).astype("boolean")
+        flag[result[column].isna()] = pd.NA
+        result[f"jev_{name}"] = flag
     return result
 
 
@@ -397,7 +398,14 @@ def evaluate_events(frame: pd.DataFrame, settings: Settings) -> dict[str, Any]:
     result["portfolios"] = portfolios
 
     reasons: list[str] = []
-    if result["dates"] < MIN_DATES:
+    filings_share = result["rows_with_filings"] / max(result["rows"], 1)
+    if filings_share < 0.2:
+        # Nearly every listed company files something within 30 days. Almost no
+        # filings means the collection failed (e.g. missing DART key), not that
+        # filings are useless.
+        verdict = "INSUFFICIENT_DATA"
+        reasons.append(f"공시가 있는 표본 {filings_share:.0%}: DART 수집 실패 여부를 확인하세요")
+    elif result["dates"] < MIN_DATES:
         verdict = "INSUFFICIENT_DATA"
         reasons.append(f"완결 신호일 {result['dates']}/{MIN_DATES}")
     else:
