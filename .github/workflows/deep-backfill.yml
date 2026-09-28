@@ -65,5 +65,5 @@ jobs:
             exit 0
           fi
           git commit -m "bot: extend stored history backwards"
-          git pull --rebase origin main
-          git push origin HEAD:main
+          git pull --rebase origin "$GITHUB_REF_NAME"
+          git push origin "HEAD:$GITHUB_REF_NAME"
