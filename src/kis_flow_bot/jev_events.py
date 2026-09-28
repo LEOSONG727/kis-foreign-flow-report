@@ -359,6 +359,8 @@ def veto_portfolios(frame: pd.DataFrame, target: str) -> pd.DataFrame:
             "baseline": group.head(TOP_N),
             "jev_veto": group[~jev_risk.astype(bool)].head(TOP_N),
             "keyword_veto": group[~kw_risk].head(TOP_N),
+            # Pre-registered H2 (2026-09-28): adverse filings only.
+            "adverse_veto": group[~group["kw_adverse"].astype(bool)].head(TOP_N),
         }
         record: dict[str, Any] = {"as_of": as_of}
         for label, chosen in picks.items():
@@ -396,6 +398,7 @@ def evaluate_events(frame: pd.DataFrame, settings: Settings) -> dict[str, Any]:
         for a, b in (("jev_veto", "baseline"), ("keyword_veto", "baseline"), ("jev_veto", "keyword_veto")):
             portfolios[f"{a}_minus_{b}"] = summarize_series(series[a] - series[b], horizon, confidence=confidence).as_dict()
     result["portfolios"] = portfolios
+    result["h2"] = _h2_by_window(series)
 
     reasons: list[str] = []
     filings_share = result["rows_with_filings"] / max(result["rows"], 1)
@@ -426,6 +429,39 @@ def evaluate_events(frame: pd.DataFrame, settings: Settings) -> dict[str, Any]:
     result["verdict"] = verdict
     result["reasons"] = reasons
     return result
+
+
+def _h2_by_window(series: pd.DataFrame) -> dict[str, Any]:
+    """H2: dropping adverse-filing names lowers severe-loss share, judged outside the discovery window."""
+
+    from .hypotheses import MIN_CONFIRMATION_DATES, window_of
+
+    out: dict[str, Any] = {}
+    if series.empty:
+        return out
+    windows = window_of(series["as_of"])
+    for window in ("discovery", "confirmation"):
+        part = series[windows == window]
+        if part.empty:
+            out[window] = {"dates": 0}
+            continue
+        severe_delta = part["adverse_veto_severe"] - part["baseline_severe"]
+        summary = summarize_series(severe_delta, 20)
+        out[window] = {
+            "dates": int(len(part)),
+            "baseline_severe": float(part["baseline_severe"].mean()),
+            "veto_severe": float(part["adverse_veto_severe"].mean()),
+            "severe_delta": summary.as_dict(),
+            "excess_delta": summarize_series(part["adverse_veto"] - part["baseline"], 20).as_dict(),
+        }
+    confirmation = out.get("confirmation", {})
+    if confirmation.get("dates", 0) < MIN_CONFIRMATION_DATES:
+        out["verdict"] = "INSUFFICIENT_DATA"
+    elif confirmation["severe_delta"]["high"] < 0:
+        out["verdict"] = "CONFIRMED"
+    else:
+        out["verdict"] = "NOT_CONFIRMED"
+    return out
 
 
 VERDICT_LABELS = {
@@ -504,6 +540,30 @@ def render_events_markdown(result: dict[str, Any], generated_at: datetime, horiz
                 f"{_fmt(item.get('high'))} | {_fmt(severe, False) if severe is not None else ''} |"
             )
         lines.append("")
+    h2 = result.get("h2") or {}
+    if h2:
+        from .hypotheses import VERDICT_LABELS as H_LABELS
+
+        lines.extend(
+            [
+                "## 3. 사전등록 가설 H2: 악재 공시 종목 제외",
+                "",
+                "기존 Top 3에서 최근 30일 악재 공시(키워드) 종목을 빼면 급락(−15%) 비율이 줄어드는가. 발견 구간(2026-04-06 ~ 08-26)은 증거가 아니며 검증 구간으로만 판정합니다.",
+                "",
+                "| 구간 | 신호일 | 기존 급락 비율 | 제외 후 급락 비율 | 급락 비율 변화 상한 | 초과수익 변화 |",
+                "|---|---:|---:|---:|---:|---:|",
+            ]
+        )
+        for window, label in (("discovery", "발견"), ("confirmation", "검증")):
+            item = h2.get(window, {})
+            if not item.get("dates"):
+                lines.append(f"| {label} | 0 | - | - | - | - |")
+                continue
+            lines.append(
+                f"| {label} | {item['dates']} | {_fmt(item['baseline_severe'], False)} | {_fmt(item['veto_severe'], False)} | "
+                f"{_fmt(item['severe_delta']['high'])} | {_fmt(item['excess_delta']['mean'])} |"
+            )
+        lines.extend(["", f"H2 판정: **{H_LABELS.get(h2.get('verdict', ''), h2.get('verdict', ''))}**", ""])
     return "\n".join(lines)
 
 

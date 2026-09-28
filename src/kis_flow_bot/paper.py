@@ -38,7 +38,9 @@ STRATEGY_LABELS = {
     "discovery_top5": "발견점수 상위 5",
     "learned_top5": "학습 모델 상위 5",
     "filing_veto_top5": "발견 상위 5 · 공시 희석·악재 제외",
+    "value_top5": "사전등록 가설 H1 상위 5 (영업이익 수익률·순자산·저변동성)",
 }
+VALUE_HYPOTHESIS = "H1-value-quality-lowvol"
 SIGNAL_COLUMNS = ["as_of", "strategy", "rank", "symbol", "name", "captured_at"]
 
 
@@ -241,6 +243,12 @@ def live_signals(scored: pd.DataFrame, picks: int = 5) -> pd.DataFrame:
     chosen["discovery_top5"] = ordered.head(picks)
     if "learned_rank" in ordered and ordered["learned_rank"].notna().any():
         chosen["learned_top5"] = ordered.dropna(subset=["learned_rank"]).sort_values("learned_rank").head(picks)
+    if "op_yield" in ordered and ordered["op_yield"].notna().any():
+        from .hypotheses import HYPOTHESES, hypothesis_score
+
+        hypothesis = next(h for h in HYPOTHESES if h.id == VALUE_HYPOTHESIS)
+        scored_value = ordered.assign(_value=hypothesis_score(ordered.assign(as_of=as_of), hypothesis))
+        chosen["value_top5"] = scored_value.sort_values("_value", ascending=False).head(picks)
     if "kw_dilution" in ordered:
         risky = ordered["kw_dilution"].fillna(False).astype(bool) | ordered["kw_adverse"].fillna(False).astype(bool)
         chosen["filing_veto_top5"] = ordered[~risky].head(picks)
@@ -402,6 +410,15 @@ def portfolio_backtest(
         top = ordered.groupby("as_of").head(config.picks_per_day).copy()
         top["rank"] = top.groupby("as_of").cumcount() + 1
         signals.append(top.assign(strategy="discovery_top5")[["as_of", "strategy", "rank", "symbol"]])
+    if not panel.empty and "op_yield" in panel and panel["op_yield"].notna().any():
+        from .hypotheses import HYPOTHESES, hypothesis_score
+
+        hypothesis = next(h for h in HYPOTHESES if h.id == VALUE_HYPOTHESIS)
+        valued = panel.assign(_value=hypothesis_score(panel, hypothesis))
+        ordered = valued.sort_values(["as_of", "_value"], ascending=[True, False])
+        top = ordered.groupby("as_of").head(config.picks_per_day).copy()
+        top["rank"] = top.groupby("as_of").cumcount() + 1
+        signals.append(top.assign(strategy="value_top5")[["as_of", "strategy", "rank", "symbol"]])
     if predictions is not None and not predictions.empty:
         ordered = predictions.sort_values(["as_of", "challenger_score"], ascending=[True, False])
         top = ordered.groupby("as_of").head(config.picks_per_day).copy()
@@ -423,6 +440,7 @@ def portfolio_backtest(
         f"- 갱신: {generated_at.isoformat(timespec='seconds')} · 기간: {pd.Timestamp(common_start).date()} 이후 저장 이력 끝까지",
         f"- 모의 운용과 같은 규칙: 다음 날 시가 매수, 최대 {config.slots}종목, {config.hold_sessions}거래일 보유, 편도 {config.cost_per_side:.2%}",
         "- 발견점수는 이 기간 데이터로 규칙을 조정했으므로 표본 내 결과입니다. 학습 모델은 워크포워드(그날까지 확정된 결과로만 학습)입니다.",
+        "- 가설 H1은 2026-04-06 ~ 2026-08-26을 보고 만든 가설이라 이 구간 성과는 증거가 아닙니다. 그 밖의 구간과 모의 운용으로 판정합니다.",
         "- 동시 보유·현금·비용을 반영한 계좌 수익률이라, 종목별 평균보다 실제 운용에 가깝습니다.",
         "",
     ]

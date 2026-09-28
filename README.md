@@ -167,6 +167,8 @@ symbol,quantity,average_price,last_buy_price,tranche_count
 - 표본 기간이 짧으면 어떤 결론도 약하다. `Deep history backfill` 워크플로(수동 실행)로 저장 이력을 `history_retention_days`(550일)까지 과거로 늘린다. 시간 예산을 넘으면 저장 후 끝나고 다시 실행하면 이어서 채운다. 550일 이력은 `history.csv` 약 60MB다.
 - Jev는 과거 신호일로 재생 검증한다(입력에 종목·날짜가 없어 미래정보가 섞이지 않음). 같은 입력으로 코드가 재현하지 못하는 Jev 고유 판단이 이후 수익을 설명하고, 이를 쓴 Top 3가 기존보다 나아야 `추가 가치 확인`이다. `추가 가치 없음`이면 일일 Jev 호출을 자동으로 멈춘다. 결과는 `reports/jev_replay.md`.
 - 모델 감독 알림은 코드가 판정한다: 작동 오류, 주간 자가검증 결과, Jev 재생 판정을 한 줄로 요약한다.
+- **사전등록 가설**(`src/kis_flow_bot/hypotheses.py`): 발견 구간을 보고 만든 가설은 그 구간으로 판정하지 않는다. 과거 확장 이력과 등록 이후 날짜(검증 구간)만으로 `확인됨/확인 안 됨`을 낸다. 가설을 바꾸려면 새 id로 다시 등록한다.
+- 주간 자가검증은 `Weekly self-validation research` 워크플로(일요일)로 분리되어 있다.
 - 2026-09 점검 결과는 [`docs/model-review-2026-09.md`](docs/model-review-2026-09.md)에 있다.
 
 ## 모의 운용과 포트폴리오 백테스트

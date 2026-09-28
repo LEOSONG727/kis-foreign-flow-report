@@ -43,6 +43,17 @@ from .fundamentals import (
     load_financials,
     refresh_financials_from_env,
 )
+from .hypotheses import (
+    DISCOVERY_END,
+    DISCOVERY_START,
+    HYPOTHESES,
+    MIN_CONFIRMATION_DATES,
+    REGISTERED_ON,
+    VERDICT_LABELS as HYPOTHESIS_LABELS,
+    add_hypothesis_scores,
+    verdict as hypothesis_verdict,
+    window_of,
+)
 from .jev_shadow import REQUIRED as JEV_INPUTS
 from .live_tracking import moving_block_mean_interval
 from .scoring import score_features
@@ -558,6 +569,35 @@ def _fmt(value: float, pct: bool = False, digits: int = 3) -> str:
     return f"{value * 100:+.2f}%" if pct else f"{value:+.{digits}f}"
 
 
+def evaluate_hypotheses(labelled: pd.DataFrame, settings: Settings) -> list[dict[str, Any]]:
+    """Score each frozen hypothesis separately on discovery and confirmation dates."""
+
+    research = settings.research
+    horizon = research.horizon
+    target = f"excess{horizon}"
+    kwargs = {"confidence": research.confidence, "samples": research.bootstrap_samples}
+    if labelled.empty:
+        return []
+    scored = add_hypothesis_scores(labelled)
+    scored["_window"] = window_of(scored["as_of"])
+    results = []
+    for hypothesis in HYPOTHESES:
+        column = f"hyp_{hypothesis.id}"
+        entry: dict[str, Any] = {"id": hypothesis.id, "title": hypothesis.title, "weights": hypothesis.weights}
+        for window in ("discovery", "confirmation"):
+            part = scored[scored["_window"] == window]
+            entry[window] = {
+                "ic": summarize_series(daily_rank_ic(part, column, target), horizon, **kwargs).as_dict(),
+                "partial_ic": summarize_series(partial_rank_ic(part, column, target), horizon, **kwargs).as_dict(),
+                "top_k_excess": summarize_series(
+                    top_k_excess(part, column, target, research.top_k), horizon, **kwargs
+                ).as_dict(),
+            }
+        entry["verdict"] = hypothesis_verdict(entry["confirmation"]["ic"], entry["confirmation"]["partial_ic"])
+        results.append(entry)
+    return results
+
+
 def analyze_panel(panel: pd.DataFrame, settings: Settings) -> dict[str, Any]:
     research = settings.research
     horizon = research.horizon
@@ -654,6 +694,7 @@ def analyze_panel(panel: pd.DataFrame, settings: Settings) -> dict[str, Any]:
     }
     return {
         "predictions": predictions,
+        "hypotheses": evaluate_hypotheses(labelled, settings),
         "factors": factors,
         "oos": oos,
         "champion": champion,
@@ -749,6 +790,29 @@ def render_research_markdown(result: dict[str, Any], settings: Settings, generat
             "",
         ]
     )
+    hypotheses = result.get("hypotheses") or []
+    if hypotheses:
+        lines.extend(
+            [
+                "## 3. 사전등록 가설",
+                "",
+                f"{REGISTERED_ON}에 고정한 가중치입니다(학습 없음). {DISCOVERY_START} ~ {DISCOVERY_END}는 가설을 만든 **발견 구간**이라 증거가 아닙니다. "
+                f"판정은 그 밖의 **검증 구간**(과거 확장 이력과 등록 이후 날짜)만으로 하며, 검증 구간 {MIN_CONFIRMATION_DATES}일 이상에서 "
+                "IC와 부분 IC의 하한이 모두 0보다 커야 `확인됨`입니다.",
+                "",
+                f"| 가설 | 구간 | 신호일 | IC | 하한 | 부분 IC | 부분 하한 | Top {research.top_k} 초과수익 | 판정 |",
+                "|---|---|---:|---:|---:|---:|---:|---:|---|",
+            ]
+        )
+        for entry in hypotheses:
+            for window, label in (("discovery", "발견"), ("confirmation", "검증")):
+                item = entry[window]
+                lines.append(
+                    f"| {entry['title']} | {label} | {item['ic']['dates']} | {_fmt(item['ic']['mean'])} | {_fmt(item['ic']['low'])} | "
+                    f"{_fmt(item['partial_ic']['mean'])} | {_fmt(item['partial_ic']['low'])} | {_fmt(item['top_k_excess']['mean'], pct=True)} | "
+                    f"{HYPOTHESIS_LABELS.get(entry['verdict'], entry['verdict']) if window == 'confirmation' else ''} |"
+                )
+        lines.append("")
     return "\n".join(lines)
 
 
@@ -781,6 +845,7 @@ def write_research_outputs(result: dict[str, Any], settings: Settings, generated
         "last_labelled": result["last_labelled"],
         "champion": result["champion"],
         "challenger": result["challenger"],
+        "hypotheses": result.get("hypotheses", []),
     }
     ranker = {
         **record,
@@ -808,6 +873,14 @@ def write_research_outputs(result: dict[str, Any], settings: Settings, generated
             "challenger_oos_ic": record["challenger"]["oos_ic"]["mean"],
             "challenger_oos_dates": record["challenger"]["oos_ic"]["dates"],
             "ic_delta": record["challenger"]["ic_delta_vs_champion"]["mean"],
+            "hypotheses": {
+                item["id"]: {
+                    "verdict": item["verdict"],
+                    "confirmation_dates": item["confirmation"]["ic"]["dates"],
+                    "confirmation_ic": item["confirmation"]["ic"]["mean"],
+                }
+                for item in record["hypotheses"]
+            },
         }
     )
     registry = {"current": record, "history": history[-104:]}
