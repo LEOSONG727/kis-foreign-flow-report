@@ -38,19 +38,23 @@ jobs:
           for name in TYPESAFE_API_KEY DART_API_KEY; do
             if [[ -n "${!name}" ]]; then echo "$name: set"; else echo "$name: MISSING"; fi
           done
-      - name: DART filings + Jev event replay (validation run 2)
-        run: python -m kis_flow_bot event-replay --max-calls 2500
+      - name: Full research (DART financials, Jev replays, portfolio backtest) (validation run 3)
+        run: python -m kis_flow_bot research --max-calls 2500
       - name: Persist validation results to this branch
         run: |
           git config user.name "foreign-flow-bot"
           git config user.email "foreign-flow-bot@users.noreply.github.com"
-          for f in data/dart_corp_codes.csv data/dart_filings.csv data/dart_coverage.json \
-            data/jev_event_answers.csv data/jev_event_verdict.json reports/jev_events.md; do
+          for f in data/dart_corp_codes.csv data/dart_filings.csv data/dart_coverage.json data/dart_financials.csv \
+            data/jev_event_answers.csv data/jev_event_verdict.json reports/jev_events.md \
+            data/learned_ranker.json data/model_registry.json \
+            reports/research_latest.md reports/research_factors.csv reports/research_oos.csv \
+            data/jev_replay.csv data/jev_verdict.json reports/jev_replay.md \
+            reports/portfolio_backtest.md reports/portfolio_backtest.csv; do
             if [[ -e "$f" ]]; then git add "$f"; fi
           done
           if git diff --cached --quiet; then
             exit 0
           fi
-          git commit -m "bot: DART filing Jev replay validation"
+          git commit -m "bot: research, DART financials and portfolio backtest validation"
           git pull --rebase origin "$GITHUB_REF_NAME"
           git push origin "HEAD:$GITHUB_REF_NAME"

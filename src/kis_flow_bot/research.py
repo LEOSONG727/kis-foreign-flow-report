@@ -37,6 +37,12 @@ import pandas as pd
 from .config import Settings
 from .eligibility import apply_candidate_eligibility
 from .features import add_cross_sectional_residuals, build_base_features
+from .fundamentals import (
+    FUNDAMENTAL_FEATURES,
+    attach_fundamentals,
+    load_financials,
+    refresh_financials_from_env,
+)
 from .jev_shadow import REQUIRED as JEV_INPUTS
 from .live_tracking import moving_block_mean_interval
 from .scoring import score_features
@@ -44,7 +50,7 @@ from .storage import read_csv, write_csv
 
 LOGGER = logging.getLogger(__name__)
 
-SPEC_VERSION = "ridge-rank-pit-v1"
+SPEC_VERSION = "ridge-rank-pit-v2"
 PANEL_HORIZONS: tuple[int, ...] = (5, 10, 20)
 # Enough for the 120-day windows and the EWM tails used by the features.
 FEATURE_LOOKBACK_SESSIONS = 250
@@ -96,6 +102,8 @@ LEARNED_FEATURES: tuple[str, ...] = (
     "up_down_volume_ratio10",
     "log_adtv20",
     "pit_size",
+    # v2: point-in-time DART financials (usable only after each report's receipt date).
+    *FUNDAMENTAL_FEATURES,
 )
 # Style controls for the partial IC: a flow edge must survive these.
 CONTROLS: tuple[str, ...] = ("pit_size", "atr20_pct", "price_return60")
@@ -111,6 +119,10 @@ DIAGNOSTIC_FEATURES: tuple[str, ...] = (
     "rebound_from_low20",
     "atr20_pct",
     "pit_size",
+    "op_yoy_mcap",
+    "op_yield",
+    "book_to_market",
+    "revenue_yoy",
     "fundamental_score",
 )
 IDENTITY_COLUMNS: tuple[str, ...] = ("as_of", "date_index", "symbol", "name", "market")
@@ -261,7 +273,17 @@ def build_research_panel(settings: Settings, workers: int | None = None) -> pd.D
         ) as pool:
             parts = list(pool.map(_panel_one_date, indices, chunksize=2))
     parts = [part for part in parts if not part.empty]
-    return pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
+    if not parts:
+        return pd.DataFrame()
+    panel = pd.concat(parts, ignore_index=True)
+    try:
+        financials = refresh_financials_from_env(
+            settings, panel["symbol"].unique(), pd.Timestamp(dates[0]).date()
+        )
+    except Exception as exc:  # stale cache is better than no panel
+        LOGGER.warning("DART financials refresh failed; using cache: %s", exc)
+        financials = load_financials(settings.data_dir)
+    return attach_fundamentals(panel, financials)
 
 
 # ---------------------------------------------------------------------------
@@ -626,6 +648,7 @@ def analyze_panel(panel: pd.DataFrame, settings: Settings) -> dict[str, Any]:
         ).as_dict(),
     }
     return {
+        "predictions": predictions,
         "factors": factors,
         "oos": oos,
         "champion": champion,
@@ -800,6 +823,13 @@ def run_research(
         raise RuntimeError("Research panel is empty; at least 60 stored sessions are required")
     result = analyze_panel(panel, settings)
     write_research_outputs(result, settings, generated_at)
+    try:
+        from .paper import portfolio_backtest
+
+        history = read_csv(settings.data_dir / "history.csv")
+        result["portfolio"] = portfolio_backtest(panel, result["predictions"], history, settings, generated_at)
+    except Exception as exc:  # the audit must still be written
+        LOGGER.warning("Portfolio backtest failed: %s", exc)
     LOGGER.info(
         "Research: champion=%s challenger=%s (OOS dates=%d)",
         result["champion"]["status"],

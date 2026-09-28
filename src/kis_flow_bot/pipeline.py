@@ -30,8 +30,10 @@ from .kis_client import KISAPIError, KISClient
 from .live_tracking import update_live_tracking
 from .ml_shadow import apply_rich_shadow, update_shadow_tracking
 from .notify import deliver_notifications
+from .paper import paper_section, update_paper_trading
 from .portfolio import apply_portfolio_actions, load_portfolio
 from .report import render_report
+from .fundamentals import attach_fundamentals, load_financials
 from .research import apply_learned_ranker, learned_section, load_learned_ranker
 from .scoring import score_features
 from .storage import (
@@ -279,8 +281,9 @@ def _write_outputs(
     event_md, event_html = event_section(
         scored, load_jev_verdict(data_dir / "jev_event_verdict.json") if data_dir else None
     )
-    rendered_html = rendered.html.replace("</main>", event_html + learned_html + shadow_html + "</main>")
-    rendered_markdown = rendered.markdown + event_md + learned_md + shadow_md + "\n"
+    paper_md, paper_html = paper_section(scored.attrs.get("paper_summary"))
+    rendered_html = rendered.html.replace("</main>", paper_html + event_html + learned_html + shadow_html + "</main>")
+    rendered_markdown = rendered.markdown + paper_md + event_md + learned_md + shadow_md + "\n"
     latest_html.write_text(rendered_html, encoding="utf-8")
     (settings.reports_dir / f"{report_date}.html").write_text(rendered_html, encoding="utf-8")
     (settings.reports_dir / "latest.md").write_text(rendered_markdown, encoding="utf-8")
@@ -291,6 +294,7 @@ def _write_outputs(
         "ml_shadow_available", "ml_shadow_model", "ml_shadow_prediction",
         "ml_shadow_score", "ml_shadow_rank", "ml_shadow_top", "ml_shadow_baseline_rank",
         "learned_score", "learned_rank", "learned_status", "pit_size",
+        "op_yoy_mcap", "op_yield", "book_to_market", "revenue_yoy", "report_age",
         "event_filings", "event_dilution", "event_adverse", "event_catalyst",
         "kw_dilution", "kw_adverse", "kw_catalyst",
         "jev_fragile_flow", "jev_price_trap", "jev_chase_risk", "jev_review",
@@ -478,6 +482,7 @@ def run_pipeline(
         scored,
         settings.reports_dir / "ml_rich_features.csv",
     )
+    scored = attach_fundamentals(scored, load_financials(settings.data_dir))
     scored = apply_learned_ranker(
         scored, load_learned_ranker(settings.data_dir / "learned_ranker.json")
     )
@@ -529,6 +534,10 @@ def run_pipeline(
         save_monitor(health, settings.reports_dir / "jev_monitor_latest.json")
     except Exception as exc:
         scored.attrs["jev_monitor_note"] = "모델 감독: 감독 처리 오류 점검 필요 (" + type(exc).__name__ + ")"
+    try:
+        scored.attrs["paper_summary"] = update_paper_trading(scored, history, settings, generated_at)
+    except Exception as exc:  # paper trading must never block the report
+        LOGGER.warning("Paper trading update failed without blocking the report: %s", exc)
     latest_html = _write_outputs(scored, settings, generated_at, horizon_board)
     try:
         shadow_ledger = update_shadow_tracking(
@@ -585,6 +594,7 @@ def rerank_stored_data(settings: Settings, notify: bool = False) -> pd.DataFrame
         scored,
         settings.reports_dir / "ml_rich_features.csv",
     )
+    scored = attach_fundamentals(scored, load_financials(settings.data_dir))
     scored = apply_learned_ranker(
         scored, load_learned_ranker(settings.data_dir / "learned_ranker.json")
     )

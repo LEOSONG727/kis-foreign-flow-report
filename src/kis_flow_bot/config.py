@@ -180,6 +180,18 @@ class ResearchConfig:
 
 
 @dataclass(frozen=True)
+class PaperSettings:
+    """Forward paper trading. Pre-registered; every strategy uses the same rules."""
+
+    slots: int = 10
+    hold_sessions: int = 20
+    picks_per_day: int = 5
+    initial_equity: float = 100_000_000.0
+    # Picks before this date are never recorded.
+    start_date: str = ""
+
+
+@dataclass(frozen=True)
 class Settings:
     root: Path
     screening: ScreeningConfig
@@ -190,6 +202,7 @@ class Settings:
     horizon: HorizonConfig
     watchlist: tuple[str, ...]
     research: ResearchConfig = ResearchConfig()
+    paper: PaperSettings = PaperSettings()
 
     @property
     def data_dir(self) -> Path:
@@ -225,6 +238,7 @@ def load_settings(root: Path | None = None) -> Settings:
         horizon=_build(HorizonConfig, raw.get("horizon", {})),
         watchlist=tuple(raw.get("watchlist", {}).get("symbols", [])),
         research=_build(ResearchConfig, raw.get("research", {})),
+        paper=_build(PaperSettings, raw.get("paper", {})),
     )
     settings.data_dir.mkdir(parents=True, exist_ok=True)
     settings.reports_dir.mkdir(parents=True, exist_ok=True)

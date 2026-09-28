@@ -140,6 +140,15 @@ rules_frozen_on = "2026-09-28"
 # 0이면 CPU 수만큼 병렬
 workers = 0
 
+[paper]
+# 모의 운용(가상 자금). 전략별로 같은 규칙: 다음 날 시가 매수, 최대 10종목 동일 비중,
+# 20거래일 보유 후 다음 시가 매도, 왕복 비용은 [model] backtest_roundtrip_cost_pct.
+slots = 10
+hold_sessions = 20
+picks_per_day = 5
+initial_equity = 100000000
+start_date = "2026-09-29"
+
 [watchlist]
 # 기존 관심종목 + 비교 기준 7종목
 # LG에너지솔루션, LG화학, 셀트리온, 현대차, 삼성SDI, 한화에어로스페이스, HD현대중공업
