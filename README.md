@@ -181,7 +181,7 @@ symbol,quantity,average_price,last_buy_price,tranche_count
 
 ## DART 시점 정합 재무
 
-DART 정기보고서 주요계정(`fnlttMultiAcnt`, 100개사 단위)을 받아 **보고서 접수일 이후에만** 사용한다. 영업이익 전년 동기 대비 변화/시가총액(실적 변화), 연간 영업이익/시가총액, 자본/시가총액, 매출 증가율, 보고서 경과일을 만든다. 주간 자가검증의 전종목 IC와 학습 도전자(사양 `ridge-rank-pit-v2`)에 들어간다. Secret `DART_API_KEY`가 필요하다.
+DART 정기보고서 주요계정(`fnlttMultiAcnt`, 100개사 단위)을 받아 **보고서 접수일 이후에만** 사용한다. 영업이익 전년 동기 대비 변화/시가총액(실적 변화), 연간 영업이익/시가총액, 자본/시가총액, 매출 증가율, 보고서 경과일을 만든다. 주간 자가검증의 전종목 IC와 학습 도전자(사양 `ridge-rank-pit-v2`)에 들어간다. 저장소 Secret `OpenDARTAPI`(워크플로에서 환경변수 `DART_API_KEY`로 전달)가 필요하다.
 
 ## 실전 추천 누적 평가
 

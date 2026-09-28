@@ -39,7 +39,7 @@ jobs:
       - name: Self-validation (whole-universe IC, walk-forward challenger, Jev replay)
         env:
           TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
-          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+          DART_API_KEY: ${{ secrets.OpenDARTAPI }}
         run: python -m kis_flow_bot research
       - name: Upload backtest artifacts
         if: always()
