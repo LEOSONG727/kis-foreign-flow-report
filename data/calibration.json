@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-27T16:49:54+00:00",
+  "generated_at": "2026-09-29T01:57:55+00:00",
   "quality_gate_version": 2,
   "active": false,
   "resolved_samples": 121,
@@ -11,8 +11,8 @@
   "holdout_win_rate": 0.6818181818181818,
   "overall_mean_realized_return": 0.014750607682716493,
   "holdout_mean_realized_return": 0.029793495518718367,
-  "overall_mean_excess_return": 0.049407035135518196,
-  "holdout_mean_excess_return": 0.04386822084652352,
+  "overall_mean_excess_return": 0.02797529276782766,
+  "holdout_mean_excess_return": 0.021063458896202387,
   "activation_checks": {
     "resolved_samples": false,
     "holdout_samples": false,
