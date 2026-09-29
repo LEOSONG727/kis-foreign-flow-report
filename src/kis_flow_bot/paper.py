@@ -235,7 +235,7 @@ def live_signals(scored: pd.DataFrame, picks: int = 5) -> pd.DataFrame:
         return pd.DataFrame(columns=SIGNAL_COLUMNS)
     eligible = scored
     if "discovery_eligible" in scored:
-        eligible = scored[scored["discovery_eligible"].fillna(False).astype(bool)]
+        eligible = scored[scored["discovery_eligible"].astype("boolean").fillna(False).astype(bool)]
     as_of = pd.to_datetime(eligible["as_of"]).max() if not eligible.empty else pd.NaT
     ordered = eligible.sort_values(["discovery_score", "timing_score", "entry_score"], ascending=False)
     chosen: dict[str, pd.DataFrame] = {}
@@ -256,7 +256,10 @@ def live_signals(scored: pd.DataFrame, picks: int = 5) -> pd.DataFrame:
                 scored_value[~one_off].sort_values("_value", ascending=False).head(picks)
             )
     if "kw_dilution" in ordered:
-        risky = ordered["kw_dilution"].fillna(False).astype(bool) | ordered["kw_adverse"].fillna(False).astype(bool)
+        risky = (
+            ordered["kw_dilution"].astype("boolean").fillna(False).astype(bool)
+            | ordered["kw_adverse"].astype("boolean").fillna(False).astype(bool)
+        )
         chosen["filing_veto_top5"] = ordered[~risky].head(picks)
     rows = []
     for strategy, frame in chosen.items():
