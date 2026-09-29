@@ -244,6 +244,7 @@ def _write_outputs(
     settings: Settings,
     generated_at: datetime,
     horizon=None,
+    paper_summary: pd.DataFrame | None = None,
 ) -> Path:
     rendered = render_report(
         scored,
@@ -282,7 +283,7 @@ def _write_outputs(
     event_md, event_html = event_section(
         scored, load_jev_verdict(data_dir / "jev_event_verdict.json") if data_dir else None
     )
-    paper_md, paper_html = paper_section(scored.attrs.get("paper_summary"))
+    paper_md, paper_html = paper_section(paper_summary)
     eq_md, eq_html = eq_section(
         scored, load_jev_verdict(data_dir / "earnings_quality_verdict.json") if data_dir else None
     )
@@ -542,11 +543,14 @@ def run_pipeline(
         save_monitor(health, settings.reports_dir / "jev_monitor_latest.json")
     except Exception as exc:
         scored.attrs["jev_monitor_note"] = "모델 감독: 감독 처리 오류 점검 필요 (" + type(exc).__name__ + ")"
+    # Keep DataFrames out of DataFrame.attrs: pandas compares attrs with ==
+    # during concat, and a frame there makes every later concat raise.
+    paper_summary = None
     try:
-        scored.attrs["paper_summary"] = update_paper_trading(scored, history, settings, generated_at)
+        paper_summary = update_paper_trading(scored, history, settings, generated_at)
     except Exception as exc:  # paper trading must never block the report
         LOGGER.warning("Paper trading update failed without blocking the report: %s", exc)
-    latest_html = _write_outputs(scored, settings, generated_at, horizon_board)
+    latest_html = _write_outputs(scored, settings, generated_at, horizon_board, paper_summary)
     try:
         shadow_ledger = update_shadow_tracking(
             scored,

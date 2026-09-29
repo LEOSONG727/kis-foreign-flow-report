@@ -12,9 +12,12 @@ on:
 permissions:
   contents: write
 
+# Only the newest recalculation matters, and it must never queue behind (and
+# cancel) the daily scan. If main changed the same files meanwhile, the
+# recalculated report is dropped: the next daily run regenerates it anyway.
 concurrency:
-  group: foreign-flow-data-write
-  cancel-in-progress: false
+  group: foreign-flow-recalc
+  cancel-in-progress: true
 
 jobs:
   rerank:
@@ -47,9 +50,12 @@ jobs:
             exit 0
           fi
           git commit -m "bot: recalculate action-ranked report"
-          # This push-triggered job can wait behind the backtest because both
-          # workflows serialize repository writes. During that wait the
-          # backtest may advance main with calibration results, so rebase the
-          # generated report commit onto the latest main before pushing.
-          git pull --rebase origin main
-          git push origin HEAD:main
+          for attempt in 1 2 3; do
+            if git pull --rebase origin main && git push origin HEAD:main; then
+              exit 0
+            fi
+            git rebase --abort 2>/dev/null || true
+            sleep $((attempt * 15))
+          done
+          echo "::warning::main moved and the recalculated report conflicted; skipping (next daily run regenerates it)"
+          exit 0

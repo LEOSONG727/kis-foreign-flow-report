@@ -65,5 +65,13 @@ jobs:
             exit 0
           fi
           git commit -m "bot: extend stored history backwards"
-          git pull --rebase origin "$GITHUB_REF_NAME"
-          git push origin "HEAD:$GITHUB_REF_NAME"
+          # main can move while this job runs (merges, other bots): rebase and retry.
+          for attempt in 1 2 3 4 5; do
+            if git pull --rebase origin "$GITHUB_REF_NAME" && git push origin "HEAD:$GITHUB_REF_NAME"; then
+              exit 0
+            fi
+            git rebase --abort 2>/dev/null || true
+            sleep $((attempt * 15))
+          done
+          echo "push failed after 5 attempts" >&2
+          exit 1
