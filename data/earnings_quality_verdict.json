@@ -1,0 +1,87 @@
+{
+  "version": "jev-earnings-quality-v1",
+  "prompt_hash": "eedd5ea91139456e",
+  "model": "jev-1.13.0",
+  "rows": 5800,
+  "rows_with_text": 5509,
+  "jev_answered": 5800,
+  "flags": [
+    {
+      "source": "jev",
+      "flag_rate": 0.0843103448275862,
+      "flagged": 489,
+      "excess_flagged": -0.003467156702285915,
+      "excess_clean": 0.0029536455557534575,
+      "severe_flagged": 0.044989775051124746,
+      "severe_clean": 0.10544153643381661
+    },
+    {
+      "source": "kw",
+      "flag_rate": 0.05586206896551724,
+      "flagged": 324,
+      "excess_flagged": -0.016166809084348106,
+      "excess_clean": 0.0035115810924977336,
+      "severe_flagged": 0.024691358024691357,
+      "severe_clean": 0.10482103725346968
+    }
+  ],
+  "dates": 290,
+  "portfolios": {
+    "baseline": {
+      "dates": 290,
+      "mean": -0.004053123102813418,
+      "low": -0.02207970226670744,
+      "high": 0.015246968199866609,
+      "positive_share": 0.3896551724137931,
+      "effective_t": -0.24671969211107947
+    },
+    "baseline_severe": 0.09379310344827588,
+    "jev_veto": {
+      "dates": 290,
+      "mean": -0.002268866559567858,
+      "low": -0.019707716236027763,
+      "high": 0.016256822694066295,
+      "positive_share": 0.40344827586206894,
+      "effective_t": -0.1393776636003229
+    },
+    "jev_veto_severe": 0.09724137931034484,
+    "keyword_veto": {
+      "dates": 290,
+      "mean": -0.0015259170980332479,
+      "low": -0.01895764159487095,
+      "high": 0.017072733084725563,
+      "positive_share": 0.42758620689655175,
+      "effective_t": -0.09471322640886487
+    },
+    "keyword_veto_severe": 0.09172413793103448,
+    "jev_veto_minus_baseline": {
+      "dates": 290,
+      "mean": 0.0017842565432455609,
+      "low": -0.0010440215566234748,
+      "high": 0.004947645508422861,
+      "positive_share": 0.22758620689655173,
+      "effective_t": 0.34546894965588765
+    },
+    "keyword_veto_minus_baseline": {
+      "dates": 290,
+      "mean": 0.002527206004780169,
+      "low": -0.0010885324693034844,
+      "high": 0.006773377303453787,
+      "positive_share": 0.23793103448275862,
+      "effective_t": 0.49579265981859993
+    },
+    "jev_veto_minus_keyword_veto": {
+      "dates": 290,
+      "mean": -0.0007429494615346086,
+      "low": -0.004660386586232689,
+      "high": 0.002738753869834427,
+      "positive_share": 0.23103448275862068,
+      "effective_t": -0.17956174552086646
+    }
+  },
+  "verdict": "NO_VALUE",
+  "reasons": [
+    "Jev − 키워드 하한 -0.47%, 키워드 − H1 하한 -0.11%"
+  ],
+  "generated_at": "2026-09-29T21:26:49+09:00"
+}
