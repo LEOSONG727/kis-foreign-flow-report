@@ -1,0 +1,24 @@
+{
+  "captured_at": "2026-09-29T17:10:35.178185+00:00",
+  "evidence": {
+    "operational_status": "no_reported_issues",
+    "status_counts": {
+      "VALIDATION_OFF": 632
+    },
+    "cohort": "f004567e14ac4a55",
+    "recorded_signal_days": 1,
+    "completed_common_days": 0,
+    "sample_status": "insufficient_for_performance_review",
+    "return_difference": "unavailable",
+    "entry_loss_difference": "unavailable",
+    "limitations": "Overlapping holdings; no significance claim, no automatic promotion; this is not portfolio MDD.",
+    "champion_status": "INSUFFICIENT_DATA",
+    "challenger_status": "NO_EDGE",
+    "jev_replay_verdict": "NO_VALUE"
+  },
+  "decision": "OBSERVE",
+  "source": "code",
+  "model": null,
+  "error": null,
+  "note": "모델 감독: 계속 관찰\n자가검증: 현행 표본 부족 · 도전자 예측력 미확인\nJev 과거 검증: 추가 가치 없음 (일일 호출 중지)"
+}

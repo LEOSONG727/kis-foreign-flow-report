@@ -1,0 +1,13 @@
+signal_date,symbol,name,experiment_version,cohort_id,cohort_size,baseline_rank,ml_rank,jev_rank,signal_close,entry_date,entry_open,return_5,return_20,net_return_5,net_return_20,worst_entry_loss_20,roundtrip_cost_pct,late_capture,jev_fragile_flow,jev_price_trap,jev_chase_risk,jev_review,jev_model,jev_error,jev_status,jev_policy,jev_prompt_hash,jev_input_hash,jev_state_json,jev_captured_at,jev_input_tokens
+2026-09-29,096530,씨젠,jev-challenge-v2,f004567e14ac4a55,12,1,2.0,,33700.0,,,,,,,,0.3,False,,,,,,,VALIDATION_OFF,,,,,,
+2026-09-29,007070,GS리테일,jev-challenge-v2,f004567e14ac4a55,12,2,9.0,,22850.0,,,,,,,,0.3,False,,,,,,,VALIDATION_OFF,,,,,,
+2026-09-29,000880,한화,jev-challenge-v2,f004567e14ac4a55,12,3,5.0,,127800.0,,,,,,,,0.3,False,,,,,,,VALIDATION_OFF,,,,,,
+2026-09-29,093320,케이아이엔엑스,jev-challenge-v2,f004567e14ac4a55,12,4,11.0,,133000.0,,,,,,,,0.3,False,,,,,,,VALIDATION_OFF,,,,,,
+2026-09-29,181710,NHN,jev-challenge-v2,f004567e14ac4a55,12,5,12.0,,54900.0,,,,,,,,0.3,False,,,,,,,VALIDATION_OFF,,,,,,
+2026-09-29,282330,BGF리테일,jev-challenge-v2,f004567e14ac4a55,12,6,4.0,,131400.0,,,,,,,,0.3,False,,,,,,,VALIDATION_OFF,,,,,,
+2026-09-29,207940,삼성바이오로직스,jev-challenge-v2,f004567e14ac4a55,12,7,1.0,,1384000.0,,,,,,,,0.3,False,,,,,,,VALIDATION_OFF,,,,,,
+2026-09-29,039490,키움증권,jev-challenge-v2,f004567e14ac4a55,12,8,7.0,,254500.0,,,,,,,,0.3,False,,,,,,,VALIDATION_OFF,,,,,,
+2026-09-29,004170,신세계,jev-challenge-v2,f004567e14ac4a55,12,9,8.0,,339500.0,,,,,,,,0.3,False,,,,,,,VALIDATION_OFF,,,,,,
+2026-09-29,002900,TYM,jev-challenge-v2,f004567e14ac4a55,12,10,3.0,,6450.0,,,,,,,,0.3,False,,,,,,,VALIDATION_OFF,,,,,,
+2026-09-29,192080,더블유게임즈,jev-challenge-v2,f004567e14ac4a55,12,11,6.0,,58700.0,,,,,,,,0.3,False,,,,,,,VALIDATION_OFF,,,,,,
+2026-09-29,005180,빙그레,jev-challenge-v2,f004567e14ac4a55,12,12,10.0,,87000.0,,,,,,,,0.3,False,,,,,,,VALIDATION_OFF,,,,,,
