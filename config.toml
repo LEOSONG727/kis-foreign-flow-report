@@ -149,6 +149,12 @@ picks_per_day = 5
 initial_equity = 100000000
 start_date = "2026-09-29"
 
+[jev]
+# Jev 유료 호출 스위치. 숫자·공시·이익의 질 재생 검증 모두 코드 규칙 대비 추가 가치가 없어 끈다.
+# 프롬프트/모델을 바꾸거나 새 입력을 붙일 때만 켜고, 반드시 다시 검증한다.
+daily_calls = false
+replay_calls = false
+
 [watchlist]
 # 기존 관심종목 + 비교 기준 7종목
 # LG에너지솔루션, LG화학, 셀트리온, 현대차, 삼성SDI, 한화에어로스페이스, HD현대중공업

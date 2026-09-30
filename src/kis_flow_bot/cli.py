@@ -91,9 +91,11 @@ def main() -> None:
         # One panel feeds both the rule/challenger audit and the Jev replay.
         panel = build_research_panel(settings, workers=args.workers)
         run_research(settings, panel=panel)
-        run_jev_replay(settings, max_calls=args.max_calls, panel=panel)
-        run_event_replay(settings, max_calls=args.max_calls, panel=panel)
-        run_earnings_quality(settings, panel=panel, max_calls=args.max_calls)
+        # Replays re-evaluate stored answers; new paid calls only if switched on.
+        calls = args.max_calls if settings.jev.replay_calls else 0
+        run_jev_replay(settings, max_calls=calls, panel=panel)
+        run_event_replay(settings, max_calls=calls, panel=panel)
+        run_earnings_quality(settings, panel=panel, max_calls=calls)
         return
     if args.command == "earnings-quality":
         run_earnings_quality(settings, max_calls=args.max_calls, workers=args.workers)

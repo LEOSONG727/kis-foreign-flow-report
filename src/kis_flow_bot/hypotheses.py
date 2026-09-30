@@ -49,12 +49,34 @@ HYPOTHESES: tuple[Hypothesis, ...] = (
         weights={"op_yield": 1.0},
     ),
 )
+# H4 (registered 2026-09-30) lives in research.evaluate_h4 and paper.py:
+# the walk-forward learned score ranks the whole eligible universe (OOS IC
+# +0.078, lower bound +0.033 over 231 dates) even though its top-5 lost money,
+# so the *top quintile* is tested instead of the top few names:
+#   (a) mean D+20 excess return of the top 20% by learned score > 0, and
+#   (b) top-20% minus bottom-20% excess spread > 0,
+# both with 90% block-bootstrap lower bounds > 0 over >= 60 confirmation dates.
+# Every signal date up to the registration date is discovery (the OOS IC and
+# the failed top-5 were seen); only later dates count. Paper trading holds a
+# seeded random 2-per-day sample of the quintile across 40 slots.
 # H2 (filing veto) lives in jev_events: removing names with an adverse filing
 # in the last 30 days from the discovery top 3 lowers severe-loss share.
 # H3 (earnings quality) lives in earnings_quality: dropping H1 candidates whose
 # latest profit explanation Jev judges one-off beats both plain H1 and the
 # same veto by keywords. H3 was registered before any answer was seen, so
 # every labelled date counts as evidence.
+
+
+H4_REGISTERED_ON = "2026-09-30"
+
+
+def h4_window(dates: pd.Series) -> pd.Series:
+    """H4 discovery = every signal date up to registration; confirmation = later ones."""
+
+    stamp = pd.to_datetime(dates)
+    return pd.Series(
+        np.where(stamp <= pd.Timestamp(H4_REGISTERED_ON), "discovery", "confirmation"), index=dates.index
+    )
 
 
 def hypothesis_score(frame: pd.DataFrame, hypothesis: Hypothesis, date_column: str = "as_of") -> pd.Series:

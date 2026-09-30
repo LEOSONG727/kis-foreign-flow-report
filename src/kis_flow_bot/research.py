@@ -46,11 +46,13 @@ from .fundamentals import (
 from .hypotheses import (
     DISCOVERY_END,
     DISCOVERY_START,
+    H4_REGISTERED_ON,
     HYPOTHESES,
     MIN_CONFIRMATION_DATES,
     REGISTERED_ON,
     VERDICT_LABELS as HYPOTHESIS_LABELS,
     add_hypothesis_scores,
+    h4_window,
     verdict as hypothesis_verdict,
     window_of,
 )
@@ -598,6 +600,52 @@ def evaluate_hypotheses(labelled: pd.DataFrame, settings: Settings) -> list[dict
     return results
 
 
+def quintile_series(merged: pd.DataFrame, target: str, fraction: float = 0.20) -> pd.DataFrame:
+    """Per date: mean excess of the top / bottom ``fraction`` by learned score."""
+
+    rows = []
+    for as_of, group in merged.dropna(subset=["challenger_score", target]).groupby("as_of"):
+        if len(group) < 50:
+            continue
+        n = max(int(round(fraction * len(group))), 1)
+        ordered = group.sort_values("challenger_score", ascending=False)
+        top = float(ordered.head(n)[target].mean())
+        bottom = float(ordered.tail(n)[target].mean())
+        rows.append({"as_of": as_of, "top": top, "bottom": bottom, "spread": top - bottom})
+    return pd.DataFrame(rows)
+
+
+def evaluate_h4(merged: pd.DataFrame, settings: Settings) -> dict[str, Any]:
+    """H4: the learned model's top quintile earns positive excess, and beats its bottom quintile."""
+
+    research = settings.research
+    horizon = research.horizon
+    kwargs = {"confidence": research.confidence, "samples": research.bootstrap_samples}
+    series = quintile_series(merged, f"excess{horizon}") if not merged.empty else pd.DataFrame()
+    result: dict[str, Any] = {"id": "H4-learned-quintile", "registered_on": H4_REGISTERED_ON}
+    if series.empty:
+        result["verdict"] = "INSUFFICIENT_DATA"
+        return result
+    windows = h4_window(series["as_of"])
+    for window in ("discovery", "confirmation"):
+        part = series[windows == window]
+        result[window] = {
+            "top": summarize_series(part["top"], horizon, **kwargs).as_dict(),
+            "bottom": summarize_series(part["bottom"], horizon, **kwargs).as_dict(),
+            "spread": summarize_series(part["spread"], horizon, **kwargs).as_dict(),
+        }
+    confirmation = result["confirmation"]
+    if confirmation["top"]["dates"] < MIN_CONFIRMATION_DATES:
+        result["verdict"] = "INSUFFICIENT_DATA"
+    elif confirmation["top"]["low"] > 0 and confirmation["spread"]["low"] > 0:
+        result["verdict"] = "CONFIRMED"
+    elif confirmation["spread"]["high"] < 0:
+        result["verdict"] = "REVERSED"
+    else:
+        result["verdict"] = "NOT_CONFIRMED"
+    return result
+
+
 def analyze_panel(panel: pd.DataFrame, settings: Settings) -> dict[str, Any]:
     research = settings.research
     horizon = research.horizon
@@ -695,6 +743,7 @@ def analyze_panel(panel: pd.DataFrame, settings: Settings) -> dict[str, Any]:
     return {
         "predictions": predictions,
         "hypotheses": evaluate_hypotheses(labelled, settings),
+        "h4": evaluate_h4(merged, settings),
         "factors": factors,
         "oos": oos,
         "champion": champion,
@@ -813,6 +862,27 @@ def render_research_markdown(result: dict[str, Any], settings: Settings, generat
                     f"{HYPOTHESIS_LABELS.get(entry['verdict'], entry['verdict']) if window == 'confirmation' else ''} |"
                 )
         lines.append("")
+    h4 = result.get("h4") or {}
+    if h4.get("discovery"):
+        lines.extend(
+            [
+                "## 4. 사전등록 가설 H4: 학습 모델 상위 20%",
+                "",
+                f"{H4_REGISTERED_ON} 등록. 워크포워드 학습 점수로 적격 종목을 나눠 **상위 20%의 D+{research.horizon} 초과수익 평균**이 0보다 크고, "
+                "**상위 − 하위 20% 격차**도 0보다 큰지 봅니다(둘 다 90% 하한 > 0, 검증 구간 "
+                f"{MIN_CONFIRMATION_DATES}일 이상). 등록일까지의 신호일은 결과를 본 뒤 만든 가설이므로 **발견 구간**이고, 이후 날짜만 검증에 씁니다.",
+                "",
+                "| 구간 | 신호일 | 상위 20% | 하한 | 하위 20% | 상위 − 하위 | 하한 |",
+                "|---|---:|---:|---:|---:|---:|---:|",
+            ]
+        )
+        for window, label in (("discovery", "발견"), ("confirmation", "검증")):
+            item = h4[window]
+            lines.append(
+                f"| {label} | {item['top']['dates']} | {_fmt(item['top']['mean'], pct=True)} | {_fmt(item['top']['low'], pct=True)} | "
+                f"{_fmt(item['bottom']['mean'], pct=True)} | {_fmt(item['spread']['mean'], pct=True)} | {_fmt(item['spread']['low'], pct=True)} |"
+            )
+        lines.extend(["", f"H4 판정: **{HYPOTHESIS_LABELS.get(h4.get('verdict', ''), h4.get('verdict', ''))}**", ""])
     return "\n".join(lines)
 
 
@@ -846,6 +916,7 @@ def write_research_outputs(result: dict[str, Any], settings: Settings, generated
         "champion": result["champion"],
         "challenger": result["challenger"],
         "hypotheses": result.get("hypotheses", []),
+        "h4": result.get("h4", {}),
     }
     ranker = {
         **record,
@@ -873,6 +944,7 @@ def write_research_outputs(result: dict[str, Any], settings: Settings, generated
             "challenger_oos_ic": record["challenger"]["oos_ic"]["mean"],
             "challenger_oos_dates": record["challenger"]["oos_ic"]["dates"],
             "ic_delta": record["challenger"]["ic_delta_vs_champion"]["mean"],
+            "h4_verdict": record["h4"].get("verdict"),
             "hypotheses": {
                 item["id"]: {
                     "verdict": item["verdict"],

@@ -507,10 +507,10 @@ def run_pipeline(
     )
 
     jev_verdict = load_jev_verdict(settings.data_dir / "jev_verdict.json")
-    if daily_jev_allowed(jev_verdict):
+    if settings.jev.daily_calls and daily_jev_allowed(jev_verdict):
         scored = apply_jev_shadow(scored)
     else:
-        # The replay showed this exact prompt adds nothing; stop paying for it.
+        # Replays showed Jev adds nothing over code rules; [jev] daily_calls is off.
         scored = apply_jev_shadow(scored, api_key="")
         scored["jev_status"] = "VALIDATION_OFF"
     scored = apply_event_review(scored, settings)

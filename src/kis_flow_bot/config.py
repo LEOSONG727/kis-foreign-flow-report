@@ -192,6 +192,17 @@ class PaperSettings:
 
 
 @dataclass(frozen=True)
+class JevSettings:
+    """Paid Jev calls. All three replays found no added value over code rules
+    (numeric 2026-09-28, filings 2026-09-29, earnings quality 2026-09-29), so
+    both switches are off. Turn one on only together with a new prompt/model
+    or a genuinely new input, and re-validate."""
+
+    daily_calls: bool = False
+    replay_calls: bool = False
+
+
+@dataclass(frozen=True)
 class Settings:
     root: Path
     screening: ScreeningConfig
@@ -203,6 +214,7 @@ class Settings:
     watchlist: tuple[str, ...]
     research: ResearchConfig = ResearchConfig()
     paper: PaperSettings = PaperSettings()
+    jev: JevSettings = JevSettings()
 
     @property
     def data_dir(self) -> Path:
@@ -239,6 +251,7 @@ def load_settings(root: Path | None = None) -> Settings:
         watchlist=tuple(raw.get("watchlist", {}).get("symbols", [])),
         research=_build(ResearchConfig, raw.get("research", {})),
         paper=_build(PaperSettings, raw.get("paper", {})),
+        jev=_build(JevSettings, raw.get("jev", {})),
     )
     settings.data_dir.mkdir(parents=True, exist_ok=True)
     settings.reports_dir.mkdir(parents=True, exist_ok=True)

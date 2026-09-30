@@ -317,14 +317,19 @@ def veto_series(frame: pd.DataFrame, target: str) -> pd.DataFrame:
     out = []
     for as_of, group in frame.groupby("as_of", sort=True):
         group = group.dropna(subset=[target]).sort_values("h1_rank")
-        if len(group) < PICKS * 2 or group["jev_veto"].isna().any():
+        if len(group) < PICKS * 2:
             continue
         picks = {
             "baseline": group.head(PICKS),
-            "jev_veto": group[~group["jev_veto"].astype(bool)].head(PICKS),
             "keyword_veto": group[~group["kw_veto"].astype(bool)].head(PICKS),
         }
         record: dict[str, Any] = {"as_of": as_of}
+        if group["jev_veto"].isna().any():
+            # Jev calls are off for new dates: keep the day for keyword-only comparisons.
+            record["jev_veto"] = float("nan")
+            record["jev_veto_severe"] = float("nan")
+        else:
+            picks["jev_veto"] = group[~group["jev_veto"].astype(bool)].head(PICKS)
         for label, chosen in picks.items():
             record[label] = float(chosen[target].sum() / PICKS)
             record[f"{label}_severe"] = float((chosen["worst20"] <= SEVERE_LOSS).sum() / PICKS) if "worst20" in chosen else float("nan")
@@ -544,6 +549,8 @@ def apply_earnings_quality(
         pool = result[result["discovery_eligible"].fillna(False).astype(bool)]
     as_of = pd.to_datetime(pool["as_of"]).max()
     candidates = h1_candidates(pool.assign(as_of=as_of))
+    if jev_key is None and not settings.jev.daily_calls:
+        jev_key = ""  # keyword flags only; no paid calls
     client, jev = _clients(dart_client, jev_key)
     if candidates.empty or client is None:
         return result

@@ -57,3 +57,7 @@ Daily runs record the shortlist's filing flags in `data/jev_event_live.csv` befo
 Operating yield is the only signal that survived style controls so far, and its known trap is profit that will not repeat. For each day's H1 top 20, the latest "손익구조 30%(15%) 이상 변동" or preliminary-earnings filing received on or before the signal date (within 400 days) is read from DART `document.xml`; company names and years are masked. Jev answers whether the profit change is driven mainly by one-off or non-operating items, and whether recurring operations explain it. Answers are cached per distinct text.
 
 H3, registered before any answer was seen: dropping names Jev judges one-off (>= 0.5) from H1 top 5 must beat the same veto by a keyword rule (one-off words present, operating words absent) with a lower bound > 0, and beat plain H1 top 5 on average, over at least 40 dates. `KEYWORDS_ENOUGH` means code should use the keywords instead. Daily runs flag today's H1 candidates in the report and paper-trade `value_clean_top5`; ranking and gates stay unchanged. Weekly research writes `reports/earnings_quality.md`.
+
+## Status (2026-09-30): paid calls off
+
+All three replays (numeric, filing titles, earnings quality) found no added value over code rules, so `[jev] daily_calls` and `[jev] replay_calls` in `config.toml` are false. Stored answers and verdicts stay in the repository and keep being evaluated; keyword rules produce the daily filing and one-off-profit flags. Re-enable only with a new prompt or model, or a new input code cannot read, and re-run the same replay gate.
