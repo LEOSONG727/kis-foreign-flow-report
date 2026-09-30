@@ -352,17 +352,22 @@ def veto_portfolios(frame: pd.DataFrame, target: str) -> pd.DataFrame:
         if len(group) < TOP_N * 2:
             continue
         jev_risk = group["jev_dilution"].astype("boolean") | group["jev_adverse"].astype("boolean")
-        if jev_risk.isna().any():
-            continue  # incomplete Jev coverage: do not score this day
+        # Incomplete Jev coverage (calls are off for new dates) leaves the Jev
+        # columns NaN; keyword-only comparisons such as H2 must keep counting.
+        jev_complete = not jev_risk.isna().any()
         kw_risk = group["kw_dilution"].astype(bool) | group["kw_adverse"].astype(bool)
         picks = {
             "baseline": group.head(TOP_N),
-            "jev_veto": group[~jev_risk.astype(bool)].head(TOP_N),
             "keyword_veto": group[~kw_risk].head(TOP_N),
             # Pre-registered H2 (2026-09-28): adverse filings only.
             "adverse_veto": group[~group["kw_adverse"].astype(bool)].head(TOP_N),
         }
+        if jev_complete:
+            picks["jev_veto"] = group[~jev_risk.astype(bool)].head(TOP_N)
         record: dict[str, Any] = {"as_of": as_of}
+        if not jev_complete:
+            record["jev_veto"] = float("nan")
+            record["jev_veto_severe"] = float("nan")
         for label, chosen in picks.items():
             # Fewer than three survivors: empty slots are cash.
             record[label] = float(chosen[target].sum() / TOP_N)
@@ -682,6 +687,8 @@ def apply_event_review(
     candidates = select_candidates(result, LIMIT)
     if candidates.empty:
         return result
+    if jev_key is None and not settings.jev.daily_calls:
+        jev_key = ""  # keyword flags only; no paid calls
     client, jev = _clients(None, jev_key)
     client = dart_client or client
     if client is None:

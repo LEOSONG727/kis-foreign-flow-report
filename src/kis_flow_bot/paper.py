@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -39,8 +39,17 @@ STRATEGY_LABELS = {
     "learned_top5": "학습 모델 상위 5",
     "filing_veto_top5": "발견 상위 5 · 공시 희석·악재 제외",
     "value_top5": "사전등록 가설 H1 상위 5 (영업이익 수익률·순자산·저변동성)",
-    "value_clean_top5": "H1 상위 5 · Jev 일회성 이익 제외 (가설 H3)",
+    "value_clean_top5": "H1 상위 5 · 일회성 이익 제외 (가설 H3, 키워드)",
+    "learned_top20pct": "가설 H4: 학습 모델 상위 20% 무작위 분산 (40종목)",
 }
+# H4 (registered 2026-09-30): a diversified sample of the learned model's top
+# quintile. Each day two names are drawn at random (seed = signal date) from the
+# top 20% by learned score and held for 20 sessions across 40 slots.
+H4_ID = "learned_top20pct"
+H4_QUINTILE = 0.20
+H4_PICKS_PER_DAY = 2
+H4_SLOTS = 40
+STRATEGY_OVERRIDES = {H4_ID: {"slots": H4_SLOTS, "picks_per_day": H4_PICKS_PER_DAY}}
 VALUE_HYPOTHESIS = "H1-value-quality-lowvol"
 SIGNAL_COLUMNS = ["as_of", "strategy", "rank", "symbol", "name", "captured_at"]
 
@@ -79,13 +88,19 @@ def simulate(
     closes: pd.DataFrame,
     config: PaperConfig,
     start: pd.Timestamp | None = None,
+    overrides: dict[str, dict[str, Any]] | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Run every strategy in ``signals`` through the same portfolio rules."""
+    """Run every strategy in ``signals`` through the same portfolio rules.
+
+    ``overrides`` maps a strategy id to PaperConfig fields it changes (only
+    slot count / picks per day are used, for the diversified H4 strategy).
+    """
 
     nav_rows: list[dict[str, Any]] = []
     trade_rows: list[dict[str, Any]] = []
     if signals.empty or closes.empty:
         return pd.DataFrame(), pd.DataFrame()
+    base_config = config
     signals = signals.copy()
     signals["as_of"] = pd.to_datetime(signals["as_of"])
     signals["symbol"] = signals["symbol"].astype(str).str.zfill(6)
@@ -94,6 +109,7 @@ def simulate(
     dates = [d for d in dates if d >= first]
     last_close = closes.ffill()
     for strategy, group in signals.groupby("strategy", sort=True):
+        config = replace(base_config, **(overrides or {}).get(strategy, {}))
         picks_by_day = {
             day: rows.sort_values("rank")["symbol"].tolist()
             for day, rows in group.groupby("as_of")
@@ -228,6 +244,23 @@ def summarize(nav: pd.DataFrame, trades: pd.DataFrame, benchmark: pd.DataFrame) 
 # ---------------------------------------------------------------------------
 
 
+def quintile_sample(ranked: pd.DataFrame, as_of: pd.Timestamp, k: int = H4_PICKS_PER_DAY) -> pd.DataFrame:
+    """H4: k names drawn uniformly from the top 20% of ``ranked`` (best first).
+
+    The seed is the signal date, so the draw is reproducible and cannot be
+    re-rolled after prices are known. Sampling (rather than taking the very
+    top names) estimates the quintile's average, which is what H4 tests.
+    """
+
+    if ranked.empty:
+        return ranked
+    top_n = max(int(math.ceil(H4_QUINTILE * len(ranked))), k)
+    pool = ranked.head(top_n)
+    rng = np.random.default_rng(int(pd.Timestamp(as_of).strftime("%Y%m%d")))
+    take = sorted(rng.choice(len(pool), size=min(k, len(pool)), replace=False))
+    return pool.iloc[take]
+
+
 def live_signals(scored: pd.DataFrame, picks: int = 5) -> pd.DataFrame:
     """Today's picks per strategy, from the fully annotated daily frame."""
 
@@ -250,11 +283,15 @@ def live_signals(scored: pd.DataFrame, picks: int = 5) -> pd.DataFrame:
         hypothesis = next(h for h in HYPOTHESES if h.id == VALUE_HYPOTHESIS)
         scored_value = ordered.assign(_value=hypothesis_score(ordered.assign(as_of=as_of), hypothesis))
         chosen["value_top5"] = scored_value.sort_values("_value", ascending=False).head(picks)
-        if "eq_one_off" in scored_value and scored_value["eq_one_off"].notna().any():
-            one_off = scored_value["eq_one_off"].fillna(0.0) >= 0.5
+        if "eq_kw_veto" in scored_value and scored_value["eq_kw_veto"].notna().any():
+            # H3 with the keyword rule: Jev added nothing over it in the replay.
+            one_off = scored_value["eq_kw_veto"].astype("boolean").fillna(False).astype(bool)
             chosen["value_clean_top5"] = (
                 scored_value[~one_off].sort_values("_value", ascending=False).head(picks)
             )
+    if "learned_rank" in ordered and ordered["learned_rank"].notna().any():
+        ranked = ordered.dropna(subset=["learned_rank"]).sort_values("learned_rank")
+        chosen[H4_ID] = quintile_sample(ranked, as_of)
     if "kw_dilution" in ordered:
         risky = (
             ordered["kw_dilution"].astype("boolean").fillna(False).astype(bool)
@@ -353,7 +390,9 @@ def update_paper_trading(
     opens, closes = _price_pivots(history)
     picks = ledger[ledger["symbol"].astype(str).str.strip().ne("") & ledger["symbol"].notna()]
     first = pd.to_datetime(ledger["as_of"]).min()
-    nav, trades = simulate(picks.assign(symbol=picks["symbol"].astype(str)), opens, closes, config, start=first)
+    nav, trades = simulate(
+        picks.assign(symbol=picks["symbol"].astype(str)), opens, closes, config, start=first, overrides=STRATEGY_OVERRIDES
+    )
     strategies = sorted(ledger["strategy"].unique())
     if not nav.empty:
         # Strategies that never picked still exist, as cash.
@@ -433,6 +472,13 @@ def portfolio_backtest(
         top = ordered.groupby("as_of").head(config.picks_per_day).copy()
         top["rank"] = top.groupby("as_of").cumcount() + 1
         signals.append(top.assign(strategy="learned_top5")[["as_of", "strategy", "rank", "symbol"]])
+        h4_rows = []
+        for as_of, group in ordered.groupby("as_of"):
+            sample = quintile_sample(group, as_of).copy()
+            sample["rank"] = range(1, len(sample) + 1)
+            h4_rows.append(sample.assign(strategy=H4_ID)[["as_of", "strategy", "rank", "symbol"]])
+        if h4_rows:
+            signals.append(pd.concat(h4_rows, ignore_index=True))
     if not signals:
         return pd.DataFrame()
     frame = pd.concat(signals, ignore_index=True)
@@ -440,7 +486,7 @@ def portfolio_backtest(
     common_start = frame.groupby("strategy")["as_of"].min().max()
     frame = frame[frame["as_of"] >= common_start]
     opens, closes = _price_pivots(history)
-    nav, trades = simulate(frame, opens, closes, config, start=common_start)
+    nav, trades = simulate(frame, opens, closes, config, start=common_start, overrides=STRATEGY_OVERRIDES)
     bench = benchmark_nav(closes, common_start, config.initial_equity)
     summary = summarize(nav, trades, bench)
     lines = [
