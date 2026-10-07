@@ -117,8 +117,8 @@ def test_jev_switches_default_to_off_in_config():
 
 
 def test_daily_reviews_make_no_jev_calls_but_keep_keyword_flags(tmp_path):
-    from tests.test_earnings_quality import FakeDart as EqDart, _panel as eq_panel
-    from tests.test_jev_events import FakeDart as EventDart, _busy_filings, _panel as event_panel
+    from test_earnings_quality import FakeDart as EqDart, _panel as eq_panel
+    from test_jev_events import FakeDart as EventDart, _busy_filings, _panel as event_panel
 
     settings = _settings(tmp_path)
     today = event_panel(dates=1).assign(as_of=pd.Timestamp("2026-03-10"), name="n", discovery_eligible=True)
