@@ -1,18 +1,18 @@
 {
-  "generated_at": "2026-10-07T17:06:41+00:00",
+  "generated_at": "2026-10-10T08:05:53+00:00",
   "quality_gate_version": 2,
-  "active": true,
-  "resolved_samples": 567,
+  "active": false,
+  "resolved_samples": 572,
   "minimum_resolved_samples": 300,
-  "holdout_resolved_samples": 165,
+  "holdout_resolved_samples": 145,
   "minimum_holdout_samples": 75,
   "breakeven_win_rate": 0.44999999999999996,
-  "overall_win_rate": 0.49206349206349204,
-  "holdout_win_rate": 0.509090909090909,
-  "overall_mean_realized_return": 0.017514668341630592,
-  "holdout_mean_realized_return": 0.01063894793939516,
-  "overall_mean_excess_return": 0.006071932505236741,
-  "holdout_mean_excess_return": 0.014543338094152895,
+  "overall_win_rate": 0.48426573426573427,
+  "holdout_win_rate": 0.4896551724137931,
+  "overall_mean_realized_return": 0.01642675119592279,
+  "holdout_mean_realized_return": 0.009651630063621146,
+  "overall_mean_excess_return": 0.005048900154624931,
+  "holdout_mean_excess_return": 0.015739506607748453,
   "activation_checks": {
     "resolved_samples": true,
     "holdout_samples": true,
@@ -22,44 +22,44 @@
     "holdout_positive_excess_return": true,
     "overall_above_breakeven": true,
     "holdout_above_breakeven": true,
-    "score_ordering": true
+    "score_ordering": false
   },
   "bands": [
     {
       "label": "<64",
       "low": 0.0,
       "high": 64.0,
-      "samples": 37,
+      "samples": 38,
       "wins": 15,
-      "win_rate": 0.40540540540540543,
-      "calibrated_probability": 0.4146341463414634
+      "win_rate": 0.39473684210526316,
+      "calibrated_probability": 0.40476190476190477
     },
     {
       "label": "64-67",
       "low": 64.0,
       "high": 68.0,
-      "samples": 60,
-      "wins": 29,
-      "win_rate": 0.48333333333333334,
-      "calibrated_probability": 0.484375
+      "samples": 63,
+      "wins": 30,
+      "win_rate": 0.47619047619047616,
+      "calibrated_probability": 0.47761194029850745
     },
     {
       "label": "68-71",
       "low": 68.0,
       "high": 72.0,
-      "samples": 93,
-      "wins": 48,
-      "win_rate": 0.5161290322580645,
-      "calibrated_probability": 0.5154639175257731
+      "samples": 94,
+      "wins": 49,
+      "win_rate": 0.5212765957446809,
+      "calibrated_probability": 0.5204081632653061
     },
     {
       "label": "72+",
       "low": 72.0,
       "high": 101.0,
       "samples": 377,
-      "wins": 187,
-      "win_rate": 0.4960212201591512,
-      "calibrated_probability": 0.49606299212598426
+      "wins": 183,
+      "win_rate": 0.4854111405835544,
+      "calibrated_probability": 0.48556430446194226
     }
   ]
 }
