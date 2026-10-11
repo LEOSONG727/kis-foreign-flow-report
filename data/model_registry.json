@@ -1,28 +1,28 @@
 {
   "current": {
-    "generated_at": "2026-09-29T21:13:03+09:00",
+    "generated_at": "2026-10-11T16:52:07+09:00",
     "spec_version": "ridge-rank-pit-v2",
     "rules_frozen_on": "2026-09-28",
     "horizon": 20,
-    "panel_dates": 309,
-    "labelled_dates": 290,
-    "last_labelled": "2026-08-26",
+    "panel_dates": 307,
+    "labelled_dates": 288,
+    "last_labelled": "2026-09-07",
     "champion": {
       "in_sample_ic": {
-        "dates": 290,
-        "mean": 0.02748324979128586,
-        "low": 0.007261931148933252,
-        "high": 0.04864602435907077,
-        "positive_share": 0.6379310344827587,
-        "effective_t": 1.5897611402317307
+        "dates": 288,
+        "mean": 0.025810247964653865,
+        "low": 0.0047765275741239385,
+        "high": 0.047666429323781435,
+        "positive_share": 0.6284722222222222,
+        "effective_t": 1.4758723670869136
       },
       "in_sample_partial_ic": {
-        "dates": 290,
-        "mean": 0.01037851621954296,
-        "low": -0.002500391735677808,
-        "high": 0.023522441183839518,
-        "positive_share": 0.5344827586206896,
-        "effective_t": 0.839449681180959
+        "dates": 288,
+        "mean": 0.01037949334519209,
+        "low": -0.0025030524461127366,
+        "high": 0.023590580839509954,
+        "positive_share": 0.5173611111111112,
+        "effective_t": 0.8344391332267488
       },
       "post_freeze_ic": {
         "dates": 0,
@@ -33,51 +33,51 @@
         "effective_t": null
       },
       "top_k_excess": {
-        "dates": 290,
-        "mean": -0.0078109338346171436,
-        "low": -0.027712139569781073,
-        "high": 0.013360181004649838,
-        "positive_share": 0.4206896551724138,
-        "effective_t": -0.4055266499017049
+        "dates": 288,
+        "mean": -0.009163309865345136,
+        "low": -0.028947715821915805,
+        "high": 0.01246001179509715,
+        "positive_share": 0.4027777777777778,
+        "effective_t": -0.47289954216967833
       },
       "status": "INSUFFICIENT_DATA"
     },
     "challenger": {
       "status": "NO_EDGE",
       "reasons": [
-        "Top-K 초과수익 평균 -0.94% ≤ 0"
+        "Top-K 초과수익 평균 -0.93% ≤ 0"
       ],
       "oos_ic": {
-        "dates": 231,
-        "mean": 0.0777014134996817,
-        "low": 0.033025133623354984,
-        "high": 0.12289210438014783,
-        "positive_share": 0.8095238095238095,
-        "effective_t": 2.2935618083319236
+        "dates": 229,
+        "mean": 0.06962446961147473,
+        "low": 0.024267759932295754,
+        "high": 0.11558398579095577,
+        "positive_share": 0.7816593886462883,
+        "effective_t": 1.9242113902306457
       },
       "ic_delta_vs_champion": {
-        "dates": 231,
-        "mean": 0.05783300044877661,
-        "low": 0.028345384713426694,
-        "high": 0.08822723920695032,
-        "positive_share": 0.7532467532467533,
-        "effective_t": 2.241985935685862
+        "dates": 229,
+        "mean": 0.04969731598626317,
+        "low": 0.01817929515203189,
+        "high": 0.08170587171942918,
+        "positive_share": 0.7161572052401747,
+        "effective_t": 1.694003306255825
       },
       "oos_top_k_excess": {
-        "dates": 231,
-        "mean": -0.00941483886972632,
-        "low": -0.032804781490660545,
-        "high": 0.015792679414471815,
-        "positive_share": 0.38095238095238093,
-        "effective_t": -0.4353556565351912
+        "dates": 229,
+        "mean": -0.009323663510205648,
+        "low": -0.03558300133088654,
+        "high": 0.020761503951183667,
+        "positive_share": 0.33624454148471616,
+        "effective_t": -0.3656708360880271
       },
       "champion_top_k_excess_same_dates": {
-        "dates": 231,
-        "mean": -0.014916927954643075,
-        "low": -0.036392030293546804,
-        "high": 0.009548652389905123,
-        "positive_share": 0.354978354978355,
-        "effective_t": -0.6594254493997481
+        "dates": 229,
+        "mean": -0.013593423823322756,
+        "low": -0.035605685292075626,
+        "high": 0.010656951136331813,
+        "positive_share": 0.3624454148471616,
+        "effective_t": -0.5953053971643858
       }
     },
     "hypotheses": [
@@ -93,53 +93,53 @@
         "discovery": {
           "ic": {
             "dates": 97,
-            "mean": 0.18154881445016824,
-            "low": 0.05027357807544767,
-            "high": 0.3116610318826305,
+            "mean": 0.18182143779613902,
+            "low": 0.04904327523090637,
+            "high": 0.31379344165889744,
             "positive_share": 0.7628865979381443,
-            "effective_t": 1.8497022590454173
+            "effective_t": 1.8365477460649626
           },
           "partial_ic": {
             "dates": 97,
-            "mean": 0.06523567111231303,
-            "low": 0.03513126873793476,
-            "high": 0.09562830023436819,
+            "mean": 0.06554017656885912,
+            "low": 0.034926941381702735,
+            "high": 0.09641199554217834,
             "positive_share": 0.865979381443299,
-            "effective_t": 2.248426040311225
+            "effective_t": 2.264658662331544
           },
           "top_k_excess": {
             "dates": 97,
-            "mean": 0.011243535905499952,
-            "low": -0.029844814263978652,
-            "high": 0.05246180629910511,
-            "positive_share": 0.5360824742268041,
-            "effective_t": 0.32465569357580026
+            "mean": 0.011586171981486076,
+            "low": -0.029344231925094087,
+            "high": 0.05267899539346592,
+            "positive_share": 0.5463917525773195,
+            "effective_t": 0.3347556837825593
           }
         },
         "confirmation": {
           "ic": {
-            "dates": 193,
-            "mean": 0.050112350195857275,
-            "low": 0.02751753887280508,
-            "high": 0.07347740561743821,
-            "positive_share": 0.7357512953367875,
-            "effective_t": 1.9341996093689222
+            "dates": 191,
+            "mean": 0.037894992930569395,
+            "low": 0.005092653078026385,
+            "high": 0.06706810843597848,
+            "positive_share": 0.675392670157068,
+            "effective_t": 1.3381017069946193
           },
           "partial_ic": {
-            "dates": 193,
-            "mean": 0.010678169891585229,
-            "low": -0.02195484715750636,
-            "high": 0.04017402600872592,
-            "positive_share": 0.5854922279792746,
-            "effective_t": 0.4221977049218042
+            "dates": 191,
+            "mean": 0.007477970077393273,
+            "low": -0.023931112643268453,
+            "high": 0.03907290149416228,
+            "positive_share": 0.5968586387434555,
+            "effective_t": 0.2995141787201299
           },
           "top_k_excess": {
-            "dates": 193,
-            "mean": -0.011741081257250704,
-            "low": -0.027517986725363097,
-            "high": 0.006562056458906913,
-            "positive_share": 0.3160621761658031,
-            "effective_t": -0.6887654489869938
+            "dates": 191,
+            "mean": -0.015670150362295014,
+            "low": -0.03269905542458928,
+            "high": 0.003684289959867694,
+            "positive_share": 0.2670157068062827,
+            "effective_t": -0.8926457941345927
           }
         },
         "verdict": "NOT_CONFIRMED"
@@ -153,58 +153,115 @@
         "discovery": {
           "ic": {
             "dates": 97,
-            "mean": 0.13983566413985982,
-            "low": 0.0359128944342159,
-            "high": 0.2417039781538653,
+            "mean": 0.13954418995910983,
+            "low": 0.03361047498421909,
+            "high": 0.2425486862447584,
             "positive_share": 0.7731958762886598,
-            "effective_t": 1.8073494548824462
+            "effective_t": 1.7856466625838079
           },
           "partial_ic": {
             "dates": 97,
-            "mean": 0.07288107620731185,
-            "low": 0.032090850986487146,
-            "high": 0.11353574430779632,
+            "mean": 0.07326373459058347,
+            "low": 0.030749052339957308,
+            "high": 0.11505509946556607,
             "positive_share": 0.8247422680412371,
-            "effective_t": 2.1326286588337506
+            "effective_t": 2.111763201621558
           },
           "top_k_excess": {
             "dates": 97,
-            "mean": 0.003063611136846966,
-            "low": -0.04272223496848676,
-            "high": 0.047939904070539184,
+            "mean": 0.003225655434949533,
+            "low": -0.042339519256081815,
+            "high": 0.04808620256705291,
             "positive_share": 0.5670103092783505,
-            "effective_t": 0.09001138390195458
+            "effective_t": 0.09495065382399356
           }
         },
         "confirmation": {
           "ic": {
-            "dates": 193,
-            "mean": 0.02046751981255514,
-            "low": -0.008306652505201234,
-            "high": 0.047567480451793334,
-            "positive_share": 0.616580310880829,
-            "effective_t": 0.8238957577932042
+            "dates": 191,
+            "mean": 0.011616522152538743,
+            "low": -0.02233269180261884,
+            "high": 0.04288287078670749,
+            "positive_share": 0.5706806282722513,
+            "effective_t": 0.43661948839028614
           },
           "partial_ic": {
-            "dates": 193,
-            "mean": -0.0031094874968224167,
-            "low": -0.034352422357577,
-            "high": 0.02505158449188892,
-            "positive_share": 0.5544041450777202,
-            "effective_t": -0.1317178422843763
+            "dates": 191,
+            "mean": -0.0065937616014992454,
+            "low": -0.037055847027495786,
+            "high": 0.02150303332883695,
+            "positive_share": 0.5445026178010471,
+            "effective_t": -0.27862991812414584
           },
           "top_k_excess": {
-            "dates": 193,
-            "mean": -0.0216861633057216,
-            "low": -0.045304038645719066,
-            "high": 0.005368561390200397,
-            "positive_share": 0.3160621761658031,
-            "effective_t": -0.9660192476877724
+            "dates": 191,
+            "mean": -0.023584632778026755,
+            "low": -0.04950902632569936,
+            "high": 0.002269027936444106,
+            "positive_share": 0.2931937172774869,
+            "effective_t": -1.0450116725170278
           }
         },
         "verdict": "NOT_CONFIRMED"
       }
-    ]
+    ],
+    "h4": {
+      "id": "H4-learned-quintile",
+      "registered_on": "2026-09-30",
+      "discovery": {
+        "top": {
+          "dates": 229,
+          "mean": 0.003067313532928264,
+          "low": -0.008420797566508091,
+          "high": 0.015242783170452292,
+          "positive_share": 0.47161572052401746,
+          "effective_t": 0.31726061360543134
+        },
+        "bottom": {
+          "dates": 229,
+          "mean": 0.010468307440223359,
+          "low": -0.003438548464928755,
+          "high": 0.02427287639531213,
+          "positive_share": 0.5545851528384279,
+          "effective_t": 0.9749107639757719
+        },
+        "spread": {
+          "dates": 229,
+          "mean": -0.007400993907295092,
+          "low": -0.031724219879502906,
+          "high": 0.017242878699651517,
+          "positive_share": 0.4410480349344978,
+          "effective_t": -0.3812385374673151
+        }
+      },
+      "confirmation": {
+        "top": {
+          "dates": 0,
+          "mean": null,
+          "low": null,
+          "high": null,
+          "positive_share": null,
+          "effective_t": null
+        },
+        "bottom": {
+          "dates": 0,
+          "mean": null,
+          "low": null,
+          "high": null,
+          "positive_share": null,
+          "effective_t": null
+        },
+        "spread": {
+          "dates": 0,
+          "mean": null,
+          "low": null,
+          "high": null,
+          "positive_share": null,
+          "effective_t": null
+        }
+      },
+      "verdict": "INSUFFICIENT_DATA"
+    }
   },
   "history": [
     {
@@ -260,6 +317,30 @@
           "verdict": "NOT_CONFIRMED",
           "confirmation_dates": 193,
           "confirmation_ic": 0.02046751981255514
+        }
+      }
+    },
+    {
+      "generated_at": "2026-10-11T16:52:07+09:00",
+      "spec_version": "ridge-rank-pit-v2",
+      "labelled_dates": 288,
+      "champion_status": "INSUFFICIENT_DATA",
+      "champion_post_freeze_ic": null,
+      "challenger_status": "NO_EDGE",
+      "challenger_oos_ic": 0.06962446961147473,
+      "challenger_oos_dates": 229,
+      "ic_delta": 0.04969731598626317,
+      "h4_verdict": "INSUFFICIENT_DATA",
+      "hypotheses": {
+        "H1-value-quality-lowvol": {
+          "verdict": "NOT_CONFIRMED",
+          "confirmation_dates": 191,
+          "confirmation_ic": 0.037894992930569395
+        },
+        "H1b-op-yield-only": {
+          "verdict": "NOT_CONFIRMED",
+          "confirmation_dates": 191,
+          "confirmation_ic": 0.011616522152538743
         }
       }
     }
