@@ -85,6 +85,21 @@ def test_no_changes_and_tag_dispatch(repositories):
     assert persist(local, ref_type="tag").returncode == 1
 
 
+def test_autostash_conflict_is_not_reported_as_success(repositories):
+    local, other = repositories
+    (local / "data/result.csv").write_text("value\nlocal-result\n")
+    (local / "notes.txt").write_text("local-notes\n")
+    (other / "notes.txt").write_text("remote-notes\n")
+    git(other, "add", "notes.txt")
+    git(other, "commit", "-m", "concurrent notes update")
+    git(other, "push", "origin", "main")
+    result = persist(local)
+    assert result.returncode == 1
+    assert "::error::Autostash has conflicts" in result.stdout
+    assert (other / "data/result.csv").read_text() == "value\nbase\n"
+    assert (local / "logs/persist-results.patch").exists()
+
+
 def test_all_six_workflows_share_queue_and_persistence():
     files = sorted((ROOT / ".github/workflows").glob("*.yml"))
     assert len(files) == 6

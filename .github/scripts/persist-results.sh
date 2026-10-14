@@ -27,6 +27,10 @@ mkdir -p logs
 git format-patch -1 HEAD --stdout > logs/persist-results.patch
 for attempt in 1 2 3 4 5; do
   if git pull --rebase --autostash origin "$target"; then
+    if [[ -n "$(git diff --name-only --diff-filter=U)" ]]; then
+      echo "::error::Autostash has conflicts; inspect the retained results and Git stash."
+      exit 1
+    fi
     if git push origin "HEAD:refs/heads/$target"; then
       rm -f logs/persist-results.patch
       exit 0
