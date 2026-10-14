@@ -106,8 +106,11 @@ def test_all_six_workflows_share_queue_and_persistence():
     for path in files:
         # BaseLoader keeps YAML 1.1's 'on' and booleans as strings, like Actions YAML.
         workflow = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
+        assert "runner." not in str(workflow.get("env", {}))
         assert workflow["concurrency"] == {"group": "foreign-flow-data-write", "queue": "max", "cancel-in-progress": "false"}
         for job in workflow["jobs"].values():
+            # runner context is unavailable while evaluating workflow/job env.
+            assert "runner." not in str(job.get("env", {}))
             steps = job["steps"]
             checkout = next(step for step in steps if step.get("uses", "").startswith("actions/checkout"))
             assert checkout["with"]["ref"] == "${{ github.ref_name }}"
