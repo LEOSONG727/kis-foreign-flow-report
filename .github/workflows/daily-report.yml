@@ -41,7 +41,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
-      KIS_TOKEN_CACHE_DIR: ${{ runner.temp }}/kis-token-cache
       KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
       KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
       TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
@@ -87,6 +86,7 @@ jobs:
       - name: Build daily report
         shell: bash
         env:
+          KIS_TOKEN_CACHE_DIR: ${{ runner.temp }}/kis-token-cache
           INPUT_UNIVERSE_LIMIT: ${{ inputs.universe_limit }}
           INPUT_SKIP_BACKFILL: ${{ inputs.skip_backfill }}
           INPUT_FULL_HISTORY_BOOTSTRAP: ${{ inputs.full_history_bootstrap }}

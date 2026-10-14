@@ -35,7 +35,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
-      KIS_TOKEN_CACHE_DIR: ${{ runner.temp }}/kis-token-cache
       KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
       KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
       KIS_CALLS_PER_SECOND: ${{ vars.KIS_CALLS_PER_SECOND || '5' }}
@@ -54,6 +53,7 @@ jobs:
       - name: Extend stored history backwards
         shell: bash
         env:
+          KIS_TOKEN_CACHE_DIR: ${{ runner.temp }}/kis-token-cache
           INPUT_DAYS: ${{ inputs.days }}
           INPUT_MAX_MINUTES: ${{ inputs.max_minutes }}
         run: |
