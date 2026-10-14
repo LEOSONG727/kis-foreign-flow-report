@@ -132,7 +132,8 @@ def _features_and_scores(
     state: dict,
     calibration: dict,
 ) -> pd.DataFrame:
-    features = build_base_features(history, universe, snapshots, opinions)
+    features = build_base_features(history, universe, snapshots, opinions, point_in_time=True)
+    features = attach_fundamentals(features, load_financials(settings.data_dir))
     features = add_cross_sectional_residuals(features)
     scored = score_features(features, settings.model, state, calibration)
     if scored.empty:
@@ -281,11 +282,11 @@ def _write_outputs(
         scored, load_learned_ranker(data_dir / "learned_ranker.json") if data_dir else None
     )
     event_md, event_html = event_section(
-        scored, load_jev_verdict(data_dir / "jev_event_verdict.json") if data_dir else None
+        scored, load_jev_verdict(data_dir / "jev_event_verdict.json", as_of=scored["as_of"].max()) if data_dir else None
     )
     paper_md, paper_html = paper_section(paper_summary)
     eq_md, eq_html = eq_section(
-        scored, load_jev_verdict(data_dir / "earnings_quality_verdict.json") if data_dir else None
+        scored, load_jev_verdict(data_dir / "earnings_quality_verdict.json", as_of=scored["as_of"].max()) if data_dir else None
     )
     rendered_html = rendered.html.replace(
         "</main>", paper_html + eq_html + event_html + learned_html + shadow_html + "</main>"
@@ -298,10 +299,11 @@ def _write_outputs(
     csv_columns = list(JEV_OUTPUTS) + [
         "symbol", "name", "market", "as_of", "score", "campaign_score", "entry_score",
         "discovery_score", "timing_score", "distribution_score", "signal_score",
-        "ml_shadow_available", "ml_shadow_model", "ml_shadow_prediction",
+        "ml_shadow_available", "ml_shadow_model", "ml_shadow_status", "ml_shadow_prediction",
         "ml_shadow_score", "ml_shadow_rank", "ml_shadow_top", "ml_shadow_baseline_rank",
         "learned_score", "learned_rank", "learned_status", "pit_size",
         "op_yoy_mcap", "op_yield", "book_to_market", "revenue_yoy", "report_age",
+        "financial_rcept_no", "financial_available",
         "event_filings", "event_dilution", "event_adverse", "event_catalyst",
         "kw_dilution", "kw_adverse", "kw_catalyst",
         "eq_one_off", "eq_recurring", "eq_kw_veto",
@@ -489,6 +491,8 @@ def run_pipeline(
     scored = apply_rich_shadow(
         scored,
         settings.reports_dir / "ml_rich_features.csv",
+        trading_dates=history["date"],
+        embargo_sessions=settings.research.embargo_sessions,
     )
     scored = attach_fundamentals(scored, load_financials(settings.data_dir))
     scored = apply_learned_ranker(
@@ -605,6 +609,8 @@ def rerank_stored_data(settings: Settings, notify: bool = False) -> pd.DataFrame
     scored = apply_rich_shadow(
         scored,
         settings.reports_dir / "ml_rich_features.csv",
+        trading_dates=history["date"],
+        embargo_sessions=settings.research.embargo_sessions,
     )
     scored = attach_fundamentals(scored, load_financials(settings.data_dir))
     scored = apply_learned_ranker(

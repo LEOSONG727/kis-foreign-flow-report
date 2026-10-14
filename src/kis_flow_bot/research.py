@@ -60,10 +60,13 @@ from .jev_shadow import REQUIRED as JEV_INPUTS
 from .live_tracking import moving_block_mean_interval
 from .scoring import score_features
 from .storage import read_csv, write_csv
+from .point_in_time import PIT_VERSION, local_dates
+from .temporal_validation import mature_training_mask
+from .ml_shadow import RAW_FEATURES, SHADOW_TOP_K
 
 LOGGER = logging.getLogger(__name__)
 
-SPEC_VERSION = "ridge-rank-pit-v2"
+SPEC_VERSION = "ridge-rank-pit-v3"
 PANEL_HORIZONS: tuple[int, ...] = (5, 10, 20)
 # Enough for the 120-day windows and the EWM tails used by the features.
 FEATURE_LOOKBACK_SESSIONS = 250
@@ -177,7 +180,7 @@ def _panel_one_date(date_index: int) -> pd.DataFrame:
     if not opinions.empty and "date" in opinions:
         opinions = opinions[opinions["date"] <= as_of]
     features = add_cross_sectional_residuals(
-        build_base_features(view, ctx["universe"], snapshots, opinions)
+        attach_fundamentals(build_base_features(view, ctx["universe"], snapshots, opinions, point_in_time=True), ctx["financials"])
     )
     if features.empty:
         return pd.DataFrame()
@@ -188,6 +191,7 @@ def _panel_one_date(date_index: int) -> pd.DataFrame:
         return pd.DataFrame()
     scored["as_of"] = as_of
     scored["date_index"] = date_index
+    scored["entry_date"] = dates[date_index + 1]
     scored["symbol"] = scored["symbol"].astype(str).str.zfill(6)
 
     opens: pd.DataFrame = ctx["opens"]
@@ -195,6 +199,7 @@ def _panel_one_date(date_index: int) -> pd.DataFrame:
     cost = settings.model.backtest_roundtrip_cost_pct / 100.0
     for horizon in PANEL_HORIZONS:
         column = f"fwd{horizon}"
+        scored[f"label_end_{horizon}"] = dates[date_index + horizon] if date_index + horizon < len(dates) else pd.NaT
         if date_index + horizon < len(dates):
             entry = opens.loc[dates[date_index + 1]]
             exit_ = closes.loc[dates[date_index + horizon]]
@@ -220,12 +225,16 @@ def _panel_one_date(date_index: int) -> pd.DataFrame:
                 *LEARNED_FEATURES,
                 *DIAGNOSTIC_FEATURES,
                 *JEV_INPUTS,
+                *RAW_FEATURES,
+                "discovery_eligible",
+                "entry_date",
                 "foreign_20_adtv",
                 "market_return20",
                 "timing_score",
                 "close",
                 *(f"fwd{h}" for h in PANEL_HORIZONS),
                 *(f"excess{h}" for h in PANEL_HORIZONS),
+                *(f"label_end_{h}" for h in PANEL_HORIZONS),
                 "worst20",
             ]
         )
@@ -270,6 +279,11 @@ def build_research_panel(settings: Settings, workers: int | None = None) -> pd.D
     payload = _load_inputs(settings)
     payload["settings"] = settings
     dates = payload["dates"]
+    try:
+        payload["financials"] = refresh_financials_from_env(settings, payload["universe"]["symbol"], pd.Timestamp(dates[0]).date())
+    except Exception as exc:
+        LOGGER.warning("DART refresh failed; receipt-bound cache only: %s", exc)
+        payload["financials"] = load_financials(settings.data_dir)
     indices = list(range(MIN_SCORED_HISTORY - 1, len(dates) - 1))
     if not indices:
         return pd.DataFrame()
@@ -289,14 +303,8 @@ def build_research_panel(settings: Settings, workers: int | None = None) -> pd.D
     if not parts:
         return pd.DataFrame()
     panel = pd.concat(parts, ignore_index=True)
-    try:
-        financials = refresh_financials_from_env(
-            settings, panel["symbol"].unique(), pd.Timestamp(dates[0]).date()
-        )
-    except Exception as exc:  # stale cache is better than no panel
-        LOGGER.warning("DART financials refresh failed; using cache: %s", exc)
-        financials = load_financials(settings.data_dir)
-    return attach_fundamentals(panel, financials)
+    panel["pit_provenance_version"] = PIT_VERSION
+    return panel
 
 
 # ---------------------------------------------------------------------------
@@ -480,28 +488,47 @@ def walk_forward_predictions(
     min_train_dates: int,
     alpha: float,
     features: tuple[str, ...] = LEARNED_FEATURES,
+    *, embargo_sessions: int = 1,
 ) -> pd.DataFrame:
     """Predict each date with a model fit only on labels observable by then.
 
-    A label for signal date d needs the close of d + horizon sessions, so on
-    date t only dates with index <= t - horizon may be used for training.
+    A label for signal date d needs the close of d + horizon sessions. On
+    date t the latest training signal is t - horizon - embargo_sessions;
+    actual endpoint checks also exclude delayed labels.
     """
 
     target = f"excess{horizon}"
     if panel.empty or target not in panel:
         return pd.DataFrame(columns=["as_of", "symbol", "challenger_score"])
+    if horizon < 1 or embargo_sessions < 1 or retrain_every < 1 or min_train_dates < 1:
+        raise ValueError("Positive holding, embargo, retraining and sample periods are required")
     groups = {int(index): group for index, group in panel.groupby("date_index", sort=True)}
     indices = sorted(groups)
     outputs: list[pd.DataFrame] = []
     weights: np.ndarray | None = None
     last_fit: int | None = None
+    fitted_signal_end = pd.NaT
     for index in indices:
-        known = [i for i in indices if i <= index - horizon]
-        if len(known) < min_train_dates:
+        known = [i for i in indices if i <= index - horizon - embargo_sessions]
+        train_groups = []
+        for i in known:
+            train_group = groups[i]
+            endpoint = f"label_end_{horizon}"
+            if endpoint in train_group:
+                # A delayed/halted stock's actual endpoint can be later than
+                # the nominal horizon; do not let it cross the test boundary.
+                cutoff_group = max(j for j in indices if j <= index - embargo_sessions)
+                cutoff_date = local_dates(groups[cutoff_group]["as_of"]).min()
+                mask = local_dates(train_group[endpoint]).le(cutoff_date)
+                train_group = train_group.loc[mask]
+            if train_group[target].notna().any():
+                train_groups.append(train_group)
+        if len(train_groups) < min_train_dates:
             continue
         if weights is None or last_fit is None or index - last_fit >= retrain_every:
-            weights = fit_ridge([groups[i] for i in known], target, alpha, features)
+            weights = fit_ridge(train_groups, target, alpha, features)
             last_fit = index
+            fitted_signal_end = max(group["as_of"].max() for group in train_groups)
         group = groups[index]
         prediction = _design(group, features) @ weights
         outputs.append(
@@ -511,6 +538,7 @@ def walk_forward_predictions(
                     "date_index": index,
                     "symbol": group["symbol"].to_numpy(),
                     "challenger_score": prediction,
+                    "train_signal_end": fitted_signal_end,
                 }
             )
         )
@@ -698,6 +726,7 @@ def analyze_panel(panel: pd.DataFrame, settings: Settings) -> dict[str, Any]:
         research.retrain_every,
         research.min_train_dates,
         research.ridge_alpha,
+        embargo_sessions=research.embargo_sessions,
     )
     merged = (
         labelled.merge(predictions[["as_of", "symbol", "challenger_score"]], on=["as_of", "symbol"], how="inner")
@@ -725,8 +754,13 @@ def analyze_panel(panel: pd.DataFrame, settings: Settings) -> dict[str, Any]:
     ).rename_axis("as_of").reset_index()
 
     # Final model: every label observable as of the latest panel date.
+    last_index = int(panel["date_index"].max()) if not panel.empty else -1
+    mature = labelled[labelled["date_index"] <= last_index - horizon - research.embargo_sessions]
+    if f"label_end_{horizon}" in mature:
+        cutoff = local_dates(panel.loc[panel["date_index"] <= last_index - research.embargo_sessions, "as_of"]).max()
+        mature = mature[local_dates(mature[f"label_end_{horizon}"]).le(cutoff)]
     final_weights = fit_ridge(
-        [group for _, group in labelled.groupby("date_index")],
+        [group for _, group in mature.groupby("date_index")],
         target,
         research.ridge_alpha,
     )
@@ -753,6 +787,9 @@ def analyze_panel(panel: pd.DataFrame, settings: Settings) -> dict[str, Any]:
         "panel_dates": int(panel["as_of"].nunique()) if not panel.empty else 0,
         "first_date": str(pd.Timestamp(panel["as_of"].min()).date()) if not panel.empty else "",
         "last_labelled": str(pd.Timestamp(labelled["as_of"].max()).date()) if not labelled.empty else "",
+        "train_signal_end": str(mature["as_of"].max()) if not mature.empty else None,
+        "train_label_end": str(mature[f"label_end_{horizon}"].max()) if not mature.empty and f"label_end_{horizon}" in mature else None,
+        "shadow_training": build_shadow_training(panel),
         "mean_names": float(labelled.groupby("as_of").size().mean()) if not labelled.empty else 0.0,
     }
 
@@ -797,7 +834,7 @@ def render_research_markdown(result: dict[str, Any], settings: Settings, generat
             "",
             f"- 발견점수 Top {research.top_k} 초과수익 평균 {_fmt(top['mean'], pct=True)} (구간 {_fmt(top['low'], pct=True)} ~ {_fmt(top['high'], pct=True)})",
             f"- 발견점수 전체기간 IC {_fmt(in_sample['mean'])}: 규칙을 이 기간 데이터로 조정했으므로 표본 내 수치입니다.",
-            "- `fundamental_score`는 현재 재무값을 과거에 적용하므로 미래정보가 섞여 있습니다. 참고만 합니다.",
+            "- 재무값은 검증된 접수번호와 실제 공시일 이후에만 사용합니다. 현재 마스터의 재무값·주식수는 과거에 소급하지 않습니다.",
             "",
             "## 2. 학습 도전자 (워크포워드)",
             "",
@@ -896,6 +933,24 @@ def _json_safe(value: Any) -> Any:
     return value
 
 
+def build_shadow_training(panel: pd.DataFrame) -> pd.DataFrame:
+    """Export the same eligible top-12 pool with audited features/endpoints."""
+    if panel.empty or "label_end_20" not in panel or "pit_provenance_version" not in panel:
+        return pd.DataFrame()
+    training = panel[panel["pit_provenance_version"].eq(PIT_VERSION) & panel["excess20"].notna()
+                     & panel["label_end_20"].notna()].copy()
+    training = training.sort_values(["as_of", "discovery_score", "timing_score", "entry_score"],
+        ascending=[True, False, False, False], kind="stable").groupby("as_of", sort=True).head(SHADOW_TOP_K)
+    training = training.rename(columns={"label_end_20": "label_end_date", "fwd20": "forward_return", "excess20": "excess_forward_return"})
+    training["market_forward_return"] = training["forward_return"] - training["excess_forward_return"]
+    columns = ["as_of", "entry_date", "label_end_date", "symbol", "name", "market", "pit_provenance_version",
+               "forward_return", "market_forward_return", "excess_forward_return", "discovery_score", *RAW_FEATURES]
+    for column in columns:
+        if column not in training:
+            training[column] = np.nan
+    return training[list(dict.fromkeys(columns))].reset_index(drop=True)
+
+
 def write_research_outputs(result: dict[str, Any], settings: Settings, generated_at: datetime) -> None:
     reports = settings.reports_dir
     data = settings.data_dir
@@ -904,10 +959,17 @@ def write_research_outputs(result: dict[str, Any], settings: Settings, generated
     )
     write_csv(result["factors"], reports / "research_factors.csv")
     write_csv(result["oos"], reports / "research_oos.csv")
+    training = result.get("shadow_training", pd.DataFrame())
+    if not training.empty:
+        write_csv(training, reports / "ml_rich_features.csv")
 
     record = {
         "generated_at": generated_at.isoformat(timespec="seconds"),
         "spec_version": SPEC_VERSION,
+        "pit_version": PIT_VERSION,
+        "train_signal_end": result.get("train_signal_end"),
+        "train_label_end": result.get("train_label_end"),
+        "embargo_sessions": settings.research.embargo_sessions,
         "rules_frozen_on": settings.research.rules_frozen_on,
         "horizon": settings.research.horizon,
         "panel_dates": result["panel_dates"],
@@ -1013,6 +1075,12 @@ def apply_learned_ranker(scored: pd.DataFrame, ranker: dict[str, Any] | None) ->
     result["learned_status"] = ""
     if ranker is None or result.empty:
         return result
+    if ranker.get("pit_version") != PIT_VERSION or "as_of" not in result:
+        return result
+    generated = local_dates(pd.Series([ranker.get("generated_at")])).iloc[0]
+    trained_end = local_dates(pd.Series([ranker.get("train_label_end")])).iloc[0]
+    if pd.isna(generated) or pd.isna(trained_end) or trained_end > generated:
+        return result
     features = tuple(ranker.get("features", LEARNED_FEATURES))
     weights = np.array([float(ranker["weights"].get(name, 0.0)) for name in features])
     eligible = (
@@ -1020,6 +1088,7 @@ def apply_learned_ranker(scored: pd.DataFrame, ranker: dict[str, Any] | None) ->
         if "discovery_eligible" in result
         else pd.Series(True, index=result.index)
     )
+    eligible &= local_dates(result["as_of"]).gt(generated)
     pool = result.loc[eligible].copy()
     if len(pool) < 20:
         return result

@@ -24,7 +24,9 @@ def _calibration_active(calibration: dict[str, Any] | None) -> bool:
     return bool(
         calibration
         and calibration.get("active")
-        and calibration.get("quality_gate_version") == 2
+        and calibration.get("quality_gate_version") == 3
+        and calibration.get("pit_version") == "receipt-pit-v3"
+        and calibration.get("activation_checks", {}).get("purged_time_boundary")
     )
 
 
@@ -69,7 +71,8 @@ def _fundamental_score(row: pd.Series) -> tuple[float, float]:
         quality += 4.0
     if row.get("net_income", 0.0) > 0:
         quality += 3.0
-    quality += 5.0 * scale(row.get("roe", 0.0), 0.0, 18.0)
+    roe = row.get("roe", 0.0)
+    quality += 5.0 * scale(float(roe) if pd.notna(roe) else 0.0, 0.0, 18.0)
 
     upside = row.get("target_upside", np.nan)
     if pd.isna(upside) or row.get("opinion_coverage", 0) == 0:

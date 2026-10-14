@@ -4,7 +4,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from .ml_shadow import SHADOW_MODEL_VERSION, SHADOW_TOP_K
+from .ml_shadow import SHADOW_MODEL_VERSION, SHADOW_TOP_K, SHADOW_LEDGER_COLUMNS
 
 
 def _boolean(series: pd.Series) -> pd.Series:
@@ -15,13 +15,22 @@ def _boolean(series: pd.Series) -> pd.Series:
 
 
 def validate_latest_shadow_snapshot(report: pd.DataFrame, ledger: pd.DataFrame) -> pd.DataFrame:
-    if report.empty or ledger.empty:
-        raise ValueError("Shadow report and ledger must be nonempty")
+    if report.empty:
+        raise ValueError("Shadow report must be nonempty")
     report_dates = pd.to_datetime(report["as_of"], errors="coerce").dt.normalize()
     if report_dates.isna().any():
         raise ValueError("Report contains invalid as_of dates")
     latest = report_dates.max()
     available = report.loc[report_dates.eq(latest) & _boolean(report["ml_shadow_available"])]
+    if available.empty and "ml_shadow_status" in report:
+        status = report.loc[report_dates.eq(latest), "ml_shadow_status"]
+        if status.isin(["pit_training_required", "insufficient_mature_labels"]).all():
+            # Deliberate fail-closed inference is a documented pending state,
+            # not a malformed snapshot or model-performance promotion.
+            print("Shadow validation pending:", ", ".join(status.unique()))
+            return pd.DataFrame(columns=SHADOW_LEDGER_COLUMNS)
+    if ledger.empty:
+        raise ValueError("Shadow ledger must be nonempty when predictions are available")
     if not 1 <= len(available) <= SHADOW_TOP_K:
         raise ValueError("Latest report has no shadow candidates or exceeds the candidate cap")
     if not available["ml_shadow_model"].eq(SHADOW_MODEL_VERSION).all():

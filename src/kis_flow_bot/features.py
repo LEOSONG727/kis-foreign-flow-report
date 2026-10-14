@@ -349,7 +349,7 @@ def _cumulative_flow_path(
 
 
 def _holding_change(symbol: str, snapshots: pd.DataFrame) -> float:
-    if snapshots.empty:
+    if snapshots.empty or "foreign_holding_qty" not in snapshots:
         return float("nan")
     group = snapshots[snapshots["symbol"].astype(str).str.zfill(6) == symbol].copy()
     group = group.sort_values("date").dropna(subset=["foreign_holding_qty"])
@@ -392,6 +392,7 @@ def build_base_features(
     universe: pd.DataFrame,
     snapshots: pd.DataFrame | None = None,
     opinions: pd.DataFrame | None = None,
+    *, point_in_time: bool = False,
 ) -> pd.DataFrame:
     if history.empty:
         return pd.DataFrame()
@@ -540,11 +541,22 @@ def build_base_features(
         )
 
         latest_snapshot = pd.DataFrame()
+        symbol_snapshots = pd.DataFrame()
         if not snapshots.empty:
-            latest_snapshot = snapshots[
+            symbol_snapshots = snapshots[
                 snapshots["symbol"].astype(str).str.zfill(6) == symbol
-            ].sort_values("date").tail(1)
+            ].copy()
+            if point_in_time:
+                symbol_snapshots = symbol_snapshots[pd.to_datetime(symbol_snapshots["date"], errors="coerce") <= latest["date"]]
+            latest_snapshot = symbol_snapshots.sort_values("date").tail(1)
         snapshot = latest_snapshot.iloc[0] if not latest_snapshot.empty else {}
+        shares = _float_or(m.get("listed_shares"), np.nan)
+        cap = _float_or(m.get("market_cap_eok"))
+        if point_in_time:
+            quote_cap = _float_or(snapshot.get("market_cap_eok"), np.nan)
+            quote_price = _float_or(snapshot.get("current_price"), np.nan)
+            shares = quote_cap * 100_000_000.0 / quote_price if quote_cap > 0 and quote_price > 0 else np.nan
+            cap = shares * float(latest["close"]) / 100_000_000.0
 
         rows.append(
             {
@@ -651,15 +663,15 @@ def build_base_features(
                 "institution_net20": institution_net20,
                 "institution_5_adtv": float(institution_net5 / adtv20) if adtv20 else 0.0,
                 "institution_20_adtv": float(institution_net20 / adtv20) if adtv20 else 0.0,
-                "market_cap_eok": _float_or(m.get("market_cap_eok")),
-                "listed_shares": _float_or(m.get("listed_shares"), np.nan),
+                "market_cap_eok": cap,
+                "listed_shares": shares,
                 "sales": _float_or(m.get("sales")),
                 "operating_profit": _float_or(m.get("operating_profit")),
                 "net_income": _float_or(m.get("net_income")),
                 "roe": _float_or(m.get("roe")),
                 "financial_base_ym": str(m.get("financial_base_ym", "")),
                 "foreign_holding_qty": _float_or(snapshot.get("foreign_holding_qty", np.nan), np.nan),
-                "foreign_holding_change": _holding_change(symbol, snapshots),
+                "foreign_holding_change": _holding_change(symbol, symbol_snapshots),
                 "foreign_holding_ratio": _float_or(snapshot.get("foreign_holding_ratio", np.nan), np.nan),
                 "per": _float_or(snapshot.get("per", np.nan), np.nan),
                 "pbr": _float_or(snapshot.get("pbr", np.nan), np.nan),
@@ -678,6 +690,12 @@ def build_base_features(
     result = pd.DataFrame(rows)
     if result.empty:
         return result
+    if point_in_time:
+        # Today's master shares/profits/ROE must not enter historical scores.
+        # Infer shares only from a quote snapshot observable on that date.
+        for column in ("sales", "operating_profit", "net_income", "roe"):
+            result[column] = np.nan  # A verified DART receipt supplies these later.
+        result["financial_base_ym"] = ""
     # Size on the signal date. market_cap_eok is today's value from the
     # universe master and leaks the future when replayed.
     pit_value = result["listed_shares"] * result["close"]

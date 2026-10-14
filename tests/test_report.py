@@ -21,7 +21,8 @@ def test_report_contains_ranking_and_action():
     assert rendered.html.index("살 만한 종목이 있나?") < rendered.html.index("다음 후보 · 아직 사지 않음")
     assert "강한 후보 · 가격 대기" in rendered.html
     assert "ML Shadow TOP 5 · 자동매수 아님" in rendered.html
-    assert "ML 학습 데이터가 아직 연결되지 않아" in rendered.html
+    assert "ML 비교 모델의 재학습을 기다리고 있습니다" in rendered.html
+    assert "현재 후보와 주문 판단은 규칙 모델을 따릅니다" in rendered.html
     assert "오늘 신규매수 검토" in rendered.html
     assert "참고 · 기존 보유/후속 관리" in rendered.html
     assert "가격·단기열기" in rendered.html

@@ -99,10 +99,10 @@ def test_walk_forward_only_trains_on_observable_labels(monkeypatch):
     )
     predicted_dates = sorted(predictions["date_index"].unique())
     # First prediction needs 3 known dates: 100..102 are known on 107.
-    assert predicted_dates[0] == 107
+    assert predicted_dates[0] == 108
     for (count, newest), target_index in zip(seen, predicted_dates):
-        assert newest <= target_index - 5
-        assert count == target_index - 5 - 100 + 1
+        assert newest <= target_index - 6
+        assert count == target_index - 6 - 100 + 1
 
 
 def test_gate_requires_enough_oos_dates_and_positive_lower_bounds():
@@ -132,12 +132,15 @@ def test_apply_learned_ranker_scores_only_eligible_rows():
     rows = []
     for n in range(30):
         row = {name: 0.0 for name in LEARNED_FEATURES}
-        row.update({"symbol": f"{n:06d}", "name": f"S{n}", "discovery_eligible": n < 25})
+        row.update({"symbol": f"{n:06d}", "name": f"S{n}", "discovery_eligible": n < 25, "as_of": "2026-10-13"})
         row["atr20_pct"] = float(n)
         rows.append(row)
     scored = pd.DataFrame(rows)
     ranker = {
         "spec_version": SPEC_VERSION,
+        "pit_version": "receipt-pit-v3",
+        "generated_at": "2026-10-11T16:00:00+09:00",
+        "train_label_end": "2026-10-09",
         "features": list(LEARNED_FEATURES),
         "weights": {"atr20_pct": -1.0},
         "challenger": {"status": "INSUFFICIENT_DATA"},

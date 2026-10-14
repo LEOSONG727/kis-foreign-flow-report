@@ -101,10 +101,12 @@ RANK_SOURCES: tuple[str, ...] = (
 RANK_FEATURES: tuple[str, ...] = tuple(f"{name}_day_rank" for name in RANK_SOURCES)
 MODEL_FEATURES: tuple[str, ...] = RAW_FEATURES + RANK_FEATURES
 from .storage import read_csv, write_csv
+from .point_in_time import PIT_VERSION
+from .temporal_validation import mature_training_mask
 
 LOGGER = logging.getLogger(__name__)
 
-SHADOW_MODEL_VERSION = "v3.1-c-extra-trees-r1"
+SHADOW_MODEL_VERSION = "v3.1-c-extra-trees-pit-r2"
 SHADOW_TOP_K = 12
 SHADOW_LEDGER_COLUMNS = [
     "signal_date",
@@ -133,6 +135,7 @@ SHADOW_LEDGER_COLUMNS = [
 def _blank_shadow_columns(frame: pd.DataFrame) -> pd.DataFrame:
     result = frame.copy()
     result["ml_shadow_available"] = False
+    result["ml_shadow_status"] = "unavailable"
     result["ml_shadow_model"] = SHADOW_MODEL_VERSION
     result["ml_shadow_prediction"] = np.nan
     result["ml_shadow_score"] = np.nan
@@ -229,18 +232,35 @@ def _build_shadow_model() -> Any:
     )
 
 
-def fit_shadow_model(training_path: Path) -> Any:
+class ShadowTrainingUnavailable(ValueError):
+    def __init__(self, status: str, message: str):
+        super().__init__(message)
+        self.status = status
+
+
+def fit_shadow_model(training_path: Path, *, as_of=None, trading_dates=None,
+                     horizon: int = 20, embargo_sessions: int = 1) -> Any:
     from .storage import read_csv
 
     raw = read_csv(training_path)
+    if "pit_provenance_version" not in raw or not raw["pit_provenance_version"].eq(PIT_VERSION).all():
+        raise ShadowTrainingUnavailable("pit_training_required", "Rebuild the legacy shadow table with receipt-PIT research before fitting")
+    as_of = pd.Timestamp(as_of) if as_of is not None else pd.Timestamp.now(tz="Asia/Seoul")
+    raw = raw.loc[mature_training_mask(raw, as_of, horizon,
+        sessions=trading_dates, embargo_sessions=embargo_sessions)].copy()
+    # Purge BEFORE calculating target ranks. An unavailable delayed label in
+    # the same cross-section must not affect ranks of otherwise mature rows.
     training = _prepare_training(raw)
     if len(training) < 500 or training["as_of"].nunique() < 50:
-        raise ValueError(
-            "Shadow training data is too small: "
+        raise ShadowTrainingUnavailable("insufficient_mature_labels",
+            "Shadow training data is too small after purge/embargo: "
             f"rows={len(training)} dates={training['as_of'].nunique()}"
         )
     model = _build_shadow_model()
     model.fit(training[list(MODEL_FEATURES)], training["target_rank"])
+    model.pit_version_ = PIT_VERSION
+    model.train_signal_end_ = training["as_of"].max()
+    model.validation_as_of_ = as_of
     return model
 
 
@@ -250,6 +270,8 @@ def apply_rich_shadow(
     *,
     top_k: int = SHADOW_TOP_K,
     model: Any | None = None,
+    trading_dates=None,
+    embargo_sessions: int = 1,
 ) -> pd.DataFrame:
     """Attach non-trading ML ranks. Failure leaves the main score untouched."""
 
@@ -263,7 +285,12 @@ def apply_rich_shadow(
             LOGGER.warning("ML shadow training data is missing: %s", training_path)
             return result
         try:
-            model = fit_shadow_model(training_path)
+            model = fit_shadow_model(training_path, as_of=pd.to_datetime(candidates["as_of"]).min(),
+                trading_dates=trading_dates, embargo_sessions=embargo_sessions)
+        except ShadowTrainingUnavailable as exc:
+            LOGGER.warning("ML shadow awaits valid PIT training: %s", exc)
+            result["ml_shadow_status"] = exc.status
+            return result
         except Exception as exc:
             LOGGER.warning("ML shadow model could not be trained: %s", exc)
             return result
@@ -284,6 +311,7 @@ def apply_rich_shadow(
     )
 
     result.loc[candidates.index, "ml_shadow_available"] = True
+    result.loc[candidates.index, "ml_shadow_status"] = "ready"
     result.loc[candidates.index, "ml_shadow_prediction"] = prediction_series
     result.loc[candidates.index, "ml_shadow_score"] = shadow_score
     result.loc[candidates.index, "ml_shadow_rank"] = shadow_rank
