@@ -318,6 +318,31 @@ python -m kis_flow_bot rerank --no-notify
 
 일일 수집 성공률이 허용 범위 안이더라도 개별 종목의 최신 수급이 누락될 수 있습니다. 리포트 기준일과 종목 `as_of`가 다르면 해당 종목은 관찰표에 남을 수는 있어도 신규매수 제안에는 들어가지 않습니다. 실전 리포트와 워크포워드 백테스트는 같은 유동성·최소 이력·데이터 신선도 정책을 사용합니다.
 
+## 공시 시점과 라벨 누수 검증
+
+`receipt-pit-v3`부터 재무 데이터는 `(symbol, rcept_no)`로 `data/dart_filings.csv`의 실제 `rcept_dt`를 확인한 뒤 사용합니다. 결산 기준일·접수번호 앞자리·기존 `available` 값을 공개일로 추정하지 않습니다. 접수 시각이 없는 날짜 자료는 공시 당일 사용을 제외하고 다음 관측 신호일부터 `merge_asof(direction="backward", allow_exact_matches=False)`로 매핑합니다. 정정공시는 접수번호별 숫자를 보존하며, 이미 검증된 같은 접수번호의 숫자를 나중 응답으로 덮어쓰지 않습니다.
+
+기존 `dart_financials.csv`는 예전 파서에서 접수번호가 섞였을 가능성을 배제할 수 없어 삭제하지 않고 격리합니다. 새 파서가 받은 `pit_source_version`과 실제 공시 목록이 모두 확인된 행만 피처로 사용합니다. 과거 연도라도 검증되지 않은 캐시는 수집 완료로 간주하지 않고 다음 리서치에서 다시 수집합니다. 공시 목록이 없는 숫자도 날짜를 추정해 채우지 않습니다. 현재 종목 마스터의 ROE·이익·주식수는 과거 입력에서 제외하며, 시총은 당시 관측 가능한 시세 스냅샷의 주식수로만 복원합니다. 실전과 리플레이가 같은 시점 피처를 점수 계산 **전에** 사용합니다.
+
+이익의 질 문서는 실제 공시 접수일로 선택합니다. Jev 답변은 `captured_at`의 한국 날짜 다음 신호일부터 사용하며, 과거 날짜의 텍스트를 나중에 분석했다고 그 답변을 과거 예측에 소급하지 않습니다. `earnings_quality_verdict.json`은 종목별 점수가 아닌 전체 실험 판정이며, 과거 신호 이후 생성된 판정은 그 신호의 리포트에 표시하지 않습니다.
+
+백테스트 결과에 `label_end_date`를 저장하고 동일한 시장 거래일 구간을 평가합니다. 거래정지·누락으로 해당 구간이 완결되지 않거나 다음 거래일 시가가 없으면 해당 수익률을 만들지 않습니다. 홀드아웃·Calibration 학습·ML 학습은 보유기간만큼 purge하고 `[research].embargo_sessions`(기본 1, 최소 1)만큼 추가 간격을 둡니다. 실제 라벨 종료일도 경계를 넘지 않아야 합니다. 순위 타겟은 이 필터 **이후** 계산합니다. 날짜 없는 기존 결과나 미래 모델·미완결 라벨을 학습에 넣지 않습니다. Calibration v3의 구간 확률은 학습 표본으로만 만들고 홀드아웃은 평가에만 사용하며, v2 보정값은 활성화하지 않습니다.
+
+ML 비교 모델은 새 시점 정책과 학습표가 필요합니다. 이전 학습표는 `pit_training_required`로 표시하고 규칙 모델을 계속 사용합니다. `research`가 `reports/ml_rich_features.csv`를 새 피처·라벨 종료일·생성 근거와 함께 재생성하면, 충분한 완결 라벨(500행·50일 이상)이 있는 신호일에만 다시 학습합니다. Ridge 사양도 `ridge-rank-pit-v3`으로 분리했으며 예전 가중치를 새 점수로 재사용하지 않습니다. `rules_frozen_on`은 이번 수정일인 2026-10-14로 갱신했습니다.
+
+검증(첫 두 명령은 API 호출·기존 데이터 수정 없음):
+
+```bash
+python -m pytest tests/test_point_in_time.py tests/test_fundamentals.py tests/test_research.py tests/test_backtest.py
+python scripts/validate_point_in_time.py
+# DART_API_KEY가 있으면 재무·공시를 수집하고 새 ML 학습표도 생성합니다.
+# Jev 호출 여부는 기존 [jev] 스위치를 유지합니다.
+python -m kis_flow_bot research
+python -m kis_flow_bot rerank --no-notify
+```
+
+검증 스크립트의 `quarantined_financial_rows`나 `shadow_table_has_pit_provenance=false`는 초기 전환 시 정상적인 대기 상태입니다. 새 근거가 수집되기 전까지 과거 수치나 모델을 유효하다고 선언하지 않습니다. 현재 종목 목록에 없는 상장폐지 종목, 저장 전 시세·공시 누락에 따른 생존·커버리지 편향은 별도로 남습니다. 시점 방어가 이 데이터 공백까지 복원하지는 않습니다.
+
 ## 데이터 출처
 
 - [KIS Developers](https://apiportal.koreainvestment.com/intro)

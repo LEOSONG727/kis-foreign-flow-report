@@ -47,7 +47,7 @@ jobs:
         run: |
           bash .github/scripts/persist-results.sh "bot: weekly self-validation research" \
             data/learned_ranker.json data/model_registry.json reports/research_latest.md \
-            reports/research_factors.csv reports/research_oos.csv data/jev_replay.csv \
+            reports/research_factors.csv reports/research_oos.csv reports/ml_rich_features.csv data/jev_replay.csv \
             data/jev_verdict.json reports/jev_replay.md data/dart_corp_codes.csv \
             data/dart_filings.csv data/dart_coverage.json data/dart_financials.csv \
             data/jev_event_answers.csv data/jev_event_verdict.json reports/jev_events.md \

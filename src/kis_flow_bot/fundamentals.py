@@ -3,7 +3,8 @@
 The universe master's financials are today's numbers; replaying them into
 the past leaks the future (the audit found the strongest-looking signal was
 exactly that). Here each report is usable only from its receipt date, which
-DART encodes in the first eight digits of ``rcept_no``.
+``dart_filings.csv`` records as ``rcept_dt``. Date-only disclosures become
+eligible on the next signal date, never on the receipt day.
 
 Signals (all scaled by market value on the signal date, so they are
 comparable across companies):
@@ -28,7 +29,8 @@ import numpy as np
 import pandas as pd
 import requests
 
-from .dart import DartClient, DartError, load_corp_codes
+from .dart import DartClient, DartError, load_corp_codes, update_filings
+from .point_in_time import PIT_VERSION, bind_receipts, backward_asof, local_dates
 from .storage import read_csv, write_csv
 
 LOGGER = logging.getLogger(__name__)
@@ -47,6 +49,7 @@ FIN_COLUMNS = [
     "op_prev",
     "ni",
     "equity",
+    "pit_source_version",
 ]
 FUNDAMENTAL_FEATURES: tuple[str, ...] = (
     "op_yoy_mcap",
@@ -83,7 +86,7 @@ def _account(name: str) -> str | None:
 def parse_multi_accounts(rows: Iterable[dict[str, Any]], code_to_symbol: dict[str, str]) -> pd.DataFrame:
     """One row per (company, report), consolidated statements preferred."""
 
-    records: dict[tuple[str, str, str, str], dict[str, Any]] = {}
+    records: dict[tuple[str, str, str, str, str], dict[str, Any]] = {}
     for row in rows:
         kind = _account(row.get("account_nm", ""))
         if kind is None:
@@ -94,7 +97,9 @@ def parse_multi_accounts(rows: Iterable[dict[str, Any]], code_to_symbol: dict[st
         if not symbol:
             continue
         rcept_no = str(row.get("rcept_no", ""))
-        key = (symbol.zfill(6), str(row.get("bsns_year", "")), str(row.get("reprt_code", "")), str(row.get("fs_div", "")))
+        if not rcept_no:
+            continue
+        key = (symbol.zfill(6), str(row.get("bsns_year", "")), str(row.get("reprt_code", "")), str(row.get("fs_div", "")), rcept_no)
         record = records.setdefault(
             key,
             {
@@ -103,7 +108,8 @@ def parse_multi_accounts(rows: Iterable[dict[str, Any]], code_to_symbol: dict[st
                 "reprt_code": key[2],
                 "fs_div": key[3],
                 "rcept_no": rcept_no,
-                "available": rcept_no[:8],
+                "available": None,  # Only actual filings may establish availability.
+                "pit_source_version": PIT_VERSION,
             },
         )
         record[kind] = _amount(row.get("thstrm_amount"))
@@ -117,7 +123,7 @@ def parse_multi_accounts(rows: Iterable[dict[str, Any]], code_to_symbol: dict[st
             frame[column] = np.nan
     # Consolidated (CFS) first, separate (OFS) only when no CFS exists.
     frame["_order"] = frame["fs_div"].map({"CFS": 0, "OFS": 1}).fillna(2)
-    frame = frame.sort_values("_order").drop_duplicates(["symbol", "bsns_year", "reprt_code"], keep="first")
+    frame = frame.sort_values("_order").drop_duplicates(["symbol", "bsns_year", "reprt_code", "rcept_no"], keep="first")
     return frame[FIN_COLUMNS].reset_index(drop=True)
 
 
@@ -164,7 +170,8 @@ def update_financials(
     wanted = codes[codes["symbol"].isin({str(s).zfill(6) for s in symbols})]
     code_to_symbol = dict(zip(wanted["corp_code"].astype(str).str.zfill(8), wanted["symbol"]))
     corp_codes = sorted(code_to_symbol)
-    fetched_keys = set(zip(cached["bsns_year"].astype(str), cached["reprt_code"].astype(str)))
+    safe_cache = cached[cached.get("pit_source_version", pd.Series("", index=cached.index)).eq(PIT_VERSION)]
+    fetched_keys = set(zip(safe_cache["bsns_year"].astype(str), safe_cache["reprt_code"].astype(str)))
     refresh = {str(year) for year in refresh_years}
     frames = [cached]
     client = FinancialsClient(dart)
@@ -184,53 +191,55 @@ def update_financials(
     combined = pd.concat([frame for frame in frames if not frame.empty], ignore_index=True)
     if combined.empty:
         combined = pd.DataFrame(columns=FIN_COLUMNS)
-    combined = combined.drop_duplicates(["symbol", "bsns_year", "reprt_code"], keep="last")
+    # Preserve each correction separately, and never rewrite an existing
+    # receipt's numbers with a later response under the same receipt number.
+    for column in FIN_COLUMNS:
+        if column not in combined:
+            combined[column] = pd.NA
+    combined["_safe"] = combined["pit_source_version"].eq(PIT_VERSION).fillna(False)
+    combined = combined.sort_values("_safe", ascending=False, kind="stable").drop_duplicates(["symbol", "bsns_year", "reprt_code", "rcept_no"], keep="first")
+    combined = bind_receipts(combined, read_csv(data_dir / "dart_filings.csv"))
     combined = combined.sort_values(["symbol", "available"]).reset_index(drop=True)
     write_csv(combined[FIN_COLUMNS], path)
     return combined[FIN_COLUMNS]
 
 
-def attach_fundamentals(frame: pd.DataFrame, financials: pd.DataFrame, date_column: str = "as_of") -> pd.DataFrame:
+def attach_fundamentals(frame: pd.DataFrame, financials: pd.DataFrame, date_column: str = "as_of",
+                        *, filings: pd.DataFrame | None = None) -> pd.DataFrame:
     """Add point-in-time fundamental features using only reports public by each date."""
 
     result = frame.copy()
-    for column in FUNDAMENTAL_FEATURES:
+    output_columns = (*FUNDAMENTAL_FEATURES, "operating_profit", "net_income", "sales", "roe")
+    for column in output_columns:
         result[column] = np.nan
+    result["financial_rcept_no"] = pd.NA
+    result["financial_available"] = pd.NaT
     if result.empty or financials is None or financials.empty or "pit_size" not in result:
         return result
-    fin = financials.copy()
+    fin = bind_receipts(financials, filings) if filings is not None else financials.copy()
+    if "_pit_verified" not in fin or "pit_source_version" not in fin:
+        return result  # Never trust an unbound legacy 'available' value.
+    fin = fin[fin["_pit_verified"].fillna(False).eq(True) & fin["pit_source_version"].eq(PIT_VERSION)].copy()
+    if fin.empty:
+        return result
     fin["symbol"] = fin["symbol"].astype(str).str.zfill(6)
-    fin["available"] = pd.to_datetime(fin["available"].astype(str).str[:8], format="%Y%m%d", errors="coerce")
+    fin["available"] = pd.to_datetime(fin["available"], format="mixed", errors="coerce")
     for column in ("revenue", "revenue_prev", "op", "op_prev", "ni", "equity"):
-        fin[column] = pd.to_numeric(fin[column], errors="coerce")
+        fin[column] = pd.to_numeric(fin.get(column, pd.Series(np.nan, index=fin.index)), errors="coerce")
     fin = fin.dropna(subset=["available"]).sort_values("available")
-    annual = fin[fin["reprt_code"].astype(str) == "11011"][["symbol", "available", "op"]].rename(
-        columns={"op": "op_annual", "available": "annual_available"}
+    annual = fin[fin["reprt_code"].astype(str) == "11011"][["symbol", "available", "op", "ni", "equity"]].rename(
+        columns={"op": "op_annual", "ni": "ni_annual", "equity": "equity_annual", "available": "annual_available"}
     )
 
     base = result[["symbol", date_column, "pit_size"]].copy()
     base["_row"] = np.arange(len(base))
-    base["_date"] = pd.to_datetime(base[date_column]).astype("datetime64[ns]")
+    base["_date"] = local_dates(base[date_column])
     base["symbol"] = base["symbol"].astype(str).str.zfill(6)
     base = base.sort_values("_date")
     fin = fin.assign(available=fin["available"].astype("datetime64[ns]"))
-    latest = pd.merge_asof(
-        base,
-        fin[["symbol", "available", "revenue", "revenue_prev", "op", "op_prev", "equity"]],
-        left_on="_date",
-        right_on="available",
-        by="symbol",
-        direction="backward",
-    )
+    latest = backward_asof(base, fin[["symbol", "available", "rcept_no", "revenue", "revenue_prev", "op", "op_prev", "equity"]], date_column=date_column)
     annual = annual.assign(annual_available=annual["annual_available"].astype("datetime64[ns]")).sort_values("annual_available")
-    latest = pd.merge_asof(
-        latest.sort_values("_date"),
-        annual,
-        left_on="_date",
-        right_on="annual_available",
-        by="symbol",
-        direction="backward",
-    )
+    latest = backward_asof(latest, annual, date_column=date_column, available_column="annual_available")
     mcap = np.exp(pd.to_numeric(latest["pit_size"], errors="coerce"))
     latest["op_yoy_mcap"] = (latest["op"] - latest["op_prev"]) / mcap
     latest["op_yield"] = latest["op_annual"] / mcap
@@ -238,14 +247,20 @@ def attach_fundamentals(frame: pd.DataFrame, financials: pd.DataFrame, date_colu
     prev = latest["revenue_prev"].where(latest["revenue_prev"].abs() > 0)
     latest["revenue_yoy"] = (latest["revenue"] / prev - 1.0).clip(-1.0, 5.0)
     latest["report_age"] = (latest["_date"] - latest["available"]).dt.days
+    latest["operating_profit"] = latest["op"] / 100_000_000.0
+    latest["net_income"] = latest["ni_annual"] / 100_000_000.0
+    latest["sales"] = latest["revenue"] / 100_000_000.0
+    latest["roe"] = latest["ni_annual"] / latest["equity_annual"].where(latest["equity_annual"] > 0) * 100.0
     latest = latest.sort_values("_row")
-    for column in FUNDAMENTAL_FEATURES:
+    for column in output_columns:
         result[column] = latest[column].to_numpy()
+    result["financial_rcept_no"] = latest["rcept_no"].to_numpy()
+    result["financial_available"] = latest["available"].to_numpy()
     return result
 
 
 def load_financials(data_dir: Path) -> pd.DataFrame:
-    return read_csv(data_dir / "dart_financials.csv")
+    return bind_receipts(read_csv(data_dir / "dart_financials.csv"), read_csv(data_dir / "dart_filings.csv"))
 
 
 def refresh_financials_from_env(settings, symbols: Iterable[str], history_start: date) -> pd.DataFrame:
@@ -255,4 +270,12 @@ def refresh_financials_from_env(settings, symbols: Iterable[str], history_start:
     dart = DartClient(key) if key else None
     today = date.today()
     years = range(history_start.year - 1, today.year + 1)
-    return update_financials(dart, settings.data_dir, symbols, years, refresh_years=(today.year - 1, today.year))
+    symbols = list(symbols)
+    financials = update_financials(dart, settings.data_dir, symbols, years, refresh_years=(today.year - 1, today.year))
+    # Fetch actual receipts; prefix dates may narrow the download range but are
+    # never a fallback availability date. Missing evidence stays unavailable.
+    if dart is not None and not financials.empty:
+        update_filings(dart, settings.data_dir,
+                       [(str(symbol), date(history_start.year - 1, 1, 1), today) for symbol in symbols],
+                       max_calls=5000)
+    return load_financials(settings.data_dir)

@@ -213,8 +213,8 @@ def _ml_shadow_table(frame: pd.DataFrame) -> str:
     shadow = _ml_shadow_frame(frame)
     if shadow.empty:
         return (
-            '<div class="empty">ML 학습 데이터가 아직 연결되지 않아 기존 점수만 표시합니다. '
-            "메인 리포트와 주문 판단에는 영향이 없습니다.</div>"
+            '<div class="empty">ML 비교 모델의 재학습을 기다리고 있습니다. '
+            "현재 후보와 주문 판단은 규칙 모델을 따릅니다.</div>"
         )
     rows = []
     for _, row in shadow.iterrows():

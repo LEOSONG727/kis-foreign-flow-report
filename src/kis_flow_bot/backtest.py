@@ -15,6 +15,9 @@ from .brief import annotate_watch_brief, is_cheap_accumulation, select_daily_bri
 from .config import ModelConfig, Settings
 from .eligibility import apply_candidate_eligibility
 from .features import add_cross_sectional_residuals, build_base_features
+from .fundamentals import attach_fundamentals, load_financials
+from .point_in_time import PIT_VERSION, local_dates
+from .temporal_validation import mature_training_mask, label_ends
 from .scoring import score_features
 from .storage import read_csv, write_csv
 
@@ -279,11 +282,15 @@ def market_forward_benchmarks(
     future = history[
         (history["date"] > pd.Timestamp(as_of))
         & (history["date"] <= pd.Timestamp(end_date))
+        & history["symbol"].isin(history.loc[history["date"].eq(pd.Timestamp(as_of)), "symbol"])
     ].sort_values(["symbol", "date"])
     if future.empty:
         return {}
+    next_session = history.loc[history["date"] > pd.Timestamp(as_of), "date"].min()
     rows = []
     for symbol, group in future.groupby("symbol", sort=False):
+        if group["date"].iloc[0] != next_session or group["date"].iloc[-1] != pd.Timestamp(end_date):
+            continue
         entry = pd.to_numeric(group["open"].iloc[0], errors="coerce")
         close = pd.to_numeric(group["close"].iloc[-1], errors="coerce")
         if pd.isna(entry) or pd.isna(close) or float(entry) <= 0:
@@ -305,8 +312,16 @@ def build_calibration(
     target: float = 0.08,
     stop: float = 0.06,
     roundtrip_cost: float = 0.003,
+    *, horizon: int = 20, embargo_sessions: int = 1, trading_dates=None,
 ) -> dict:
     """Activate probabilities only after economic and temporal holdout checks pass."""
+    train, holdout, holdout_start = split_time_holdout(results, 1 / 3, horizon=horizon,
+        embargo_sessions=embargo_sessions, trading_dates=trading_dates)
+    source_verified = bool(not results.empty and "pit_provenance_version" in results
+                           and results["pit_provenance_version"].eq(PIT_VERSION).all())
+    if not source_verified:
+        train = train.iloc[0:0].copy()
+    train_resolved = train[train["outcome"].isin(["target", "stop"])] if not train.empty else train
     bands = [(0.0, 64.0, "<64"), (64.0, 68.0, "64-67"), (68.0, 72.0, "68-71"), (72.0, 101.0, "72+")]
     resolved = results[results["outcome"].isin(["target", "stop"])].copy() if not results.empty else pd.DataFrame()
     score_column = (
@@ -316,7 +331,7 @@ def build_calibration(
     )
     summaries = []
     for low, high, label in bands:
-        group = resolved[(resolved[score_column] >= low) & (resolved[score_column] < high)] if not resolved.empty else pd.DataFrame()
+        group = train_resolved[(train_resolved[score_column] >= low) & (train_resolved[score_column] < high)] if not train_resolved.empty else pd.DataFrame()
         wins = int((group["outcome"] == "target").sum()) if not group.empty else 0
         count = len(group)
         summaries.append(
@@ -338,12 +353,6 @@ def build_calibration(
     else:
         overall_mean_return = float("nan")
 
-    holdout = pd.DataFrame()
-    if not results.empty and "as_of" in results:
-        ordered_dates = sorted(pd.to_datetime(results["as_of"], errors="coerce").dropna().unique())
-        if ordered_dates:
-            holdout_start = pd.Timestamp(ordered_dates[max(0, int(len(ordered_dates) * 2 / 3))])
-            holdout = results[pd.to_datetime(results["as_of"], errors="coerce") >= holdout_start].copy()
     holdout_resolved = holdout[holdout["outcome"].isin(["target", "stop"])] if not holdout.empty else pd.DataFrame()
     holdout_wins = int((holdout_resolved["outcome"] == "target").sum()) if not holdout_resolved.empty else 0
     holdout_win_rate = holdout_wins / len(holdout_resolved) if len(holdout_resolved) else 0.0
@@ -365,6 +374,10 @@ def build_calibration(
     )
     checks = {
         "resolved_samples": len(resolved) >= 300,
+        "training_samples": len(train_resolved) >= 300,
+        "pit_input_provenance": source_verified,
+        "purged_time_boundary": bool(not train.empty and holdout_start is not None
+            and local_dates(train["label_end_date"]).max() < holdout_start),
         "holdout_samples": len(holdout_resolved) >= 75,
         "overall_positive_expectancy": overall_mean_return > 0,
         "holdout_positive_expectancy": holdout_mean_return > 0,
@@ -377,7 +390,13 @@ def build_calibration(
     active = all(checks.values())
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "quality_gate_version": 2,
+        "quality_gate_version": 3,
+        "pit_version": PIT_VERSION,
+        "horizon": horizon,
+        "embargo_sessions": embargo_sessions,
+        "holdout_start": str(holdout_start.date()) if holdout_start is not None else None,
+        "training_resolved_samples": len(train_resolved),
+        "purged_samples": len(results) - len(train) - len(holdout),
         "active": active,
         "resolved_samples": len(resolved),
         "minimum_resolved_samples": 300,
@@ -629,6 +648,7 @@ def _policy_variants(settings: Settings) -> list[dict]:
 
 
 def run_backtest(settings: Settings) -> pd.DataFrame:
+    financials = load_financials(settings.data_dir)
     history = read_csv(settings.data_dir / "history.csv")
     universe = read_csv(settings.data_dir / "universe.csv")
     snapshots = read_csv(settings.data_dir / "holdings.csv")
@@ -659,7 +679,8 @@ def run_backtest(settings: Settings) -> pd.DataFrame:
                 opinion_view = opinions
                 if not opinions.empty and "date" in opinions:
                     opinion_view = opinions[pd.to_datetime(opinions["date"], errors="coerce") <= as_of]
-                features = build_base_features(history_view, universe, snapshot_view, opinion_view)
+                features = build_base_features(history_view, universe, snapshot_view, opinion_view, point_in_time=True)
+                features = attach_fundamentals(features, financials)
                 features = add_cross_sectional_residuals(features)
                 for policy in variants:
                     variant = str(policy["variant"])
@@ -712,12 +733,14 @@ def run_backtest(settings: Settings) -> pd.DataFrame:
                         if date_index - last_signal_index.get(signal_key, -horizon) < horizon:
                             continue
                         future = history[
-                            (history["symbol"] == symbol) & (history["date"] > as_of)
-                        ].sort_values("date").head(horizon)
+                            (history["symbol"] == symbol) & history["date"].isin(dates[date_index + 1:date_index + horizon + 1])
+                        ].sort_values("date")
                         if len(future) < horizon:
                             continue
                         next_open = pd.to_numeric(future["open"].iloc[0], errors="coerce")
-                        entry_price = float(next_open) if pd.notna(next_open) and next_open > 0 else float(future["close"].iloc[0])
+                        if pd.isna(next_open) or next_open <= 0:
+                            continue
+                        entry_price = float(next_open)
                         path = evaluate_forward_ohlc(
                             entry_price,
                             future,
@@ -748,7 +771,9 @@ def run_backtest(settings: Settings) -> pd.DataFrame:
                                 "timing_buy_score": variant_model.timing_buy_score,
                                 "strict_add_confirmation": variant_model.strict_add_confirmation,
                                 "as_of": as_of,
+                                "pit_provenance_version": PIT_VERSION,
                                 "entry_date": future["date"].iloc[0],
+                                "label_end_date": future["date"].iloc[-1],
                                 "symbol": symbol,
                                 "name": row.get("name", symbol),
                                 "market": market,
@@ -797,6 +822,8 @@ def run_backtest(settings: Settings) -> pd.DataFrame:
         settings.model.backtest_target_pct / 100.0,
         settings.model.backtest_stop_pct / 100.0,
         settings.model.backtest_roundtrip_cost_pct / 100.0,
+        horizon=horizon, embargo_sessions=settings.research.embargo_sessions,
+        trading_dates=history["date"] if not history.empty else None,
     )
     summary = summarize_variants(results)
     score_bands = summarize_score_bands(results)
@@ -814,19 +841,26 @@ def run_backtest(settings: Settings) -> pd.DataFrame:
 def split_time_holdout(
     results: pd.DataFrame,
     holdout_frac: float = 0.30,
+    *, horizon: int = 20, embargo_sessions: int = 1, trading_dates=None,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.Timestamp | None]:
-    """Split by signal date, never by shuffled rows."""
+    """Purged holdout: unknown/unmatured endpoints never enter training."""
+    if not 0 < holdout_frac < 1:
+        raise ValueError("holdout_frac must be in (0, 1)")
     if results.empty or "as_of" not in results:
-        return results.copy(), results.copy(), None
+        return results.iloc[0:0].copy(), results.iloc[0:0].copy(), None
     frame = results.copy()
-    frame["as_of"] = pd.to_datetime(frame["as_of"], errors="coerce")
+    frame["as_of"] = local_dates(frame["as_of"])
     dates = sorted(frame["as_of"].dropna().unique())
     if len(dates) < 3:
-        return frame, frame.iloc[0:0].copy(), dates[-1] if dates else None
+        return frame.iloc[0:0].copy(), frame.iloc[0:0].copy(), dates[-1] if dates else None
     cut_index = max(1, int(round(len(dates) * (1.0 - holdout_frac))))
     cut_index = min(cut_index, len(dates) - 1)
     cut = pd.Timestamp(dates[cut_index])
-    return frame[frame["as_of"] < cut].copy(), frame[frame["as_of"] >= cut].copy(), cut
+    mask = mature_training_mask(frame, cut, horizon, sessions=trading_dates, embargo_sessions=embargo_sessions)
+    train = frame.loc[mask].copy()
+    if "label_end_date" not in train:
+        train["label_end_date"] = label_ends(train, horizon, trading_dates)
+    return train, frame[frame["as_of"] >= cut].copy(), cut
 
 
 def summarize_screen_bucket(frame: pd.DataFrame) -> dict[str, float]:
@@ -871,6 +905,7 @@ def run_screen_backtest(
     - Dates are sampled every `step` sessions so the run finishes; this is
       documented in the report and is not a daily all-name search.
     """
+    financials = load_financials(settings.data_dir)
     history = read_csv(settings.data_dir / "history.csv")
     universe = read_csv(settings.data_dir / "universe.csv")
     snapshots = read_csv(settings.data_dir / "holdings.csv")
@@ -896,7 +931,7 @@ def run_screen_backtest(
                 if not opinions.empty and "date" in opinions:
                     opinion_view = opinions[pd.to_datetime(opinions["date"], errors="coerce") <= as_of]
                 features = add_cross_sectional_residuals(
-                    build_base_features(history_view, universe, snapshot_view, opinion_view)
+                    attach_fundamentals(build_base_features(history_view, universe, snapshot_view, opinion_view, point_in_time=True), financials)
                 )
                 scored = score_features(features, settings.model)
                 scored = apply_candidate_eligibility(
@@ -922,11 +957,13 @@ def run_screen_backtest(
                     if date_index - last_signal_index.get(signal_key, -horizon) < horizon:
                         continue
                     future = history[
-                        (history["symbol"] == symbol) & (history["date"] > as_of)
-                    ].sort_values("date").head(horizon)
+                        (history["symbol"] == symbol) & history["date"].isin(dates[date_index + 1:date_index + horizon + 1])
+                    ].sort_values("date")
                     if len(future) < horizon:
                         continue
                     next_open = pd.to_numeric(future["open"].iloc[0], errors="coerce")
+                    if pd.isna(next_open) or next_open <= 0:
+                        continue
                     entry_price = (
                         float(next_open)
                         if pd.notna(next_open) and next_open > 0
@@ -950,7 +987,9 @@ def run_screen_backtest(
                         {
                             "bucket": bucket,
                             "as_of": as_of,
+                            "pit_provenance_version": PIT_VERSION,
                             "entry_date": future["date"].iloc[0],
+                            "label_end_date": future["date"].iloc[-1],
                             "symbol": symbol,
                             "name": row.get("name", symbol),
                             "market": market,
@@ -977,7 +1016,8 @@ def run_screen_backtest(
                     last_signal_index[signal_key] = date_index
         results = pd.DataFrame(signal_rows)
 
-    _write_screen_backtest_report(settings, results, step)
+    _write_screen_backtest_report(settings, results, step,
+        trading_dates=history["date"] if not history.empty else None)
     write_csv(results, settings.reports_dir / "screen_backtest.csv")
     return results
 
@@ -994,7 +1034,7 @@ def _fmt_rate(value: float) -> str:
     return f"{value * 100:.1f}%"
 
 
-def _write_screen_backtest_report(settings: Settings, results: pd.DataFrame, step: int) -> None:
+def _write_screen_backtest_report(settings: Settings, results: pd.DataFrame, step: int, *, trading_dates=None) -> None:
     path = settings.reports_dir / "screen_backtest.md"
     settings.reports_dir.mkdir(parents=True, exist_ok=True)
     if results.empty:
@@ -1003,7 +1043,8 @@ def _write_screen_backtest_report(settings: Settings, results: pd.DataFrame, ste
             encoding="utf-8",
         )
         return
-    train, holdout, cut = split_time_holdout(results)
+    train, holdout, cut = split_time_holdout(results, horizon=settings.model.backtest_horizon_days,
+        embargo_sessions=settings.research.embargo_sessions, trading_dates=trading_dates)
     lines = [
         "# 스크리닝 워크포워드",
         "",
@@ -1014,6 +1055,7 @@ def _write_screen_backtest_report(settings: Settings, results: pd.DataFrame, ste
         f"- 샘플링: {'매일 전수' if step <= 1 else f'{step}거래일마다 1회'}",
         f"- 같은 종목은 {settings.model.backtest_horizon_days}거래일 안에 재진입하지 않음",
         f"- 시간 홀드아웃 컷: {cut.date() if cut is not None else '-'}",
+        f"- 경계 라벨 purge + {settings.research.embargo_sessions}거래일 embargo · 제외 {len(results) - len(train) - len(holdout)}건",
         "",
         "현재 유니버스 기준이라 상장폐지 종목이 빠지는 편향은 남아 있습니다.",
         "",
@@ -1264,7 +1306,9 @@ def _gate_sweep_one_date(date_index: int) -> tuple[int, list[dict]]:
     opinion_view = opinions
     if not opinions.empty and "date" in opinions:
         opinion_view = opinions[opinions["date"] <= as_of]
-    features = build_base_features(history_view, universe, snapshot_view, opinion_view)
+    features = attach_fundamentals(
+        build_base_features(history_view, universe, snapshot_view, opinion_view, point_in_time=True),
+        ctx["financials"])
     features = add_cross_sectional_residuals(features)
     scored = score_features(features, widest_model)
     scored = apply_candidate_eligibility(
@@ -1282,11 +1326,13 @@ def _gate_sweep_one_date(date_index: int) -> tuple[int, list[dict]]:
     for _, row in candidates.iterrows():
         symbol = str(row["symbol"]).zfill(6)
         future = history[
-            (history["symbol"] == symbol) & (history["date"] > as_of)
-        ].sort_values("date").head(horizon)
+            (history["symbol"] == symbol) & history["date"].isin(dates[date_index + 1:date_index + horizon + 1])
+        ].sort_values("date")
         if len(future) < horizon:
             continue
         next_open = pd.to_numeric(future["open"].iloc[0], errors="coerce")
+        if pd.isna(next_open) or next_open <= 0:
+            continue
         entry_price = (
             float(next_open)
             if pd.notna(next_open) and next_open > 0
@@ -1314,7 +1360,9 @@ def _gate_sweep_one_date(date_index: int) -> tuple[int, list[dict]]:
         events.append(
             {
                 "as_of": as_of,
+                "pit_provenance_version": PIT_VERSION,
                 "entry_date": future["date"].iloc[0],
+                "label_end_date": future["date"].iloc[-1],
                 "symbol": symbol,
                 "name": row.get("name", symbol),
                 "market": market,
@@ -1339,6 +1387,7 @@ def _gate_sweep_one_date(date_index: int) -> tuple[int, list[dict]]:
 
 def run_gate_sweep(settings: Settings) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
     """Score once, then compare nested price-gate policies for executable buys."""
+    financials = load_financials(settings.data_dir)
     history = read_csv(settings.data_dir / "history.csv")
     universe = read_csv(settings.data_dir / "universe.csv")
     snapshots = read_csv(settings.data_dir / "holdings.csv")
@@ -1373,6 +1422,7 @@ def run_gate_sweep(settings: Settings) -> tuple[pd.DataFrame, pd.DataFrame, dict
         date_indexes = list(range(59, len(dates) - horizon))
         payload = {
             "history": history,
+            "financials": financials,
             "universe": universe,
             "snapshots": snapshots,
             "opinions": opinions,

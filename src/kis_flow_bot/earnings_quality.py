@@ -41,6 +41,7 @@ from .hypotheses import HYPOTHESES, hypothesis_score
 from .jev_shadow import MODEL, _number, request_review
 from .research import build_research_panel, summarize_series
 from .storage import read_csv, write_csv
+from .point_in_time import PIT_VERSION, backward_asof, local_dates, observable_answers
 
 LOGGER = logging.getLogger(__name__)
 
@@ -105,10 +106,10 @@ def latest_explanation(filings: pd.DataFrame, symbol: str, as_of: pd.Timestamp) 
 
     if filings.empty:
         return None
-    received = pd.to_datetime(filings["rcept_dt"].astype(str), format="%Y%m%d", errors="coerce")
+    received = local_dates(filings["rcept_dt"])
     mask = (
         (filings["symbol"] == symbol)
-        & (received <= pd.Timestamp(as_of))
+        & (received < pd.Timestamp(as_of).normalize())
         & (received > pd.Timestamp(as_of) - pd.Timedelta(days=LOOKBACK_DAYS))
         & filings["report_nm"].astype(str).str.contains(EXPLAIN_TITLES)
         & ~filings["report_nm"].astype(str).str.contains("철회")
@@ -197,7 +198,8 @@ def call_jev(
             existing[column] = pd.NA
     done = set(
         existing.loc[
-            existing["status"].astype(str).eq("OK") & existing["prompt_hash"].astype(str).eq(PROMPT_HASH),
+            existing["status"].astype(str).eq("OK") & existing["prompt_hash"].astype(str).eq(PROMPT_HASH)
+            & existing["model"].astype(str).eq(MODEL),
             "state_hash",
         ].astype(str)
     )
@@ -231,7 +233,7 @@ def call_jev(
             incoming[column] = pd.NA
     combined = pd.concat([frame[LEDGER_COLUMNS] for frame in (existing, incoming) if not frame.empty], ignore_index=True)
     combined["_ok"] = combined["status"].astype(str).eq("OK")
-    combined = combined.sort_values(["state_hash", "_ok", "captured_at"]).drop_duplicates(["state_hash", "prompt_hash"], keep="last")
+    combined = combined.sort_values(["state_hash", "_ok", "captured_at"], ascending=[True, False, True]).drop_duplicates(["state_hash", "prompt_hash", "model"], keep="first")
     return combined.drop(columns="_ok").reset_index(drop=True)
 
 
@@ -248,19 +250,18 @@ def review_rows(
     """For each (as_of, symbol): explanation text, keyword flags and Jev answers."""
 
     filings = update_filings(client, settings.data_dir, window_needs(candidates, LOOKBACK_DAYS))
-    picks = []
-    for _, row in candidates.iterrows():
-        filing = latest_explanation(filings, str(row["symbol"]).zfill(6), pd.Timestamp(row["as_of"]))
-        picks.append(
-            {
-                "as_of": pd.Timestamp(row["as_of"]),
-                "symbol": str(row["symbol"]).zfill(6),
-                "rcept_no": "" if filing is None else str(filing["rcept_no"]),
-                "title": "" if filing is None else str(filing["report_nm"]),
-                "corp_name": "" if filing is None else str(filing.get("corp_name", "")),
-            }
-        )
-    rows = pd.DataFrame(picks)
+    relevant = filings[filings["report_nm"].astype(str).str.contains(EXPLAIN_TITLES)
+                       & ~filings["report_nm"].astype(str).str.contains("철회")].copy()
+    relevant["available"] = local_dates(relevant["rcept_dt"])
+    if "corp_name" not in relevant:
+        relevant["corp_name"] = ""
+    events = relevant[["symbol", "rcept_no", "report_nm", "corp_name", "available"]].rename(columns={"report_nm": "title"})
+    events = events.sort_values(["available", "rcept_no"], kind="stable")
+    rows = backward_asof(candidates[["as_of", "symbol"]], events)
+    stale = (local_dates(rows["as_of"]) - rows["available"]).dt.days >= LOOKBACK_DAYS
+    rows.loc[stale, ["rcept_no", "title", "corp_name"]] = pd.NA
+    for column in ("rcept_no", "title", "corp_name"):
+        rows[column] = rows[column].fillna("").astype(str)
     docs = fetch_documents(client, settings.data_dir, rows["rcept_no"].tolist(), max_docs)
     text_by_no = dict(zip(docs["rcept_no"].astype(str), docs["text"].fillna("").astype(str)))
     states: dict[str, dict] = {}
@@ -283,12 +284,9 @@ def review_rows(
     ledger_path = settings.data_dir / "earnings_quality_answers.csv"
     ledger = call_jev(states, read_csv(ledger_path), api_key=jev_key, max_calls=max_calls, session=session)
     write_csv(ledger if not ledger.empty else pd.DataFrame(columns=LEDGER_COLUMNS), ledger_path)
-    answers = ledger[ledger["status"].astype(str).eq("OK") & ledger["prompt_hash"].astype(str).eq(PROMPT_HASH)] if not ledger.empty else ledger
-    if answers.empty:
-        for name in ANSWERS:
-            rows[f"eq_{name}"] = np.nan
-    else:
-        rows = rows.merge(answers[["state_hash", *(f"eq_{n}" for n in ANSWERS)]].drop_duplicates("state_hash"), on="state_hash", how="left")
+    answers = ledger[ledger["status"].astype(str).eq("OK") & ledger["prompt_hash"].astype(str).eq(PROMPT_HASH)
+                     & ledger["model"].astype(str).eq(MODEL)] if not ledger.empty else ledger
+    rows = observable_answers(rows, answers, [f"eq_{name}" for name in ANSWERS])
     for name in ANSWERS:
         rows[f"eq_{name}"] = pd.to_numeric(rows[f"eq_{name}"], errors="coerce")
         rows.loc[~rows["has_text"], f"eq_{name}"] = 0.0  # no explanation → nothing to veto
@@ -520,6 +518,8 @@ def run_earnings_quality(
         merged = candidates.merge(reviewed, on=["as_of", "symbol"], how="left")
         result = evaluate(merged, settings)
     result["generated_at"] = generated_at.isoformat(timespec="seconds")
+    result["pit_version"] = PIT_VERSION
+    result["availability_policy"] = "after_receipt_and_answer_capture"
     (settings.reports_dir / "earnings_quality.md").write_text(render(result, generated_at, horizon), encoding="utf-8")
     (settings.data_dir / "earnings_quality_verdict.json").write_text(
         json.dumps(_json_safe(result), ensure_ascii=False, indent=2) + "\n", encoding="utf-8"

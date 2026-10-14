@@ -2,6 +2,8 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
+import kis_flow_bot.earnings_quality as quality
 
 from kis_flow_bot.config import load_settings
 from kis_flow_bot.dart import xml_to_text
@@ -18,6 +20,17 @@ from kis_flow_bot.jev_shadow import MODEL
 ROOT = Path(__file__).resolve().parents[1]
 ONE_OFF_TEXT = "당기순이익 증가. 변동 주요원인: 유형자산 처분이익 발생에 따른 영업외수익 증가"
 RECURRING_TEXT = "영업이익 증가. 변동 주요원인: 판매량 증가 및 원가 절감에 따른 수익성 개선"
+
+
+@pytest.fixture
+def historical_jev_answers(monkeypatch):
+    """Synthetic classifier answers were known before the simulated signals."""
+    actual_call = quality.call_jev
+    def historical_call(*args, **kwargs):
+        ledger = actual_call(*args, **kwargs)
+        ledger["captured_at"] = "2026-02-28T00:00:00+00:00"
+        return ledger
+    monkeypatch.setattr(quality, "call_jev", historical_call)
 
 
 def _settings(tmp_path):
@@ -40,7 +53,8 @@ def test_latest_explanation_is_point_in_time():
         }
     )
     assert latest_explanation(filings, "000001", pd.Timestamp("2026-06-01"))["rcept_no"] == "1"
-    assert latest_explanation(filings, "000001", pd.Timestamp("2026-07-01"))["rcept_no"] == "3"
+    assert latest_explanation(filings, "000001", pd.Timestamp("2026-07-01"))["rcept_no"] == "1"
+    assert latest_explanation(filings, "000001", pd.Timestamp("2026-07-02"))["rcept_no"] == "3"
     assert latest_explanation(filings, "000001", pd.Timestamp("2026-02-01")) is None
 
 
@@ -114,7 +128,7 @@ def _panel(dates=45, names=24, seed=2):
     return pd.DataFrame(rows)
 
 
-def test_replay_caches_by_text_and_equal_to_keywords_cannot_win(tmp_path):
+def test_replay_caches_by_text_and_equal_to_keywords_cannot_win(tmp_path, historical_jev_answers):
     settings = _settings(tmp_path)
     panel = _panel()
     dart = FakeDart(sorted(panel["symbol"].unique()))
@@ -129,7 +143,7 @@ def test_replay_caches_by_text_and_equal_to_keywords_cannot_win(tmp_path):
     assert jev.calls == 2 and dart.docs == 10
 
 
-def test_daily_flags_h1_candidates_and_section(tmp_path):
+def test_daily_flags_h1_candidates_and_section(tmp_path, historical_jev_answers):
     settings = _settings(tmp_path)
     today = _panel(dates=1).assign(discovery_eligible=True)
     dart = FakeDart(sorted(today["symbol"].unique()))

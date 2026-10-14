@@ -3,6 +3,7 @@ import pytest
 import pandas as pd
 
 from kis_flow_bot.fundamentals import attach_fundamentals, parse_multi_accounts
+from kis_flow_bot.point_in_time import PIT_VERSION, bind_receipts
 
 
 def _row(account, current, prior, rcept, reprt="11013", fs="CFS", year="2026"):
@@ -29,7 +30,9 @@ def test_parse_prefers_consolidated_and_reads_receipt_date():
     assert len(parsed) == 1
     row = parsed.iloc[0]
     assert row["op"] == 300 and row["op_prev"] == 100 and row["equity"] == 5000
-    assert row["available"] == "20260515"
+    assert pd.isna(row["available"])
+    filings = pd.DataFrame({"symbol": ["000001"], "rcept_no": ["20260515000123"], "rcept_dt": ["20260516"]})
+    assert bind_receipts(parsed, filings)["available"].iloc[0] == pd.Timestamp("2026-05-16")
 
 
 def test_features_use_only_reports_public_by_each_date():
@@ -46,15 +49,17 @@ def test_features_use_only_reports_public_by_each_date():
     mcap = 10_000.0
     frame = pd.DataFrame(
         {
-            "as_of": pd.to_datetime(["2026-03-01", "2026-04-01", "2026-05-14", "2026-05-15"]),
+            "as_of": pd.to_datetime(["2026-03-01", "2026-04-01", "2026-05-15", "2026-05-18"]),
             "symbol": "000001",
             "pit_size": np.log(mcap),
         }
     )
-    out = attach_fundamentals(frame, financials)
+    financials["pit_source_version"] = PIT_VERSION
+    filings = financials[["symbol", "rcept_no", "available"]].rename(columns={"available": "rcept_dt"})
+    out = attach_fundamentals(frame, financials, filings=filings)
     assert out["op_yield"].isna().iloc[0]  # nothing public yet
     assert out.loc[1, "op_yoy_mcap"] == pytest.approx((400 - 300) / mcap)  # annual report only
     assert out.loc[2, "book_to_market"] == pytest.approx(1000 / mcap)  # Q1 not public until 5/15
     assert out.loc[3, "op_yoy_mcap"] == pytest.approx((150 - 50) / mcap)
     assert out.loc[3, "op_yield"] == pytest.approx(400 / mcap)  # annual yield still from the annual report
-    assert out.loc[3, "report_age"] == pytest.approx(0)
+    assert out.loc[3, "report_age"] == pytest.approx(3)

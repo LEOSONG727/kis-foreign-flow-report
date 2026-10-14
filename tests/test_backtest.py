@@ -30,10 +30,12 @@ def test_time_holdout_splits_by_date_not_by_shuffle():
             "max_drawdown": [-0.03] * 5,
         }
     )
-    train, holdout, cut = split_time_holdout(frame, 0.40)
+    train, holdout, cut = split_time_holdout(frame, 0.40, horizon=5,
+        trading_dates=pd.bdate_range("2026-03-02", "2026-04-10"))
     assert cut is not None
     assert train["as_of"].max() < holdout["as_of"].min()
-    assert len(train) + len(holdout) == 5
+    assert len(train) + len(holdout) == 4  # The boundary label is purged.
+    assert train["label_end_date"].max() < holdout["as_of"].min()
 
 
 def test_screen_bucket_summary_handles_empty_frame():
@@ -75,7 +77,7 @@ def test_calibration_rejects_large_but_loss_making_sample():
     )
     calibration = build_calibration(results)
     assert not calibration["active"]
-    assert calibration["quality_gate_version"] == 2
+    assert calibration["quality_gate_version"] == 3
     assert not calibration["activation_checks"]["overall_positive_expectancy"]
 
 
@@ -114,7 +116,7 @@ def test_market_benchmark_uses_same_market_mean_and_next_open():
         roundtrip_cost=0.003,
     )
     assert round(result["KOSPI"], 3) == 0.147
-    assert round(result["KOSDAQ"], 3) == 0.197
+    assert "KOSDAQ" not in result  # C was not in the observable signal-date basket.
 
 
 def test_variant_summary_reports_signal_quality():

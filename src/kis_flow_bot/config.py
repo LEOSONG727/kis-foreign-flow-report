@@ -181,6 +181,8 @@ class ResearchConfig:
     # Signals after this date were never seen while the rules were tuned.
     rules_frozen_on: str = ""
     workers: int = 0
+    # Extra gap after label maturity; purge is never smaller than horizon.
+    embargo_sessions: int = 1
 
 
 @dataclass(frozen=True)

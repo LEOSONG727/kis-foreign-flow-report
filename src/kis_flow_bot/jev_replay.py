@@ -504,12 +504,20 @@ def _json_safe(value: Any) -> Any:
     return value
 
 
-def load_jev_verdict(path: Path) -> dict[str, Any] | None:
+def load_jev_verdict(path: Path, *, as_of=None) -> dict[str, Any] | None:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
-    return payload if isinstance(payload, dict) else None
+    if not isinstance(payload, dict):
+        return None
+    if as_of is not None:
+        from .point_in_time import local_dates
+        generated = local_dates(pd.Series([payload.get("generated_at")])).iloc[0]
+        signal = local_dates(pd.Series([as_of])).iloc[0]
+        if pd.isna(generated) or pd.isna(signal) or generated >= signal:
+            return None
+    return payload
 
 
 def daily_jev_allowed(verdict: dict[str, Any] | None) -> bool:
