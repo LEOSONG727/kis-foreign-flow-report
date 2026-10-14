@@ -25,6 +25,10 @@ class APIConfig:
     calls_per_second: float = 5.0
     timeout_seconds: int = 20
     max_retries: int = 5
+    token_cache_dir: str = ".cache/kis-tokens"
+    token_min_interval_seconds: float = 65.0
+    retry_base_seconds: float = 1.5
+    retry_max_seconds: float = 30.0
 
 
 @dataclass(frozen=True)

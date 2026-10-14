@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -23,11 +25,46 @@ HISTORY_COLUMNS = [
     "institution_net_amount",
 ]
 
+# Identifiers must be strings BEFORE pandas infers numbers (receipt numbers can
+# also lose precision when a column contains blanks). Other columns keep their
+# existing numeric/boolean inference for compatibility with scoring and ledgers.
+IDENTIFIER_WIDTHS = {"symbol": 6, "stock_code": 6, "corp_code": 8}
+TEXT_COLUMNS = (*IDENTIFIER_WIDTHS, "rcept_no", "rcept_dt", "reprt_code", "bsns_year")
+
+
+def normalize_identifiers(frame: pd.DataFrame) -> pd.DataFrame:
+    result = frame.copy()
+    for column, width in IDENTIFIER_WIDTHS.items():
+        if column not in result:
+            continue
+        values = result[column].astype("string").str.strip().replace("", pd.NA)
+        # Repair identifiers already inferred as floats, without inventing an
+        # identifier for missing data or changing synthetic alphanumeric keys.
+        values = values.str.replace(r"^(\d+)\.0+$", r"\1", regex=True)
+        numeric = values.str.fullmatch(r"\d+", na=False)
+        values.loc[numeric] = values.loc[numeric].str.zfill(width)
+        result[column] = values
+    for column in set(TEXT_COLUMNS) - set(IDENTIFIER_WIDTHS):
+        if column in result:
+            result[column] = result[column].astype("string")
+    return result
+
 
 def read_csv(path: Path, **kwargs) -> pd.DataFrame:
     if not path.exists() or path.stat().st_size == 0:
         return pd.DataFrame()
-    return pd.read_csv(path, dtype={"symbol": "string"}, **kwargs)
+    requested = kwargs.pop("dtype", None)
+    if requested is None or isinstance(requested, dict):
+        dtype = {**(requested or {}), **dict.fromkeys(TEXT_COLUMNS, "string")}
+    else:
+        # A scalar dtype=str/string is safe. Any other scalar must not cast IDs.
+        if requested not in (str, "str", "string", object):
+            raise ValueError("Use a dtype mapping for numeric columns; identifiers must remain strings")
+        dtype = requested
+    converters = kwargs.get("converters", {})
+    if set(converters) & set(TEXT_COLUMNS):
+        raise ValueError("Identifier converters would bypass string schema protection")
+    return normalize_identifiers(pd.read_csv(path, dtype=dtype, **kwargs))
 
 
 def merge_history(
@@ -41,7 +78,7 @@ def merge_history(
         return pd.DataFrame(columns=HISTORY_COLUMNS)
     merged = pd.concat(frames, ignore_index=True)
     merged["date"] = pd.to_datetime(merged["date"], errors="coerce")
-    merged["symbol"] = merged["symbol"].astype("string").str.zfill(6)
+    merged = normalize_identifiers(merged)
     cutoff = pd.Timestamp(as_of - timedelta(days=retention_days))
     merged = merged[merged["date"].notna() & (merged["date"] >= cutoff)]
     merged = merged.drop_duplicates(["date", "symbol"], keep="last")
@@ -54,7 +91,13 @@ def merge_history(
 
 def write_csv(frame: pd.DataFrame, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    frame.to_csv(path, index=False, encoding="utf-8")
+    with tempfile.NamedTemporaryFile(dir=path.parent, suffix=".tmp", delete=False) as handle:
+        temporary = Path(handle.name)
+    try:
+        normalize_identifiers(frame).to_csv(temporary, index=False, encoding="utf-8")
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def merge_snapshots(current: pd.DataFrame, incoming: pd.DataFrame) -> pd.DataFrame:
@@ -63,7 +106,7 @@ def merge_snapshots(current: pd.DataFrame, incoming: pd.DataFrame) -> pd.DataFra
         return pd.DataFrame()
     merged = pd.concat(frames, ignore_index=True)
     merged["date"] = pd.to_datetime(merged["date"], errors="coerce")
-    merged["symbol"] = merged["symbol"].astype("string").str.zfill(6)
+    merged = normalize_identifiers(merged)
     return (
         merged.dropna(subset=["date", "symbol"])
         .drop_duplicates(["date", "symbol"], keep="last")

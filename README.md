@@ -229,6 +229,8 @@ D+5 정책 차이는 5거래일 이동블록 부트스트랩 구간을 함께 �
 
 호출 제한을 바꾸려면 같은 화면의 `Variables` 탭에 `KIS_CALLS_PER_SECOND`를 추가합니다. 기본값은 초당 5회입니다. 호출 제한 오류가 반복되면 `2` 또는 `1`로 낮춥니다.
 
+KIS 토큰은 메모리와 계정별 로컬 파일 캐시를 함께 사용합니다. 로컬 기본 위치는 `.cache/kis-tokens`, Actions에서는 `runner.temp/kis-token-cache`이며 `KIS_TOKEN_CACHE_DIR`로 바꿀 수 있습니다. 파일 발급 잠금과 최소 65초 간격은 같은 머신의 여러 프로세스에도 적용됩니다. 캐시 파일은 토큰이 포함된 0600 파일이므로 Git·Actions 캐시·아티팩트에 넣지 않습니다. 서로 다른 호스팅 러너는 파일 캐시를 공유하지 않습니다. 토큰 발급 제한·TPS 제한·네트워크 오류·일시적인 HTTP 오류는 제한된 횟수로 재시도하며, 지수 백오프에 jitter와 서버의 `Retry-After`를 적용합니다. `[api]`의 기존 옵션은 유지되고 새 옵션에는 기본값이 있습니다.
+
 ### 2. 첫 실행
 
 1. 저장소의 `Actions` 탭
@@ -295,6 +297,24 @@ python -m kis_flow_bot deep-backfill --days 540 --max-minutes 150
 ```
 
 모델이나 설정이 바뀌면 `Recalculate action report` 워크플로가 저장된 데이터로 자동 재계산합니다. 따라서 점수식 수정 확인을 위해 전체 KIS 스캔을 다시 기다릴 필요가 없습니다.
+
+6개 워크플로우는 `foreign-flow-data-write` 그룹에서 순차 실행합니다. `queue: max`로 여러 대기 실행을 보존하고 실행 중인 작업도 자동 취소하지 않습니다. 대기 후 시작할 때 브랜치 최신 커밋을 체크아웃합니다. 연구·백테스트가 길면 일간 실행도 기다릴 수 있으며, 이 잠금은 이 저장소에만 적용됩니다. 동일한 KIS 앱키를 다른 저장소나 외부 서버에서 사용하면 별도 경합이 생길 수 있습니다.
+
+결과 저장은 `.github/scripts/persist-results.sh`로 통일합니다. 현재 실행 브랜치에만 커밋하고 `git pull --rebase --autostash` 후 push를 최대 5회 시도합니다. 실제 파일 내용 충돌은 실패로 표시하고 원격 결과를 덮어쓰지 않습니다. 저장 실패 시 아티팩트의 결과와 `logs/persist-results.patch`에서 생성된 변경을 복구할 수 있습니다. Deep backfill의 Actions 시간 예산은 150분 이하로 제한하여 180분 작업 제한 전 저장 시간을 확보합니다. 로컬 CLI 옵션은 그대로입니다.
+
+CSV 입출력은 공통 스키마를 사용합니다. `symbol`·`stock_code`는 6자리, `corp_code`는 8자리 문자열로 정규화하고 접수번호·접수일·보고서 코드도 추론 전에 문자열로 읽습니다. 기존 파일에서 선행 0이 빠졌더라도 읽을 때 복원하고 다음 저장 때 반영합니다. 빈 식별자는 빈 값으로 유지하며 숫자·불리언 피처는 기존 자료형을 유지합니다. CSV 저장은 임시 파일과 원자적 교체를 사용합니다.
+
+ML Shadow 구조 검증은 재계산한 최신 신호일·현재 모델만 대상으로 후보 종목, 중복, 연속 순위, 유효 점수와 ML/기준 모델 각각의 Top 1을 확인합니다. 누적 이력이 늘어도 전체 행 수를 12개로 가정하지 않습니다. 학습 데이터는 체크아웃된 `reports/ml_rich_features.csv`를 사용합니다. 이 검사는 성과 기반 승격을 의미하지 않습니다.
+
+안정화 검증 명령(실제 API 호출·알림 없음):
+
+```bash
+python -m pip install -e ".[dev,ml]"
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python -m pytest
+# 토큰/429·식별자·Git 충돌·최신 ML 스냅샷만 빠르게 재현
+python -m pytest tests/test_api_reliability.py tests/test_storage_schema.py tests/test_workflow_reliability.py tests/test_shadow_validation.py
+python -m kis_flow_bot rerank --no-notify
+```
 
 일일 수집 성공률이 허용 범위 안이더라도 개별 종목의 최신 수급이 누락될 수 있습니다. 리포트 기준일과 종목 `as_of`가 다르면 해당 종목은 관찰표에 남을 수는 있어도 신규매수 제안에는 들어가지 않습니다. 실전 리포트와 워크포워드 백테스트는 같은 유동성·최소 이력·데이터 신선도 정책을 사용합니다.
 

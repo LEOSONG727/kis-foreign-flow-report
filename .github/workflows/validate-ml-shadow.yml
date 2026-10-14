@@ -1,19 +1,32 @@
-name: Validate production ML shadow r2
+name: Validate production ML shadow
 
 on:
   push:
     branches:
+      - main
       - feature/ml-shadow-production
     paths:
       - ".github/workflows/validate-ml-shadow.yml"
+      - ".github/scripts/persist-results.sh"
+      - "src/kis_flow_bot/ml_shadow.py"
+      - "src/kis_flow_bot/shadow_validation.py"
+      - "tests/test_ml_shadow.py"
+      - "tests/test_shadow_validation.py"
   workflow_dispatch:
 
 permissions:
   contents: write
 
+# Serialize all result writers; queue multiple pending runs without replacing them.
 concurrency:
-  group: ml-shadow-validation
+  group: foreign-flow-data-write
+  queue: max
   cancel-in-progress: false
+
+env:
+  OPENBLAS_NUM_THREADS: "1"
+  OMP_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
 
 jobs:
   validate-shadow:
@@ -21,15 +34,9 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-
-      - name: Restore the sealed-validation training table
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api \
-            -H "Accept: application/vnd.github.raw+json" \
-            "/repos/$GITHUB_REPOSITORY/contents/reports/ml_rich_features.csv?ref=feature/v3-1c-rich-history-model" \
-            > reports/ml_rich_features.csv
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -45,28 +52,37 @@ jobs:
       - name: Rebuild report with production shadow
         run: python -m kis_flow_bot rerank --no-notify
 
-      - name: Verify one ML and one baseline top pick
+      - name: Verify the latest ML and baseline snapshot
         run: |
           python - <<'PY'
-          import pandas as pd
+          from pathlib import Path
+          from kis_flow_bot.storage import read_csv
+          from kis_flow_bot.shadow_validation import validate_latest_shadow_snapshot
 
-          ledger = pd.read_csv("data/ml_shadow_snapshots.csv")
-          current = ledger[ledger["model_version"] == "v3.1-c-extra-trees-r1"]
-          assert len(current) == 12
-          assert int(current["ml_top1"].sum()) == 1
-          assert int(current["baseline_top1"].sum()) == 1
-          print(current.sort_values("ml_shadow_rank").head(5)[
+          current = validate_latest_shadow_snapshot(
+              read_csv(Path("reports/latest.csv")),
+              read_csv(Path("data/ml_shadow_snapshots.csv")),
+          )
+          print(current.head(5)[
               ["ml_shadow_rank", "name", "ml_shadow_score", "discovery_rank"]
           ].to_string(index=False))
           PY
 
-      - name: Persist production shadow assets
+      - name: Persist results
+        shell: bash
         run: |
-          git config user.name "foreign-flow-bot"
-          git config user.email "foreign-flow-bot@users.noreply.github.com"
-          git add reports data/ml_shadow_snapshots.csv data/state.json data/horizon_core.json
-          if git diff --cached --quiet; then
-            exit 0
-          fi
-          git commit -m "feat: prepare production ML shadow assets"
-          git push origin HEAD:feature/ml-shadow-production
+          bash .github/scripts/persist-results.sh "bot: validate production ML shadow assets" \
+            reports data/ml_shadow_snapshots.csv data/state.json \
+            data/horizon_core.json
+
+      - name: Upload results and recovery files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validate-ml-shadow-${{ github.run_number }}
+          path: |
+            reports/
+            logs/
+            data/ml_shadow_snapshots.csv
+          if-no-files-found: warn
+          retention-days: 30

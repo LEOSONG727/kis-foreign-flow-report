@@ -19,21 +19,32 @@ on:
 permissions:
   contents: write
 
+# Serialize all result writers; queue multiple pending runs without replacing them.
 concurrency:
   group: foreign-flow-data-write
+  queue: max
   cancel-in-progress: false
+
+env:
+  OPENBLAS_NUM_THREADS: "1"
+  OMP_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
 
 jobs:
   backfill:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
+      KIS_TOKEN_CACHE_DIR: ${{ runner.temp }}/kis-token-cache
       KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
       KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
       KIS_CALLS_PER_SECOND: ${{ vars.KIS_CALLS_PER_SECOND || '5' }}
       PYTHONUNBUFFERED: "1"
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -46,6 +57,13 @@ jobs:
           INPUT_DAYS: ${{ inputs.days }}
           INPUT_MAX_MINUTES: ${{ inputs.max_minutes }}
         run: |
+          # Reserve time for tests, checkout, commit and artifacts before the 180m job limit.
+          python - <<'PY'
+          import os
+          budget = float(os.environ.get("INPUT_MAX_MINUTES") or "150")
+          if not 0 < budget <= 150:
+              raise SystemExit("max_minutes must be in (0, 150] to preserve the checkpoint before timeout")
+          PY
           args=(deep-backfill)
           if [[ "$INPUT_DAYS" =~ ^[0-9]+$ ]]; then
             args+=(--days "$INPUT_DAYS")
@@ -54,24 +72,20 @@ jobs:
             args+=(--max-minutes "$INPUT_MAX_MINUTES")
           fi
           python -m kis_flow_bot "${args[@]}"
-      - name: Persist history
+      - name: Persist results
         shell: bash
         run: |
-          git config user.name "foreign-flow-bot"
-          git config user.email "foreign-flow-bot@users.noreply.github.com"
-          git add data/history.csv
-          if git diff --cached --quiet; then
-            echo "추가된 과거 이력이 없습니다."
-            exit 0
-          fi
-          git commit -m "bot: extend stored history backwards"
-          # main can move while this job runs (merges, other bots): rebase and retry.
-          for attempt in 1 2 3 4 5; do
-            if git pull --rebase origin "$GITHUB_REF_NAME" && git push origin "HEAD:$GITHUB_REF_NAME"; then
-              exit 0
-            fi
-            git rebase --abort 2>/dev/null || true
-            sleep $((attempt * 15))
-          done
-          echo "push failed after 5 attempts" >&2
-          exit 1
+          bash .github/scripts/persist-results.sh "bot: extend stored history backwards" \
+            data/history.csv
+
+      - name: Upload results and recovery files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deep-backfill-${{ github.run_number }}
+          path: |
+            reports/
+            logs/
+            data/history.csv
+          if-no-files-found: warn
+          retention-days: 30

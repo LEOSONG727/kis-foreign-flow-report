@@ -16,6 +16,11 @@ opinion_candidates = 40
 calls_per_second = 5.0
 timeout_seconds = 20
 max_retries = 5
+# 같은 머신/계정의 프로세스 간 토큰 재사용. Actions에서는 RUNNER_TEMP 사용.
+token_cache_dir = ".cache/kis-tokens"
+token_min_interval_seconds = 65.0
+retry_base_seconds = 1.5
+retry_max_seconds = 30.0
 
 [model]
 initial_buy_score = 72.0
