@@ -230,7 +230,9 @@ def _build_shadow_model() -> Any:
 
 
 def fit_shadow_model(training_path: Path) -> Any:
-    raw = pd.read_csv(training_path, dtype={"symbol": "string"})
+    from .storage import read_csv
+
+    raw = read_csv(training_path)
     training = _prepare_training(raw)
     if len(training) < 500 or training["as_of"].nunique() < 50:
         raise ValueError(

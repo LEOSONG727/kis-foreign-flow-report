@@ -10,9 +10,16 @@ on:
 permissions:
   contents: write
 
+# Serialize all result writers; queue multiple pending runs without replacing them.
 concurrency:
   group: foreign-flow-data-write
+  queue: max
   cancel-in-progress: false
+
+env:
+  OPENBLAS_NUM_THREADS: "1"
+  OMP_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
 
 jobs:
   research:
@@ -24,6 +31,9 @@ jobs:
       PYTHONUNBUFFERED: "1"
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -32,41 +42,25 @@ jobs:
       - run: pytest
       - name: Self-validation research
         run: python -m kis_flow_bot research --max-calls 3000
+      - name: Persist results
+        shell: bash
+        run: |
+          bash .github/scripts/persist-results.sh "bot: weekly self-validation research" \
+            data/learned_ranker.json data/model_registry.json reports/research_latest.md \
+            reports/research_factors.csv reports/research_oos.csv data/jev_replay.csv \
+            data/jev_verdict.json reports/jev_replay.md data/dart_corp_codes.csv \
+            data/dart_filings.csv data/dart_coverage.json data/dart_financials.csv \
+            data/jev_event_answers.csv data/jev_event_verdict.json reports/jev_events.md \
+            reports/portfolio_backtest.md reports/portfolio_backtest.csv data/dart_documents.csv \
+            data/earnings_quality_answers.csv data/earnings_quality_verdict.json reports/earnings_quality.md
+
       - name: Upload research artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: weekly-research-${{ github.run_number }}
-          path: reports/
+          path: |
+            reports/
+            logs/
           if-no-files-found: warn
           retention-days: 30
-      - name: Persist research results
-        shell: bash
-        run: |
-          git config user.name "foreign-flow-bot"
-          git config user.email "foreign-flow-bot@users.noreply.github.com"
-          for f in data/learned_ranker.json data/model_registry.json \
-            reports/research_latest.md reports/research_factors.csv reports/research_oos.csv \
-            data/jev_replay.csv data/jev_verdict.json reports/jev_replay.md \
-            data/dart_corp_codes.csv data/dart_filings.csv data/dart_coverage.json data/dart_financials.csv \
-            data/jev_event_answers.csv data/jev_event_verdict.json reports/jev_events.md \
-            reports/portfolio_backtest.md reports/portfolio_backtest.csv \
-            data/dart_documents.csv data/earnings_quality_answers.csv data/earnings_quality_verdict.json \
-            reports/earnings_quality.md; do
-            if [[ -e "$f" ]]; then git add "$f"; fi
-          done
-          if git diff --cached --quiet; then
-            echo "변경된 연구 결과가 없습니다."
-            exit 0
-          fi
-          git commit -m "bot: weekly self-validation research"
-          # main can move while this job runs (merges, other bots): rebase and retry.
-          for attempt in 1 2 3 4 5; do
-            if git pull --rebase origin "$GITHUB_REF_NAME" && git push origin "HEAD:$GITHUB_REF_NAME"; then
-              exit 0
-            fi
-            git rebase --abort 2>/dev/null || true
-            sleep $((attempt * 15))
-          done
-          echo "push failed after 5 attempts" >&2
-          exit 1

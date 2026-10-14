@@ -25,15 +25,23 @@ on:
 permissions:
   contents: write
 
+# Serialize all result writers; queue multiple pending runs without replacing them.
 concurrency:
   group: foreign-flow-data-write
+  queue: max
   cancel-in-progress: false
+
+env:
+  OPENBLAS_NUM_THREADS: "1"
+  OMP_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
 
 jobs:
   report:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
+      KIS_TOKEN_CACHE_DIR: ${{ runner.temp }}/kis-token-cache
       KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
       KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
       TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
@@ -52,6 +60,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -93,6 +104,12 @@ jobs:
           fi
           python -m kis_flow_bot "${args[@]}" 2>&1 | tee logs/run.log
 
+      - name: Persist results
+        shell: bash
+        run: |
+          bash .github/scripts/persist-results.sh "bot: update daily foreign-flow report" \
+            data reports
+
       - name: Upload report artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -100,29 +117,6 @@ jobs:
           name: foreign-flow-report-${{ github.run_number }}
           path: |
             reports/
-            logs/run.log
+            logs/
           if-no-files-found: warn
           retention-days: 30
-
-      - name: Persist data and report
-        if: success()
-        shell: bash
-        run: |
-          git config user.name "foreign-flow-bot"
-          git config user.email "foreign-flow-bot@users.noreply.github.com"
-          git add data reports
-          if git diff --cached --quiet; then
-            echo "변경된 데이터가 없습니다."
-            exit 0
-          fi
-          git commit -m "bot: update daily foreign-flow report"
-          # main can move while this job runs (merges, other bots): rebase and retry.
-          for attempt in 1 2 3 4 5; do
-            if git pull --rebase origin "$GITHUB_REF_NAME" && git push origin "HEAD:$GITHUB_REF_NAME"; then
-              exit 0
-            fi
-            git rebase --abort 2>/dev/null || true
-            sleep $((attempt * 15))
-          done
-          echo "push failed after 5 attempts" >&2
-          exit 1

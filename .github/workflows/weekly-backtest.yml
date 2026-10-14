@@ -16,11 +16,16 @@ on:
 permissions:
   contents: write
 
-# Writes only calibration/backtest files, so it does not need the shared
-# data lock (sharing it let GitHub cancel queued runs).
+# Serialize all result writers; queue multiple pending runs without replacing them.
 concurrency:
-  group: foreign-flow-weekly-backtest
+  group: foreign-flow-data-write
+  queue: max
   cancel-in-progress: false
+
+env:
+  OPENBLAS_NUM_THREADS: "1"
+  OMP_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
 
 jobs:
   backtest:
@@ -28,6 +33,9 @@ jobs:
     timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -38,35 +46,22 @@ jobs:
         run: python -m kis_flow_bot backtest
       - name: Run daily-brief screen backtest
         run: python -m kis_flow_bot screen-backtest --step 1
+      - name: Persist results
+        shell: bash
+        run: |
+          bash .github/scripts/persist-results.sh "bot: update walk-forward calibration" \
+            data/calibration.json reports/backtest_latest.csv reports/backtest_thresholds.csv \
+            reports/backtest_score_bands.csv reports/backtest_latest.md reports/screen_backtest.csv \
+            reports/screen_backtest.md
+
       - name: Upload backtest artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: walk-forward-backtest-${{ github.run_number }}
-          path: reports/
+          path: |
+            data/calibration.json
+            reports/
+            logs/
           if-no-files-found: warn
           retention-days: 30
-      - name: Persist calibration and report
-        shell: bash
-        run: |
-          git config user.name "foreign-flow-bot"
-          git config user.email "foreign-flow-bot@users.noreply.github.com"
-          for f in data/calibration.json reports/backtest_latest.csv reports/backtest_thresholds.csv \
-            reports/backtest_score_bands.csv reports/backtest_latest.md reports/screen_backtest.csv reports/screen_backtest.md; do
-            if [[ -e "$f" ]]; then git add "$f"; fi
-          done
-          if git diff --cached --quiet; then
-            echo "변경된 백테스트 결과가 없습니다."
-            exit 0
-          fi
-          git commit -m "bot: update walk-forward calibration"
-          # main can move while this job runs (merges, other bots): rebase and retry.
-          for attempt in 1 2 3 4 5; do
-            if git pull --rebase origin "$GITHUB_REF_NAME" && git push origin "HEAD:$GITHUB_REF_NAME"; then
-              exit 0
-            fi
-            git rebase --abort 2>/dev/null || true
-            sleep $((attempt * 15))
-          done
-          echo "push failed after 5 attempts" >&2
-          exit 1

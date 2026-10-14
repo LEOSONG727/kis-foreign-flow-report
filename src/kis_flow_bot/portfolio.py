@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 from .config import ModelConfig
+from .storage import read_csv, write_csv
 
 
 PORTFOLIO_COLUMNS = [
@@ -155,9 +156,9 @@ def load_portfolio(path: Path) -> pd.DataFrame:
     if not path.exists() or path.stat().st_size == 0:
         path.parent.mkdir(parents=True, exist_ok=True)
         empty = pd.DataFrame(columns=PORTFOLIO_COLUMNS)
-        empty.to_csv(path, index=False, encoding="utf-8")
+        write_csv(empty, path)
         return empty
-    frame = pd.read_csv(path, dtype={"symbol": "string"})
+    frame = read_csv(path)
     for column in PORTFOLIO_COLUMNS:
         if column not in frame:
             frame[column] = pd.NA
