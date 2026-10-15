@@ -26,14 +26,14 @@ episode_id,symbol,name,market,started_at,last_seen_at,ended_at,closed_at,start_c
 035720-20260825,035720,카카오,KOSPI,2026-08-25,2026-09-01,2026-09-01,2026-09-08,near_miss,candidate,제외,제외,C,관찰,2026-08-25,2026-08-26,,discovery-live-v2,1aaa4ed07c0d
 036460-20260825,036460,한국가스공사,KOSPI,2026-08-25,2026-09-23,2026-09-23,2026-10-07,candidate,candidate,A,강한 후보·가격 대기,C,관찰,,2026-08-25,2026-09-21,discovery-live-v2,1aaa4ed07c0d
 036570-20260825,036570,NC,KOSPI,2026-08-25,2026-09-23,2026-09-23,2026-10-07,candidate,near_miss,C,관찰,제외,제외,,2026-08-25,2026-08-27,discovery-live-v2,1aaa4ed07c0d
-039490-20260825,039490,키움증권,KOSPI,2026-08-25,2026-10-14,,,candidate,candidate,A,제외,B,제외,,2026-08-25,2026-09-15,discovery-live-v2,1aaa4ed07c0d
+039490-20260825,039490,키움증권,KOSPI,2026-08-25,2026-10-15,,,candidate,candidate,A,제외,C,제외,,2026-08-25,2026-09-15,discovery-live-v2,1aaa4ed07c0d
 041510-20260825,041510,에스엠,KOSDAQ,2026-08-25,2026-08-28,2026-08-28,2026-09-04,candidate,matched_control,A,강한 후보·가격 대기,제외,제외,,2026-08-25,,discovery-live-v2,1aaa4ed07c0d
 042660-20260825,042660,한화오션,KOSPI,2026-08-25,2026-09-14,2026-09-14,2026-09-21,near_miss,candidate,제외,제외,C,제외,2026-08-25,2026-08-26,,discovery-live-v2,1aaa4ed07c0d
 053800-20260825,053800,안랩,KOSDAQ,2026-08-25,2026-09-07,2026-09-07,2026-09-14,near_miss,near_miss,제외,제외,제외,제외,2026-08-25,2026-09-02,,discovery-live-v2,1aaa4ed07c0d
 064350-20260825,064350,현대로템,KOSPI,2026-08-25,2026-09-03,2026-09-03,2026-09-10,candidate,candidate,A,강한 후보·가격 대기,B,제외,,2026-08-25,,discovery-live-v2,1aaa4ed07c0d
 069620-20260825,069620,대웅제약,KOSPI,2026-08-25,2026-08-27,2026-08-27,2026-09-03,candidate,candidate,B,관찰,C,관찰,,2026-08-25,,discovery-live-v2,1aaa4ed07c0d
 071050-20260825,071050,한국금융지주,KOSPI,2026-08-25,2026-10-14,,,candidate,candidate,C,관찰,C,제외,,2026-08-25,2026-09-03,discovery-live-v2,1aaa4ed07c0d
-073240-20260825,073240,금호타이어,KOSPI,2026-08-25,2026-10-07,,,near_miss,candidate,제외,제외,C,관찰,2026-08-25,2026-09-02,2026-09-14,discovery-live-v2,1aaa4ed07c0d
+073240-20260825,073240,금호타이어,KOSPI,2026-08-25,2026-10-07,2026-10-07,2026-10-15,near_miss,candidate,제외,제외,C,관찰,2026-08-25,2026-09-02,2026-09-14,discovery-live-v2,1aaa4ed07c0d
 078340-20260825,078340,컴투스,KOSDAQ,2026-08-25,2026-08-25,2026-08-25,2026-09-01,near_miss,near_miss,제외,제외,제외,제외,2026-08-25,,,discovery-live-v2,1aaa4ed07c0d
 079900-20260825,079900,전진건설로봇,KOSPI,2026-08-25,2026-08-28,2026-08-28,2026-09-04,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,1aaa4ed07c0d
 079940-20260825,079940,가비아,KOSDAQ,2026-08-25,2026-08-25,2026-08-25,2026-09-01,near_miss,near_miss,제외,제외,제외,제외,2026-08-25,,,discovery-live-v2,1aaa4ed07c0d
@@ -48,7 +48,7 @@ episode_id,symbol,name,market,started_at,last_seen_at,ended_at,closed_at,start_c
 214370-20260825,214370,케어젠,KOSDAQ,2026-08-25,2026-09-01,2026-09-01,2026-09-08,candidate,candidate,B,제외,A,제외,,2026-08-25,,discovery-live-v2,1aaa4ed07c0d
 237690-20260825,237690,에스티팜,KOSDAQ,2026-08-25,2026-08-28,2026-08-28,2026-09-04,candidate,matched_control,C,관찰,제외,제외,,2026-08-25,,discovery-live-v2,1aaa4ed07c0d
 241560-20260825,241560,두산밥캣,KOSPI,2026-08-25,2026-09-17,2026-09-17,2026-09-29,candidate,candidate,C,관찰,A,강한 후보·가격 대기,,2026-08-25,,discovery-live-v2,1aaa4ed07c0d
-247540-20260825,247540,에코프로비엠,KOSDAQ,2026-08-25,2026-10-14,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,1aaa4ed07c0d
+247540-20260825,247540,에코프로비엠,KOSDAQ,2026-08-25,2026-10-15,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,1aaa4ed07c0d
 251270-20260825,251270,넷마블,KOSPI,2026-08-25,2026-09-03,2026-09-03,2026-09-10,candidate,candidate,A,오늘 신규매수 검토,C,관찰,,2026-08-25,2026-08-25,discovery-live-v2,1aaa4ed07c0d
 252990-20260825,252990,샘씨엔에스,KOSDAQ,2026-08-25,2026-08-25,2026-08-25,2026-09-01,near_miss,near_miss,제외,제외,제외,제외,2026-08-25,,,discovery-live-v2,1aaa4ed07c0d
 277810-20260825,277810,레인보우로보틱스,KOSDAQ,2026-08-25,2026-09-07,2026-09-07,2026-09-14,matched_control,near_miss,제외,제외,제외,제외,2026-08-31,,,discovery-live-v2,1aaa4ed07c0d
@@ -75,9 +75,9 @@ episode_id,symbol,name,market,started_at,last_seen_at,ended_at,closed_at,start_c
 388210-20260826,388210,씨엠티엑스,KOSDAQ,2026-08-26,2026-09-18,2026-09-18,2026-09-29,near_miss,candidate,제외,제외,C,관찰,2026-08-26,2026-09-01,,discovery-live-v2,1aaa4ed07c0d
 440110-20260826,440110,파두,KOSDAQ,2026-08-26,2026-09-03,2026-09-03,2026-09-10,candidate,candidate,C,관찰,A,제외,,2026-08-26,,discovery-live-v2,1aaa4ed07c0d
 499790-20260826,499790,GS피앤엘,KOSPI,2026-08-26,2026-08-26,2026-08-26,2026-09-02,near_miss,near_miss,제외,제외,제외,제외,2026-08-26,,,discovery-live-v2,1aaa4ed07c0d
-003230-20260827,003230,삼양식품,KOSPI,2026-08-27,2026-10-14,,,candidate,candidate,B,관찰,A,제외,,2026-08-27,2026-09-15,discovery-live-v2,1aaa4ed07c0d
+003230-20260827,003230,삼양식품,KOSPI,2026-08-27,2026-10-15,,,candidate,candidate,B,관찰,C,제외,,2026-08-27,2026-09-15,discovery-live-v2,1aaa4ed07c0d
 004710-20260827,004710,한솔테크닉스,KOSPI,2026-08-27,2026-08-27,2026-08-27,2026-09-03,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,1aaa4ed07c0d
-007070-20260827,007070,GS리테일,KOSPI,2026-08-27,2026-10-14,,,near_miss,candidate,제외,제외,C,제외,2026-08-27,2026-09-04,2026-09-08,discovery-live-v2,1aaa4ed07c0d
+007070-20260827,007070,GS리테일,KOSPI,2026-08-27,2026-10-15,,,near_miss,candidate,제외,제외,C,제외,2026-08-27,2026-09-04,2026-09-08,discovery-live-v2,1aaa4ed07c0d
 069960-20260827,069960,현대백화점,KOSPI,2026-08-27,2026-09-01,2026-09-01,2026-09-08,candidate,candidate,A,제외,C,제외,,2026-08-27,,discovery-live-v2,1aaa4ed07c0d
 204620-20260827,204620,글로벌텍스프리,KOSDAQ,2026-08-27,2026-09-11,2026-09-11,2026-09-18,candidate,candidate,A,강한 후보·가격 대기,A,강한 후보·가격 대기,,2026-08-27,,discovery-live-v2,1aaa4ed07c0d
 214450-20260827,214450,파마리서치,KOSDAQ,2026-08-27,2026-09-22,2026-09-22,2026-10-07,candidate,candidate,B,관찰,B,제외,,2026-08-27,2026-09-18,discovery-live-v2,1aaa4ed07c0d
@@ -145,7 +145,7 @@ episode_id,symbol,name,market,started_at,last_seen_at,ended_at,closed_at,start_c
 004370-20260902,004370,농심,KOSPI,2026-09-02,2026-09-29,2026-09-29,2026-10-07,candidate,candidate,C,관찰,A,강한 후보·가격 대기,,2026-09-02,2026-09-14,discovery-live-v2,37a52bc7dd90
 011790-20260902,011790,SKC,KOSPI,2026-09-02,2026-09-03,2026-09-03,2026-09-10,candidate,near_miss,C,관찰,제외,제외,,2026-09-02,,discovery-live-v2,37a52bc7dd90
 011930-20260902,011930,신성이엔지,KOSPI,2026-09-02,2026-09-17,2026-09-17,2026-09-29,near_miss,near_miss,제외,제외,제외,제외,2026-09-02,,,discovery-live-v2,37a52bc7dd90
-018260-20260902,018260,삼성에스디에스,KOSPI,2026-09-02,2026-10-14,,,near_miss,candidate,제외,제외,A,제외,2026-09-02,2026-09-03,2026-09-15,discovery-live-v2,37a52bc7dd90
+018260-20260902,018260,삼성에스디에스,KOSPI,2026-09-02,2026-10-15,,,near_miss,candidate,제외,제외,A,제외,2026-09-02,2026-09-03,2026-09-15,discovery-live-v2,37a52bc7dd90
 029460-20260902,029460,케이씨,KOSPI,2026-09-02,2026-09-03,2026-09-03,2026-09-10,candidate,candidate,B,관찰,B,관찰,,2026-09-02,,discovery-live-v2,37a52bc7dd90
 038500-20260902,038500,삼표시멘트,KOSDAQ,2026-09-02,2026-09-08,2026-09-08,2026-09-15,near_miss,candidate,제외,제외,C,제외,2026-09-02,2026-09-03,,discovery-live-v2,37a52bc7dd90
 052400-20260902,052400,코나아이,KOSDAQ,2026-09-02,2026-09-07,2026-09-07,2026-09-14,near_miss,near_miss,제외,제외,제외,제외,2026-09-02,,,discovery-live-v2,37a52bc7dd90
@@ -163,7 +163,7 @@ episode_id,symbol,name,market,started_at,last_seen_at,ended_at,closed_at,start_c
 006280-20260903,006280,녹십자,KOSPI,2026-09-03,2026-09-03,2026-09-03,2026-09-10,candidate,candidate,C,관찰,C,관찰,,2026-09-03,,discovery-live-v2,37a52bc7dd90
 010060-20260903,010060,OCI홀딩스,KOSPI,2026-09-03,2026-09-10,2026-09-10,2026-09-17,near_miss,candidate,제외,제외,B,오늘 신규매수 검토,2026-09-03,2026-09-04,2026-09-10,discovery-live-v2,37a52bc7dd90
 011070-20260903,011070,LG이노텍,KOSPI,2026-09-03,2026-09-04,2026-09-04,2026-09-11,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,37a52bc7dd90
-016360-20260903,016360,삼성증권,KOSPI,2026-09-03,2026-10-07,,,candidate,near_miss,C,제외,제외,제외,,2026-09-03,2026-09-29,discovery-live-v2,37a52bc7dd90
+016360-20260903,016360,삼성증권,KOSPI,2026-09-03,2026-10-07,2026-10-07,2026-10-15,candidate,near_miss,C,제외,제외,제외,,2026-09-03,2026-09-29,discovery-live-v2,37a52bc7dd90
 042700-20260903,042700,한미반도체,KOSPI,2026-09-03,2026-09-03,2026-09-03,2026-09-10,candidate,candidate,C,관찰,C,관찰,,2026-09-03,,discovery-live-v2,37a52bc7dd90
 046890-20260903,046890,서울반도체,KOSDAQ,2026-09-03,2026-09-21,2026-09-21,2026-10-07,candidate,near_miss,A,강한 후보·가격 대기,제외,제외,,2026-09-03,,discovery-live-v2,37a52bc7dd90
 096530-20260903,096530,씨젠,KOSDAQ,2026-09-03,2026-09-14,2026-09-14,2026-09-21,candidate,near_miss,C,관찰,제외,제외,,2026-09-03,,discovery-live-v2,37a52bc7dd90
@@ -211,7 +211,7 @@ episode_id,symbol,name,market,started_at,last_seen_at,ended_at,closed_at,start_c
 102710-20260909,102710,이엔에프테크놀로지,KOSDAQ,2026-09-09,2026-09-21,2026-09-21,2026-10-07,candidate,near_miss,C,관찰,제외,제외,,2026-09-09,2026-09-11,discovery-live-v2,37a52bc7dd90
 000880-20260910,000880,한화,KOSPI,2026-09-10,2026-09-29,2026-09-29,2026-10-07,candidate,candidate,A,강한 후보·가격 대기,A,강한 후보·가격 대기,,2026-09-10,,discovery-live-v2,37a52bc7dd90
 008060-20260910,008060,대덕,KOSPI,2026-09-10,2026-09-23,2026-09-23,2026-10-07,near_miss,candidate,제외,제외,C,관찰,2026-09-10,2026-09-17,,discovery-live-v2,37a52bc7dd90
-009450-20260910,009450,경동나비엔,KOSPI,2026-09-10,2026-10-13,,,candidate,candidate,C,관찰,A,강한 후보·가격 대기,,2026-09-10,2026-09-14,discovery-live-v2,37a52bc7dd90
+009450-20260910,009450,경동나비엔,KOSPI,2026-09-10,2026-10-15,,,candidate,candidate,C,관찰,A,강한 후보·가격 대기,,2026-09-10,2026-09-14,discovery-live-v2,37a52bc7dd90
 009540-20260910,009540,HD한국조선해양,KOSPI,2026-09-10,2026-09-11,2026-09-11,2026-09-18,candidate,near_miss,C,관찰,제외,제외,,2026-09-10,,discovery-live-v2,37a52bc7dd90
 010140-20260910,010140,삼성중공업,KOSPI,2026-09-10,2026-09-10,2026-09-10,2026-09-17,near_miss,near_miss,제외,제외,제외,제외,2026-09-10,,,discovery-live-v2,37a52bc7dd90
 020560-20260910,020560,아시아나항공,KOSPI,2026-09-10,2026-09-10,2026-09-10,2026-09-17,candidate,candidate,A,강한 후보·가격 대기,A,강한 후보·가격 대기,,2026-09-10,,discovery-live-v2,37a52bc7dd90
@@ -220,7 +220,7 @@ episode_id,symbol,name,market,started_at,last_seen_at,ended_at,closed_at,start_c
 108320-20260910,108320,LX세미콘,KOSPI,2026-09-10,2026-09-29,2026-09-29,2026-10-07,candidate,candidate,B,제외,C,제외,,2026-09-10,,discovery-live-v2,37a52bc7dd90
 161580-20260910,161580,필옵틱스,KOSDAQ,2026-09-10,2026-09-14,2026-09-14,2026-09-21,near_miss,candidate,제외,제외,C,관찰,2026-09-10,2026-09-14,,discovery-live-v2,37a52bc7dd90
 298040-20260910,298040,효성중공업,KOSPI,2026-09-10,2026-09-10,2026-09-10,2026-09-17,near_miss,near_miss,제외,제외,제외,제외,2026-09-10,,,discovery-live-v2,37a52bc7dd90
-002380-20260911,002380,KCC,KOSPI,2026-09-11,2026-10-14,,,near_miss,candidate,제외,제외,A,제외,2026-09-11,2026-09-14,2026-09-29,discovery-live-v2,37a52bc7dd90
+002380-20260911,002380,KCC,KOSPI,2026-09-11,2026-10-15,,,near_miss,candidate,제외,제외,B,제외,2026-09-11,2026-09-14,2026-09-29,discovery-live-v2,37a52bc7dd90
 003240-20260911,003240,태광산업,KOSPI,2026-09-11,2026-09-17,2026-09-17,2026-09-29,near_miss,near_miss,제외,제외,제외,제외,2026-09-11,2026-09-15,,discovery-live-v2,37a52bc7dd90
 036930-20260911,036930,주성엔지니어링,KOSDAQ,2026-09-11,2026-09-11,2026-09-11,2026-09-18,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,37a52bc7dd90
 096770-20260911,096770,SK이노베이션,KOSPI,2026-09-11,2026-09-14,2026-09-14,2026-09-21,candidate,candidate,A,강한 후보·가격 대기,A,강한 후보·가격 대기,,2026-09-11,,discovery-live-v2,37a52bc7dd90
@@ -235,7 +235,7 @@ episode_id,symbol,name,market,started_at,last_seen_at,ended_at,closed_at,start_c
 033780-20260914,033780,KT&G,KOSPI,2026-09-14,2026-09-29,2026-09-29,2026-10-07,near_miss,candidate,제외,제외,C,관찰,2026-09-14,2026-09-15,2026-09-21,discovery-live-v2,4cd0e2c824d0
 047050-20260914,047050,포스코인터내셔널,KOSPI,2026-09-14,2026-09-18,2026-09-18,2026-09-29,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
 064350-20260914,064350,현대로템,KOSPI,2026-09-14,2026-09-17,2026-09-17,2026-09-29,near_miss,near_miss,제외,제외,제외,제외,2026-09-14,2026-09-15,,discovery-live-v2,4cd0e2c824d0
-078930-20260914,078930,GS,KOSPI,2026-09-14,2026-10-14,,,candidate,candidate,A,강한 후보·가격 대기,C,제외,,2026-09-14,2026-09-15,discovery-live-v2,4cd0e2c824d0
+078930-20260914,078930,GS,KOSPI,2026-09-14,2026-10-15,,,candidate,candidate,A,강한 후보·가격 대기,C,제외,,2026-09-14,2026-09-15,discovery-live-v2,4cd0e2c824d0
 093320-20260914,093320,케이아이엔엑스,KOSDAQ,2026-09-14,2026-09-29,2026-09-29,2026-10-07,candidate,candidate,C,관찰,A,강한 후보·가격 대기,,2026-09-14,,discovery-live-v2,4cd0e2c824d0
 098120-20260914,098120,마이크로컨텍솔,KOSDAQ,2026-09-14,2026-09-14,2026-09-14,2026-09-21,candidate,candidate,A,강한 후보·가격 대기,A,강한 후보·가격 대기,,2026-09-14,,discovery-live-v2,4cd0e2c824d0
 121600-20260914,121600,나노신소재,KOSDAQ,2026-09-14,2026-09-14,2026-09-14,2026-09-21,near_miss,near_miss,제외,제외,제외,제외,2026-09-14,,,discovery-live-v2,4cd0e2c824d0
@@ -245,7 +245,7 @@ episode_id,symbol,name,market,started_at,last_seen_at,ended_at,closed_at,start_c
 178320-20260914,178320,서진시스템,KOSDAQ,2026-09-14,2026-09-18,2026-09-18,2026-09-29,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
 200710-20260914,200710,에이디테크놀로지,KOSDAQ,2026-09-14,2026-09-18,2026-09-18,2026-09-29,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
 267260-20260914,267260,HD현대일렉트릭,KOSPI,2026-09-14,2026-09-14,2026-09-14,2026-09-21,near_miss,near_miss,제외,제외,제외,제외,2026-09-14,,,discovery-live-v2,4cd0e2c824d0
-306200-20260914,306200,세아제강,KOSPI,2026-09-14,2026-10-14,,,matched_control,candidate,제외,제외,A,제외,,2026-09-15,,discovery-live-v2,4cd0e2c824d0
+306200-20260914,306200,세아제강,KOSPI,2026-09-14,2026-10-15,,,matched_control,candidate,제외,제외,A,제외,,2026-09-15,,discovery-live-v2,4cd0e2c824d0
 358570-20260914,358570,지아이이노베이션,KOSDAQ,2026-09-14,2026-09-14,2026-09-14,2026-09-21,near_miss,near_miss,제외,제외,제외,제외,2026-09-14,,,discovery-live-v2,4cd0e2c824d0
 361610-20260914,361610,SK아이이테크놀로지,KOSPI,2026-09-14,2026-09-22,2026-09-22,2026-10-07,candidate,near_miss,C,관찰,제외,제외,,2026-09-14,,discovery-live-v2,4cd0e2c824d0
 373220-20260914,373220,LG에너지솔루션,KOSPI,2026-09-14,2026-09-18,2026-09-18,2026-09-29,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
@@ -275,7 +275,7 @@ episode_id,symbol,name,market,started_at,last_seen_at,ended_at,closed_at,start_c
 056080-20260917,056080,유진로봇,KOSDAQ,2026-09-17,2026-09-17,2026-09-17,2026-09-29,near_miss,near_miss,제외,제외,제외,제외,2026-09-17,,,discovery-live-v2,4cd0e2c824d0
 078340-20260917,078340,컴투스,KOSDAQ,2026-09-17,2026-09-17,2026-09-17,2026-09-29,near_miss,near_miss,제외,제외,제외,제외,2026-09-17,,,discovery-live-v2,4cd0e2c824d0
 085910-20260917,085910,네오티스,KOSDAQ,2026-09-17,2026-09-18,2026-09-18,2026-09-29,candidate,candidate,C,제외,C,제외,,2026-09-17,,discovery-live-v2,4cd0e2c824d0
-237690-20260917,237690,에스티팜,KOSDAQ,2026-09-17,2026-10-14,,,candidate,candidate,C,제외,A,제외,,2026-09-17,,discovery-live-v2,4cd0e2c824d0
+237690-20260917,237690,에스티팜,KOSDAQ,2026-09-17,2026-10-15,,,candidate,candidate,C,제외,A,제외,,2026-09-17,,discovery-live-v2,4cd0e2c824d0
 278280-20260917,278280,천보,KOSDAQ,2026-09-17,2026-09-17,2026-09-17,2026-09-29,near_miss,near_miss,제외,제외,제외,제외,2026-09-17,,,discovery-live-v2,4cd0e2c824d0
 294870-20260917,294870,IPARK현대산업개발,KOSPI,2026-09-17,2026-09-17,2026-09-17,2026-09-29,candidate,candidate,C,관찰,C,관찰,,2026-09-17,,discovery-live-v2,4cd0e2c824d0
 319400-20260917,319400,현대무벡스,KOSDAQ,2026-09-17,2026-09-22,2026-09-22,2026-10-07,candidate,near_miss,A,강한 후보·가격 대기,제외,제외,,2026-09-17,,discovery-live-v2,4cd0e2c824d0
@@ -285,7 +285,7 @@ episode_id,symbol,name,market,started_at,last_seen_at,ended_at,closed_at,start_c
 090360-20260918,090360,로보스타,KOSDAQ,2026-09-18,2026-10-08,,,near_miss,candidate,제외,제외,C,관찰,2026-09-18,2026-09-23,,discovery-live-v2,4cd0e2c824d0
 108860-20260918,108860,셀바스AI,KOSDAQ,2026-09-18,2026-09-21,2026-09-21,2026-10-07,near_miss,near_miss,제외,제외,제외,제외,2026-09-18,,,discovery-live-v2,4cd0e2c824d0
 160190-20260918,160190,하이젠알앤엠,KOSDAQ,2026-09-18,2026-09-18,2026-09-18,2026-09-29,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
-192080-20260918,192080,더블유게임즈,KOSPI,2026-09-18,2026-10-14,,,near_miss,candidate,제외,제외,A,오늘 신규매수 검토,2026-09-18,2026-09-21,2026-10-07,discovery-live-v2,4cd0e2c824d0
+192080-20260918,192080,더블유게임즈,KOSPI,2026-09-18,2026-10-15,,,near_miss,candidate,제외,제외,A,제외,2026-09-18,2026-09-21,2026-10-07,discovery-live-v2,4cd0e2c824d0
 460930-20260918,460930,현대힘스,KOSDAQ,2026-09-18,2026-09-18,2026-09-18,2026-09-29,near_miss,near_miss,제외,제외,제외,제외,2026-09-18,,,discovery-live-v2,4cd0e2c824d0
 000720-20260921,000720,현대건설,KOSPI,2026-09-21,2026-09-23,2026-09-23,2026-10-07,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
 002710-20260921,002710,TCC스틸,KOSPI,2026-09-21,2026-09-23,2026-09-23,2026-10-07,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
@@ -300,17 +300,17 @@ episode_id,symbol,name,market,started_at,last_seen_at,ended_at,closed_at,start_c
 204620-20260921,204620,글로벌텍스프리,KOSDAQ,2026-09-21,2026-09-23,2026-09-23,2026-10-07,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
 001450-20260922,001450,현대해상,KOSPI,2026-09-22,2026-09-22,2026-09-22,2026-10-07,near_miss,near_miss,제외,제외,제외,제외,2026-09-22,,,discovery-live-v2,4cd0e2c824d0
 036800-20260922,036800,나이스정보통신,KOSDAQ,2026-09-22,2026-09-22,2026-09-22,2026-10-07,near_miss,near_miss,제외,제외,제외,제외,2026-09-22,,,discovery-live-v2,4cd0e2c824d0
-041830-20260922,041830,인바디,KOSDAQ,2026-09-22,2026-10-07,,,candidate,candidate,C,관찰,C,관찰,,2026-09-22,2026-09-29,discovery-live-v2,4cd0e2c824d0
+041830-20260922,041830,인바디,KOSDAQ,2026-09-22,2026-10-07,2026-10-07,2026-10-15,candidate,candidate,C,관찰,C,관찰,,2026-09-22,2026-09-29,discovery-live-v2,4cd0e2c824d0
 045100-20260922,045100,한양이엔지,KOSDAQ,2026-09-22,2026-09-22,2026-09-22,2026-10-07,candidate,candidate,C,관찰,C,관찰,,2026-09-22,,discovery-live-v2,4cd0e2c824d0
 161890-20260922,161890,한국콜마,KOSPI,2026-09-22,2026-09-29,2026-09-29,2026-10-07,near_miss,candidate,제외,제외,C,관찰,2026-09-22,2026-09-23,,discovery-live-v2,4cd0e2c824d0
-010120-20260923,010120,LS ELECTRIC,KOSPI,2026-09-23,2026-10-07,,,candidate,candidate,C,관찰,C,관찰,,2026-09-23,,discovery-live-v2,4cd0e2c824d0
-017670-20260923,017670,SK텔레콤,KOSPI,2026-09-23,2026-10-14,,,near_miss,candidate,제외,제외,B,제외,2026-09-23,2026-09-29,,discovery-live-v2,4cd0e2c824d0
+010120-20260923,010120,LS ELECTRIC,KOSPI,2026-09-23,2026-10-07,2026-10-07,2026-10-15,candidate,candidate,C,관찰,C,관찰,,2026-09-23,,discovery-live-v2,4cd0e2c824d0
+017670-20260923,017670,SK텔레콤,KOSPI,2026-09-23,2026-10-15,,,near_miss,candidate,제외,제외,A,오늘 신규매수 검토,2026-09-23,2026-09-29,2026-10-15,discovery-live-v2,4cd0e2c824d0
 039200-20260923,039200,오스코텍,KOSDAQ,2026-09-23,2026-09-23,2026-09-23,2026-10-07,near_miss,near_miss,제외,제외,제외,제외,2026-09-23,,,discovery-live-v2,4cd0e2c824d0
 096530-20260923,096530,씨젠,KOSDAQ,2026-09-23,2026-09-29,2026-09-29,2026-10-07,candidate,candidate,A,강한 후보·가격 대기,A,강한 후보·가격 대기,,2026-09-23,,discovery-live-v2,4cd0e2c824d0
 241710-20260923,241710,코스메카코리아,KOSDAQ,2026-09-23,2026-09-23,2026-09-23,2026-10-07,near_miss,near_miss,제외,제외,제외,제외,2026-09-23,,,discovery-live-v2,4cd0e2c824d0
 307950-20260923,307950,현대오토에버,KOSPI,2026-09-23,2026-09-29,2026-09-29,2026-10-07,candidate,candidate,C,제외,C,제외,,2026-09-23,,discovery-live-v2,4cd0e2c824d0
 001510-20260929,001510,SK증권,KOSPI,2026-09-29,2026-10-08,,,candidate,near_miss,C,제외,제외,제외,,2026-09-29,,discovery-live-v2,4cd0e2c824d0
-002790-20260929,002790,아모레퍼시픽홀딩스,KOSPI,2026-09-29,2026-10-14,,,candidate,candidate,C,관찰,A,제외,,2026-09-29,2026-10-08,discovery-live-v2,4cd0e2c824d0
+002790-20260929,002790,아모레퍼시픽홀딩스,KOSPI,2026-09-29,2026-10-15,,,candidate,candidate,C,관찰,B,제외,,2026-09-29,2026-10-08,discovery-live-v2,4cd0e2c824d0
 010950-20260929,010950,S-Oil,KOSPI,2026-09-29,2026-09-29,2026-09-29,2026-10-07,candidate,candidate,B,관찰,B,관찰,,2026-09-29,,discovery-live-v2,4cd0e2c824d0
 011930-20260929,011930,신성이엔지,KOSPI,2026-09-29,2026-09-29,2026-09-29,2026-10-07,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
 014620-20260929,014620,성광벤드,KOSDAQ,2026-09-29,2026-09-29,2026-09-29,2026-10-07,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
@@ -319,7 +319,7 @@ episode_id,symbol,name,market,started_at,last_seen_at,ended_at,closed_at,start_c
 051900-20260929,051900,LG생활건강,KOSPI,2026-09-29,2026-09-29,2026-09-29,2026-10-07,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
 086280-20260929,086280,현대글로비스,KOSPI,2026-09-29,2026-09-29,2026-09-29,2026-10-07,candidate,candidate,C,관찰,C,관찰,,2026-09-29,,discovery-live-v2,4cd0e2c824d0
 088350-20260929,088350,한화생명,KOSPI,2026-09-29,2026-09-29,2026-09-29,2026-10-07,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
-213420-20260929,213420,덕산네오룩스,KOSDAQ,2026-09-29,2026-10-13,,,near_miss,candidate,제외,제외,C,관찰,2026-09-29,2026-10-13,,discovery-live-v2,4cd0e2c824d0
+213420-20260929,213420,덕산네오룩스,KOSDAQ,2026-09-29,2026-10-15,,,near_miss,candidate,제외,제외,C,제외,2026-09-29,2026-10-13,,discovery-live-v2,4cd0e2c824d0
 218410-20260929,218410,RFHIC,KOSDAQ,2026-09-29,2026-09-29,2026-09-29,2026-10-07,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
 280360-20260929,280360,롯데웰푸드,KOSPI,2026-09-29,2026-10-13,,,candidate,candidate,C,관찰,C,관찰,,2026-09-29,2026-10-07,discovery-live-v2,4cd0e2c824d0
 316140-20260929,316140,우리금융지주,KOSPI,2026-09-29,2026-10-08,,,near_miss,candidate,제외,제외,A,강한 후보·가격 대기,2026-09-29,2026-10-07,,discovery-live-v2,4cd0e2c824d0
@@ -327,55 +327,55 @@ episode_id,symbol,name,market,started_at,last_seen_at,ended_at,closed_at,start_c
 403870-20260929,403870,HPSP,KOSDAQ,2026-09-29,2026-09-29,2026-09-29,2026-10-07,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
 000150-20261007,000150,두산,KOSPI,2026-10-07,2026-10-08,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
 000670-20261007,000670,영풍,KOSPI,2026-10-07,2026-10-08,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
-001040-20261007,001040,CJ,KOSPI,2026-10-07,2026-10-14,,,candidate,candidate,C,관찰,C,제외,,2026-10-07,2026-10-08,discovery-live-v2,4cd0e2c824d0
+001040-20261007,001040,CJ,KOSPI,2026-10-07,2026-10-15,,,candidate,candidate,C,관찰,C,제외,,2026-10-07,2026-10-08,discovery-live-v2,4cd0e2c824d0
 001430-20261007,001430,세아베스틸지주,KOSPI,2026-10-07,2026-10-08,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
-001450-20261007,001450,현대해상,KOSPI,2026-10-07,2026-10-14,,,candidate,candidate,A,오늘 신규매수 검토,B,제외,,2026-10-07,2026-10-07,discovery-live-v2,4cd0e2c824d0
-003160-20261007,003160,디아이,KOSPI,2026-10-07,2026-10-14,,,candidate,near_miss,B,관찰,제외,제외,,2026-10-07,,discovery-live-v2,4cd0e2c824d0
-003490-20261007,003490,대한항공,KOSPI,2026-10-07,2026-10-14,,,candidate,candidate,A,강한 후보·가격 대기,A,강한 후보·가격 대기,,2026-10-07,,discovery-live-v2,4cd0e2c824d0
+001450-20261007,001450,현대해상,KOSPI,2026-10-07,2026-10-15,,,candidate,candidate,A,오늘 신규매수 검토,C,제외,,2026-10-07,2026-10-07,discovery-live-v2,4cd0e2c824d0
+003160-20261007,003160,디아이,KOSPI,2026-10-07,2026-10-15,,,candidate,candidate,B,관찰,C,관찰,,2026-10-07,,discovery-live-v2,4cd0e2c824d0
+003490-20261007,003490,대한항공,KOSPI,2026-10-07,2026-10-15,,,candidate,candidate,A,강한 후보·가격 대기,A,강한 후보·가격 대기,,2026-10-07,,discovery-live-v2,4cd0e2c824d0
 007390-20261007,007390,네이처셀,KOSDAQ,2026-10-07,2026-10-14,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-07,2026-10-08,,discovery-live-v2,4cd0e2c824d0
 008060-20261007,008060,대덕,KOSPI,2026-10-07,2026-10-13,,,candidate,candidate,A,강한 후보·가격 대기,B,관찰,,2026-10-07,,discovery-live-v2,4cd0e2c824d0
 008830-20261007,008830,대동기어,KOSDAQ,2026-10-07,2026-10-08,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-07,,,discovery-live-v2,4cd0e2c824d0
-009900-20261007,009900,명신산업,KOSPI,2026-10-07,2026-10-14,,,candidate,candidate,C,관찰,C,관찰,,2026-10-07,,discovery-live-v2,4cd0e2c824d0
+009900-20261007,009900,명신산업,KOSPI,2026-10-07,2026-10-15,,,candidate,near_miss,C,관찰,제외,제외,,2026-10-07,,discovery-live-v2,4cd0e2c824d0
 011560-20261007,011560,세보엠이씨,KOSDAQ,2026-10-07,2026-10-13,,,near_miss,candidate,제외,제외,C,관찰,2026-10-07,2026-10-08,,discovery-live-v2,4cd0e2c824d0
 011780-20261007,011780,금호석유화학,KOSPI,2026-10-07,2026-10-13,,,near_miss,candidate,제외,제외,C,관찰,2026-10-07,2026-10-08,,discovery-live-v2,4cd0e2c824d0
 012630-20261007,012630,HDC,KOSPI,2026-10-07,2026-10-14,,,candidate,near_miss,A,강한 후보·가격 대기,제외,제외,,2026-10-07,,discovery-live-v2,4cd0e2c824d0
 020120-20261007,020120,키다리스튜디오,KOSPI,2026-10-07,2026-10-12,,,near_miss,candidate,제외,제외,C,제외,2026-10-07,2026-10-12,,discovery-live-v2,4cd0e2c824d0
 025320-20261007,025320,시노펙스,KOSDAQ,2026-10-07,2026-10-14,,,candidate,near_miss,C,관찰,제외,제외,,2026-10-07,,discovery-live-v2,4cd0e2c824d0
-025860-20261007,025860,남해화학,KOSPI,2026-10-07,2026-10-08,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
+025860-20261007,025860,남해화학,KOSPI,2026-10-07,2026-10-15,,,matched_control,candidate,제외,제외,C,관찰,,2026-10-15,,discovery-live-v2,4cd0e2c824d0
 030200-20261007,030200,KT,KOSPI,2026-10-07,2026-10-08,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
-036460-20261007,036460,한국가스공사,KOSPI,2026-10-07,2026-10-14,,,candidate,candidate,B,관찰,A,강한 후보·가격 대기,,2026-10-07,2026-10-08,discovery-live-v2,4cd0e2c824d0
+036460-20261007,036460,한국가스공사,KOSPI,2026-10-07,2026-10-15,,,candidate,candidate,B,관찰,B,제외,,2026-10-07,2026-10-08,discovery-live-v2,4cd0e2c824d0
 036540-20261007,036540,SFA반도체,KOSDAQ,2026-10-07,2026-10-12,,,candidate,candidate,C,관찰,C,관찰,,2026-10-07,,discovery-live-v2,4cd0e2c824d0
-036710-20261007,036710,심텍홀딩스,KOSDAQ,2026-10-07,2026-10-13,,,candidate,candidate,C,관찰,A,강한 후보·가격 대기,,2026-10-07,,discovery-live-v2,4cd0e2c824d0
+036710-20261007,036710,심텍홀딩스,KOSDAQ,2026-10-07,2026-10-15,,,candidate,candidate,C,관찰,A,제외,,2026-10-07,,discovery-live-v2,4cd0e2c824d0
 036930-20261007,036930,주성엔지니어링,KOSDAQ,2026-10-07,2026-10-13,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
-045100-20261007,045100,한양이엔지,KOSDAQ,2026-10-07,2026-10-14,,,candidate,candidate,A,강한 후보·가격 대기,A,제외,,2026-10-07,,discovery-live-v2,4cd0e2c824d0
-064290-20261007,064290,인텍플러스,KOSDAQ,2026-10-07,2026-10-07,,,candidate,candidate,C,관찰,C,관찰,,2026-10-07,,discovery-live-v2,4cd0e2c824d0
+045100-20261007,045100,한양이엔지,KOSDAQ,2026-10-07,2026-10-15,,,candidate,near_miss,A,강한 후보·가격 대기,제외,제외,,2026-10-07,,discovery-live-v2,4cd0e2c824d0
+064290-20261007,064290,인텍플러스,KOSDAQ,2026-10-07,2026-10-15,,,candidate,candidate,C,관찰,C,관찰,,2026-10-07,,discovery-live-v2,4cd0e2c824d0
 074600-20261007,074600,원익QnC,KOSDAQ,2026-10-07,2026-10-08,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
-090460-20261007,090460,비에이치,KOSPI,2026-10-07,2026-10-13,,,candidate,candidate,C,관찰,C,관찰,,2026-10-07,,discovery-live-v2,4cd0e2c824d0
-092870-20261007,092870,엑시콘,KOSDAQ,2026-10-07,2026-10-07,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-07,,,discovery-live-v2,4cd0e2c824d0
+090460-20261007,090460,비에이치,KOSPI,2026-10-07,2026-10-15,,,candidate,candidate,C,관찰,C,제외,,2026-10-07,,discovery-live-v2,4cd0e2c824d0
+092870-20261007,092870,엑시콘,KOSDAQ,2026-10-07,2026-10-15,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-07,,,discovery-live-v2,4cd0e2c824d0
 094170-20261007,094170,동운아나텍,KOSDAQ,2026-10-07,2026-10-08,,,near_miss,candidate,제외,제외,C,제외,2026-10-07,2026-10-08,,discovery-live-v2,4cd0e2c824d0
-098460-20261007,098460,고영,KOSDAQ,2026-10-07,2026-10-14,,,candidate,candidate,A,강한 후보·가격 대기,A,강한 후보·가격 대기,,2026-10-07,,discovery-live-v2,4cd0e2c824d0
+098460-20261007,098460,고영,KOSDAQ,2026-10-07,2026-10-15,,,candidate,candidate,A,강한 후보·가격 대기,A,강한 후보·가격 대기,,2026-10-07,,discovery-live-v2,4cd0e2c824d0
 108860-20261007,108860,셀바스AI,KOSDAQ,2026-10-07,2026-10-13,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-07,,,discovery-live-v2,4cd0e2c824d0
 140860-20261007,140860,파크시스템스,KOSDAQ,2026-10-07,2026-10-08,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
-144960-20261007,144960,뉴파워프라즈마,KOSDAQ,2026-10-07,2026-10-12,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-07,,,discovery-live-v2,4cd0e2c824d0
+144960-20261007,144960,뉴파워프라즈마,KOSDAQ,2026-10-07,2026-10-15,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-07,,,discovery-live-v2,4cd0e2c824d0
 175330-20261007,175330,JB금융지주,KOSPI,2026-10-07,2026-10-08,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
 204320-20261007,204320,HL만도,KOSPI,2026-10-07,2026-10-14,,,candidate,candidate,C,관찰,B,제외,,2026-10-07,,discovery-live-v2,4cd0e2c824d0
 214450-20261007,214450,파마리서치,KOSDAQ,2026-10-07,2026-10-14,,,candidate,candidate,A,제외,A,제외,,2026-10-07,,discovery-live-v2,4cd0e2c824d0
-222800-20261007,222800,심텍,KOSDAQ,2026-10-07,2026-10-14,,,near_miss,candidate,제외,제외,A,강한 후보·가격 대기,2026-10-07,2026-10-12,,discovery-live-v2,4cd0e2c824d0
-252990-20261007,252990,샘씨엔에스,KOSDAQ,2026-10-07,2026-10-12,,,candidate,candidate,C,관찰,A,강한 후보·가격 대기,,2026-10-07,,discovery-live-v2,4cd0e2c824d0
+222800-20261007,222800,심텍,KOSDAQ,2026-10-07,2026-10-15,,,near_miss,candidate,제외,제외,A,제외,2026-10-07,2026-10-12,,discovery-live-v2,4cd0e2c824d0
+252990-20261007,252990,샘씨엔에스,KOSDAQ,2026-10-07,2026-10-15,,,candidate,candidate,C,관찰,A,제외,,2026-10-07,,discovery-live-v2,4cd0e2c824d0
 259960-20261007,259960,크래프톤,KOSPI,2026-10-07,2026-10-14,,,candidate,candidate,C,관찰,C,제외,,2026-10-07,,discovery-live-v2,4cd0e2c824d0
-298020-20261007,298020,효성티앤씨,KOSPI,2026-10-07,2026-10-07,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-07,,,discovery-live-v2,4cd0e2c824d0
-307180-20261007,307180,아이엘,KOSDAQ,2026-10-07,2026-10-07,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-07,,,discovery-live-v2,4cd0e2c824d0
-327260-20261007,327260,RF머트리얼즈,KOSDAQ,2026-10-07,2026-10-07,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
-340570-20261007,340570,티앤엘,KOSDAQ,2026-10-07,2026-10-07,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
-388720-20261007,388720,유일로보틱스,KOSDAQ,2026-10-07,2026-10-07,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-07,,,discovery-live-v2,4cd0e2c824d0
-399720-20261007,399720,가온칩스,KOSDAQ,2026-10-07,2026-10-07,,,candidate,candidate,C,관찰,C,관찰,,2026-10-07,,discovery-live-v2,4cd0e2c824d0
-417840-20261007,417840,저스템,KOSDAQ,2026-10-07,2026-10-07,,,candidate,candidate,C,관찰,C,관찰,,2026-10-07,,discovery-live-v2,4cd0e2c824d0
-425420-20261007,425420,티에프이,KOSDAQ,2026-10-07,2026-10-14,,,candidate,candidate,B,관찰,C,관찰,,2026-10-07,,discovery-live-v2,4cd0e2c824d0
-443060-20261007,443060,HD현대마린솔루션,KOSPI,2026-10-07,2026-10-07,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-07,,,discovery-live-v2,4cd0e2c824d0
-452430-20261007,452430,사피엔반도체,KOSDAQ,2026-10-07,2026-10-07,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-07,,,discovery-live-v2,4cd0e2c824d0
-499790-20261007,499790,GS피앤엘,KOSPI,2026-10-07,2026-10-14,,,candidate,candidate,B,관찰,C,제외,,2026-10-07,2026-10-08,discovery-live-v2,4cd0e2c824d0
-001060-20261008,001060,JW중외제약,KOSPI,2026-10-08,2026-10-13,,,near_miss,candidate,제외,제외,A,강한 후보·가격 대기,2026-10-08,2026-10-13,,discovery-live-v2,4cd0e2c824d0
-005180-20261008,005180,빙그레,KOSPI,2026-10-08,2026-10-14,,,candidate,candidate,A,강한 후보·가격 대기,A,제외,,2026-10-08,,discovery-live-v2,4cd0e2c824d0
+298020-20261007,298020,효성티앤씨,KOSPI,2026-10-07,2026-10-15,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-07,,,discovery-live-v2,4cd0e2c824d0
+307180-20261007,307180,아이엘,KOSDAQ,2026-10-07,2026-10-07,2026-10-07,2026-10-15,near_miss,near_miss,제외,제외,제외,제외,2026-10-07,,,discovery-live-v2,4cd0e2c824d0
+327260-20261007,327260,RF머트리얼즈,KOSDAQ,2026-10-07,2026-10-07,2026-10-07,2026-10-15,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
+340570-20261007,340570,티앤엘,KOSDAQ,2026-10-07,2026-10-07,2026-10-07,2026-10-15,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
+388720-20261007,388720,유일로보틱스,KOSDAQ,2026-10-07,2026-10-07,2026-10-07,2026-10-15,near_miss,near_miss,제외,제외,제외,제외,2026-10-07,,,discovery-live-v2,4cd0e2c824d0
+399720-20261007,399720,가온칩스,KOSDAQ,2026-10-07,2026-10-07,2026-10-07,2026-10-15,candidate,candidate,C,관찰,C,관찰,,2026-10-07,,discovery-live-v2,4cd0e2c824d0
+417840-20261007,417840,저스템,KOSDAQ,2026-10-07,2026-10-15,,,candidate,candidate,C,관찰,C,제외,,2026-10-07,,discovery-live-v2,4cd0e2c824d0
+425420-20261007,425420,티에프이,KOSDAQ,2026-10-07,2026-10-15,,,candidate,near_miss,B,관찰,제외,제외,,2026-10-07,,discovery-live-v2,4cd0e2c824d0
+443060-20261007,443060,HD현대마린솔루션,KOSPI,2026-10-07,2026-10-07,2026-10-07,2026-10-15,near_miss,near_miss,제외,제외,제외,제외,2026-10-07,,,discovery-live-v2,4cd0e2c824d0
+452430-20261007,452430,사피엔반도체,KOSDAQ,2026-10-07,2026-10-07,2026-10-07,2026-10-15,near_miss,near_miss,제외,제외,제외,제외,2026-10-07,,,discovery-live-v2,4cd0e2c824d0
+499790-20261007,499790,GS피앤엘,KOSPI,2026-10-07,2026-10-15,,,candidate,candidate,B,관찰,B,제외,,2026-10-07,2026-10-08,discovery-live-v2,4cd0e2c824d0
+001060-20261008,001060,JW중외제약,KOSPI,2026-10-08,2026-10-15,,,near_miss,candidate,제외,제외,B,제외,2026-10-08,2026-10-13,,discovery-live-v2,4cd0e2c824d0
+005180-20261008,005180,빙그레,KOSPI,2026-10-08,2026-10-15,,,candidate,candidate,A,강한 후보·가격 대기,A,제외,,2026-10-08,,discovery-live-v2,4cd0e2c824d0
 009540-20261008,009540,HD한국조선해양,KOSPI,2026-10-08,2026-10-12,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-08,,,discovery-live-v2,4cd0e2c824d0
 029460-20261008,029460,케이씨,KOSPI,2026-10-08,2026-10-14,,,candidate,near_miss,B,관찰,제외,제외,,2026-10-08,,discovery-live-v2,4cd0e2c824d0
 033100-20261008,033100,제룡전기,KOSDAQ,2026-10-08,2026-10-13,,,candidate,candidate,B,관찰,C,제외,,2026-10-08,,discovery-live-v2,4cd0e2c824d0
@@ -384,77 +384,88 @@ episode_id,symbol,name,market,started_at,last_seen_at,ended_at,closed_at,start_c
 049070-20261008,049070,인탑스,KOSDAQ,2026-10-08,2026-10-13,,,candidate,candidate,A,강한 후보·가격 대기,A,강한 후보·가격 대기,,2026-10-08,,discovery-live-v2,4cd0e2c824d0
 058610-20261008,058610,에스피지,KOSDAQ,2026-10-08,2026-10-13,,,candidate,near_miss,C,관찰,제외,제외,,2026-10-08,,discovery-live-v2,4cd0e2c824d0
 086280-20261008,086280,현대글로비스,KOSPI,2026-10-08,2026-10-08,,,candidate,candidate,C,관찰,C,관찰,,2026-10-08,,discovery-live-v2,4cd0e2c824d0
-096530-20261008,096530,씨젠,KOSDAQ,2026-10-08,2026-10-14,,,candidate,candidate,A,강한 후보·가격 대기,A,강한 후보·가격 대기,,2026-10-08,,discovery-live-v2,4cd0e2c824d0
+096530-20261008,096530,씨젠,KOSDAQ,2026-10-08,2026-10-15,,,candidate,candidate,A,강한 후보·가격 대기,A,강한 후보·가격 대기,,2026-10-08,,discovery-live-v2,4cd0e2c824d0
 108320-20261008,108320,LX세미콘,KOSPI,2026-10-08,2026-10-08,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-08,,,discovery-live-v2,4cd0e2c824d0
 108490-20261008,108490,로보티즈,KOSDAQ,2026-10-08,2026-10-08,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-08,,,discovery-live-v2,4cd0e2c824d0
 117730-20261008,117730,티로보틱스,KOSDAQ,2026-10-08,2026-10-08,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-08,,,discovery-live-v2,4cd0e2c824d0
-120110-20261008,120110,코오롱인더,KOSPI,2026-10-08,2026-10-13,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-08,,,discovery-live-v2,4cd0e2c824d0
-160980-20261008,160980,싸이맥스,KOSDAQ,2026-10-08,2026-10-14,,,near_miss,candidate,제외,제외,A,강한 후보·가격 대기,2026-10-08,2026-10-13,,discovery-live-v2,4cd0e2c824d0
-170920-20261008,170920,엘티씨,KOSDAQ,2026-10-08,2026-10-13,,,near_miss,candidate,제외,제외,A,강한 후보·가격 대기,2026-10-08,2026-10-12,,discovery-live-v2,4cd0e2c824d0
+120110-20261008,120110,코오롱인더,KOSPI,2026-10-08,2026-10-15,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-08,,,discovery-live-v2,4cd0e2c824d0
+160980-20261008,160980,싸이맥스,KOSDAQ,2026-10-08,2026-10-15,,,near_miss,candidate,제외,제외,C,제외,2026-10-08,2026-10-13,,discovery-live-v2,4cd0e2c824d0
+170920-20261008,170920,엘티씨,KOSDAQ,2026-10-08,2026-10-15,,,near_miss,candidate,제외,제외,C,제외,2026-10-08,2026-10-12,,discovery-live-v2,4cd0e2c824d0
 180640-20261008,180640,한진칼,KOSPI,2026-10-08,2026-10-13,,,near_miss,candidate,제외,제외,C,관찰,2026-10-08,2026-10-13,,discovery-live-v2,4cd0e2c824d0
 271560-20261008,271560,오리온,KOSPI,2026-10-08,2026-10-08,,,candidate,candidate,C,제외,C,제외,,2026-10-08,,discovery-live-v2,4cd0e2c824d0
 278470-20261008,278470,에이피알,KOSPI,2026-10-08,2026-10-12,,,candidate,candidate,A,강한 후보·가격 대기,A,제외,,2026-10-08,,discovery-live-v2,4cd0e2c824d0
 282330-20261008,282330,BGF리테일,KOSPI,2026-10-08,2026-10-08,,,candidate,candidate,C,관찰,C,관찰,,2026-10-08,,discovery-live-v2,4cd0e2c824d0
-285130-20261008,285130,SK케미칼,KOSPI,2026-10-08,2026-10-14,,,near_miss,candidate,제외,제외,A,제외,2026-10-08,2026-10-12,,discovery-live-v2,4cd0e2c824d0
-302440-20261008,302440,SK바이오사이언스,KOSPI,2026-10-08,2026-10-14,,,candidate,candidate,C,제외,B,제외,,2026-10-08,,discovery-live-v2,4cd0e2c824d0
+285130-20261008,285130,SK케미칼,KOSPI,2026-10-08,2026-10-15,,,near_miss,candidate,제외,제외,A,제외,2026-10-08,2026-10-12,,discovery-live-v2,4cd0e2c824d0
+302440-20261008,302440,SK바이오사이언스,KOSPI,2026-10-08,2026-10-15,,,candidate,near_miss,C,제외,제외,제외,,2026-10-08,,discovery-live-v2,4cd0e2c824d0
 439090-20261008,439090,마녀공장,KOSDAQ,2026-10-08,2026-10-12,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-08,,,discovery-live-v2,4cd0e2c824d0
-483650-20261008,483650,달바글로벌,KOSPI,2026-10-08,2026-10-13,,,candidate,candidate,B,제외,A,제외,,2026-10-08,,discovery-live-v2,4cd0e2c824d0
+483650-20261008,483650,달바글로벌,KOSPI,2026-10-08,2026-10-15,,,candidate,candidate,B,제외,C,제외,,2026-10-08,,discovery-live-v2,4cd0e2c824d0
 003090-20261012,003090,대웅,KOSPI,2026-10-12,2026-10-13,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
-004490-20261012,004490,세방전지,KOSPI,2026-10-12,2026-10-13,,,candidate,candidate,A,제외,A,제외,,2026-10-12,,discovery-live-v2,4cd0e2c824d0
+004490-20261012,004490,세방전지,KOSPI,2026-10-12,2026-10-15,,,candidate,candidate,A,제외,B,제외,,2026-10-12,,discovery-live-v2,4cd0e2c824d0
 006360-20261012,006360,GS건설,KOSPI,2026-10-12,2026-10-13,,,candidate,candidate,C,제외,C,관찰,,2026-10-12,,discovery-live-v2,4cd0e2c824d0
 007660-20261012,007660,이수페타시스,KOSPI,2026-10-12,2026-10-13,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-12,,,discovery-live-v2,4cd0e2c824d0
-010950-20261012,010950,S-Oil,KOSPI,2026-10-12,2026-10-14,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
-014680-20261012,014680,한솔케미칼,KOSPI,2026-10-12,2026-10-14,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
-025980-20261012,025980,아난티,KOSDAQ,2026-10-12,2026-10-14,,,near_miss,candidate,제외,제외,B,제외,2026-10-12,2026-10-13,,discovery-live-v2,4cd0e2c824d0
-031980-20261012,031980,피에스케이홀딩스,KOSDAQ,2026-10-12,2026-10-14,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-12,,,discovery-live-v2,4cd0e2c824d0
+010950-20261012,010950,S-Oil,KOSPI,2026-10-12,2026-10-15,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
+014680-20261012,014680,한솔케미칼,KOSPI,2026-10-12,2026-10-15,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
+025980-20261012,025980,아난티,KOSDAQ,2026-10-12,2026-10-15,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-12,2026-10-13,,discovery-live-v2,4cd0e2c824d0
+031980-20261012,031980,피에스케이홀딩스,KOSDAQ,2026-10-12,2026-10-15,,,near_miss,candidate,제외,제외,C,관찰,2026-10-12,2026-10-15,,discovery-live-v2,4cd0e2c824d0
 036200-20261012,036200,유니셈,KOSDAQ,2026-10-12,2026-10-12,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-12,,,discovery-live-v2,4cd0e2c824d0
 051160-20261012,051160,지어소프트,KOSDAQ,2026-10-12,2026-10-13,,,candidate,candidate,C,관찰,B,관찰,,2026-10-12,,discovery-live-v2,4cd0e2c824d0
-052400-20261012,052400,코나아이,KOSDAQ,2026-10-12,2026-10-14,,,matched_control,near_miss,제외,제외,제외,제외,2026-10-13,,,discovery-live-v2,4cd0e2c824d0
+052400-20261012,052400,코나아이,KOSDAQ,2026-10-12,2026-10-15,,,matched_control,candidate,제외,제외,C,제외,2026-10-13,2026-10-15,,discovery-live-v2,4cd0e2c824d0
 058470-20261012,058470,리노공업,KOSDAQ,2026-10-12,2026-10-13,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
-060250-20261012,060250,NHN KCP,KOSDAQ,2026-10-12,2026-10-14,,,near_miss,candidate,제외,제외,C,제외,2026-10-12,2026-10-13,,discovery-live-v2,4cd0e2c824d0
+060250-20261012,060250,NHN KCP,KOSDAQ,2026-10-12,2026-10-15,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-12,2026-10-13,,discovery-live-v2,4cd0e2c824d0
 061970-20261012,061970,LB세미콘,KOSDAQ,2026-10-12,2026-10-13,,,near_miss,candidate,제외,제외,B,관찰,2026-10-12,2026-10-13,,discovery-live-v2,4cd0e2c824d0
-078340-20261012,078340,컴투스,KOSDAQ,2026-10-12,2026-10-14,,,near_miss,candidate,제외,제외,A,제외,2026-10-12,2026-10-13,,discovery-live-v2,4cd0e2c824d0
-086520-20261012,086520,에코프로,KOSDAQ,2026-10-12,2026-10-14,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
+078340-20261012,078340,컴투스,KOSDAQ,2026-10-12,2026-10-15,,,near_miss,candidate,제외,제외,A,제외,2026-10-12,2026-10-13,,discovery-live-v2,4cd0e2c824d0
+086520-20261012,086520,에코프로,KOSDAQ,2026-10-12,2026-10-15,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
 101490-20261012,101490,에스앤에스텍,KOSDAQ,2026-10-12,2026-10-14,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
-102710-20261012,102710,이엔에프테크놀로지,KOSDAQ,2026-10-12,2026-10-12,,,candidate,candidate,A,강한 후보·가격 대기,A,강한 후보·가격 대기,,2026-10-12,,discovery-live-v2,4cd0e2c824d0
+102710-20261012,102710,이엔에프테크놀로지,KOSDAQ,2026-10-12,2026-10-15,,,candidate,candidate,A,강한 후보·가격 대기,A,강한 후보·가격 대기,,2026-10-12,,discovery-live-v2,4cd0e2c824d0
 119850-20261012,119850,지엔씨에너지,KOSDAQ,2026-10-12,2026-10-13,,,near_miss,candidate,제외,제외,C,관찰,2026-10-12,2026-10-13,,discovery-live-v2,4cd0e2c824d0
-183300-20261012,183300,코미코,KOSDAQ,2026-10-12,2026-10-14,,,near_miss,candidate,제외,제외,C,제외,2026-10-12,2026-10-13,,discovery-live-v2,4cd0e2c824d0
+183300-20261012,183300,코미코,KOSDAQ,2026-10-12,2026-10-15,,,near_miss,candidate,제외,제외,B,제외,2026-10-12,2026-10-13,,discovery-live-v2,4cd0e2c824d0
 200710-20261012,200710,에이디테크놀로지,KOSDAQ,2026-10-12,2026-10-14,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-12,2026-10-13,,discovery-live-v2,4cd0e2c824d0
 204620-20261012,204620,글로벌텍스프리,KOSDAQ,2026-10-12,2026-10-12,,,candidate,candidate,B,관찰,B,관찰,,2026-10-12,,discovery-live-v2,4cd0e2c824d0
-207940-20261012,207940,삼성바이오로직스,KOSPI,2026-10-12,2026-10-14,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
+207940-20261012,207940,삼성바이오로직스,KOSPI,2026-10-12,2026-10-15,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
 217190-20261012,217190,제너셈,KOSDAQ,2026-10-12,2026-10-12,,,candidate,candidate,C,관찰,C,관찰,,2026-10-12,,discovery-live-v2,4cd0e2c824d0
-249420-20261012,249420,일동제약,KOSPI,2026-10-12,2026-10-14,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
+249420-20261012,249420,일동제약,KOSPI,2026-10-12,2026-10-15,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
 317400-20261012,317400,자이에스앤디,KOSPI,2026-10-12,2026-10-13,,,near_miss,candidate,제외,제외,C,관찰,2026-10-12,2026-10-13,,discovery-live-v2,4cd0e2c824d0
-375500-20261012,375500,DL이앤씨,KOSPI,2026-10-12,2026-10-14,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
-452450-20261012,452450,피아이이,KOSDAQ,2026-10-12,2026-10-14,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
-000080-20261013,000080,하이트진로,KOSPI,2026-10-13,2026-10-14,,,near_miss,candidate,제외,제외,C,관찰,2026-10-13,2026-10-14,,discovery-live-v2,4cd0e2c824d0
+375500-20261012,375500,DL이앤씨,KOSPI,2026-10-12,2026-10-15,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
+452450-20261012,452450,피아이이,KOSDAQ,2026-10-12,2026-10-15,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
+000080-20261013,000080,하이트진로,KOSPI,2026-10-13,2026-10-15,,,near_miss,candidate,제외,제외,A,강한 후보·가격 대기,2026-10-13,2026-10-14,,discovery-live-v2,4cd0e2c824d0
 000370-20261013,000370,한화손해보험,KOSPI,2026-10-13,2026-10-13,,,candidate,candidate,C,관찰,C,관찰,,2026-10-13,,discovery-live-v2,4cd0e2c824d0
 004370-20261013,004370,농심,KOSPI,2026-10-13,2026-10-13,,,candidate,candidate,C,제외,C,제외,,2026-10-13,,discovery-live-v2,4cd0e2c824d0
-007340-20261013,007340,DN오토모티브,KOSPI,2026-10-13,2026-10-13,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-13,,,discovery-live-v2,4cd0e2c824d0
-009420-20261013,009420,한올바이오파마,KOSPI,2026-10-13,2026-10-14,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-13,,,discovery-live-v2,4cd0e2c824d0
-013030-20261013,013030,하이록코리아,KOSDAQ,2026-10-13,2026-10-14,,,candidate,candidate,A,강한 후보·가격 대기,B,제외,,2026-10-13,,discovery-live-v2,4cd0e2c824d0
-017890-20261013,017890,한국알콜,KOSDAQ,2026-10-13,2026-10-14,,,candidate,candidate,A,강한 후보·가격 대기,A,강한 후보·가격 대기,,2026-10-13,,discovery-live-v2,4cd0e2c824d0
+007340-20261013,007340,DN오토모티브,KOSPI,2026-10-13,2026-10-15,,,near_miss,candidate,제외,제외,C,제외,2026-10-13,2026-10-15,,discovery-live-v2,4cd0e2c824d0
+009420-20261013,009420,한올바이오파마,KOSPI,2026-10-13,2026-10-15,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-13,,,discovery-live-v2,4cd0e2c824d0
+013030-20261013,013030,하이록코리아,KOSDAQ,2026-10-13,2026-10-15,,,candidate,candidate,A,강한 후보·가격 대기,C,제외,,2026-10-13,,discovery-live-v2,4cd0e2c824d0
+017890-20261013,017890,한국알콜,KOSDAQ,2026-10-13,2026-10-15,,,candidate,candidate,A,강한 후보·가격 대기,A,강한 후보·가격 대기,,2026-10-13,,discovery-live-v2,4cd0e2c824d0
 019210-20261013,019210,와이지-원,KOSDAQ,2026-10-13,2026-10-14,,,candidate,near_miss,C,제외,제외,제외,,2026-10-13,,discovery-live-v2,4cd0e2c824d0
-033500-20261013,033500,동성화인텍,KOSDAQ,2026-10-13,2026-10-14,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
-033640-20261013,033640,네패스,KOSDAQ,2026-10-13,2026-10-13,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-13,,,discovery-live-v2,4cd0e2c824d0
-067160-20261013,067160,SOOP,KOSDAQ,2026-10-13,2026-10-14,,,candidate,near_miss,C,관찰,제외,제외,,2026-10-13,,discovery-live-v2,4cd0e2c824d0
-092200-20261013,092200,디아이씨,KOSPI,2026-10-13,2026-10-13,,,candidate,candidate,C,관찰,C,관찰,,2026-10-13,,discovery-live-v2,4cd0e2c824d0
-098120-20261013,098120,마이크로컨텍솔,KOSDAQ,2026-10-13,2026-10-14,,,candidate,candidate,C,관찰,C,관찰,,2026-10-13,,discovery-live-v2,4cd0e2c824d0
-161890-20261013,161890,한국콜마,KOSPI,2026-10-13,2026-10-14,,,candidate,candidate,C,관찰,C,제외,,2026-10-13,,discovery-live-v2,4cd0e2c824d0
-181710-20261013,181710,NHN,KOSPI,2026-10-13,2026-10-13,,,candidate,candidate,A,제외,A,제외,,2026-10-13,,discovery-live-v2,4cd0e2c824d0
-196170-20261013,196170,알테오젠,KOSDAQ,2026-10-13,2026-10-14,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-13,,,discovery-live-v2,4cd0e2c824d0
-214370-20261013,214370,케어젠,KOSDAQ,2026-10-13,2026-10-14,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-13,,,discovery-live-v2,4cd0e2c824d0
-234340-20261013,234340,헥토파이낸셜,KOSDAQ,2026-10-13,2026-10-14,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-13,,,discovery-live-v2,4cd0e2c824d0
+033500-20261013,033500,동성화인텍,KOSDAQ,2026-10-13,2026-10-15,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
+033640-20261013,033640,네패스,KOSDAQ,2026-10-13,2026-10-15,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-13,,,discovery-live-v2,4cd0e2c824d0
+067160-20261013,067160,SOOP,KOSDAQ,2026-10-13,2026-10-15,,,candidate,near_miss,C,관찰,제외,제외,,2026-10-13,,discovery-live-v2,4cd0e2c824d0
+092200-20261013,092200,디아이씨,KOSPI,2026-10-13,2026-10-15,,,candidate,near_miss,C,관찰,제외,제외,,2026-10-13,,discovery-live-v2,4cd0e2c824d0
+098120-20261013,098120,마이크로컨텍솔,KOSDAQ,2026-10-13,2026-10-15,,,candidate,near_miss,C,관찰,제외,제외,,2026-10-13,,discovery-live-v2,4cd0e2c824d0
+161890-20261013,161890,한국콜마,KOSPI,2026-10-13,2026-10-15,,,candidate,candidate,C,관찰,C,제외,,2026-10-13,,discovery-live-v2,4cd0e2c824d0
+181710-20261013,181710,NHN,KOSPI,2026-10-13,2026-10-15,,,candidate,candidate,A,제외,A,제외,,2026-10-13,,discovery-live-v2,4cd0e2c824d0
+196170-20261013,196170,알테오젠,KOSDAQ,2026-10-13,2026-10-15,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-13,,,discovery-live-v2,4cd0e2c824d0
+214370-20261013,214370,케어젠,KOSDAQ,2026-10-13,2026-10-15,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-13,,,discovery-live-v2,4cd0e2c824d0
+234340-20261013,234340,헥토파이낸셜,KOSDAQ,2026-10-13,2026-10-15,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-13,,,discovery-live-v2,4cd0e2c824d0
 460930-20261013,460930,현대힘스,KOSDAQ,2026-10-13,2026-10-14,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-13,,,discovery-live-v2,4cd0e2c824d0
 475960-20261013,475960,토모큐브,KOSDAQ,2026-10-13,2026-10-13,,,candidate,candidate,C,관찰,C,관찰,,2026-10-13,,discovery-live-v2,4cd0e2c824d0
-004090-20261014,004090,한국석유,KOSPI,2026-10-14,2026-10-14,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-14,,,discovery-live-v2,4cd0e2c824d0
-053610-20261014,053610,프로텍,KOSDAQ,2026-10-14,2026-10-14,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-14,,,discovery-live-v2,4cd0e2c824d0
-064760-20261014,064760,티씨케이,KOSDAQ,2026-10-14,2026-10-14,,,candidate,candidate,C,관찰,C,관찰,,2026-10-14,,discovery-live-v2,4cd0e2c824d0
-086390-20261014,086390,유니테스트,KOSDAQ,2026-10-14,2026-10-14,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-14,,,discovery-live-v2,4cd0e2c824d0
-095610-20261014,095610,테스,KOSDAQ,2026-10-14,2026-10-14,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-14,,,discovery-live-v2,4cd0e2c824d0
-232140-20261014,232140,와이씨,KOSDAQ,2026-10-14,2026-10-14,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
-278280-20261014,278280,천보,KOSDAQ,2026-10-14,2026-10-14,,,candidate,candidate,B,제외,B,제외,,2026-10-14,,discovery-live-v2,4cd0e2c824d0
-293490-20261014,293490,카카오게임즈,KOSDAQ,2026-10-14,2026-10-14,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-14,,,discovery-live-v2,4cd0e2c824d0
+004090-20261014,004090,한국석유,KOSPI,2026-10-14,2026-10-15,,,near_miss,candidate,제외,제외,C,제외,2026-10-14,2026-10-15,,discovery-live-v2,4cd0e2c824d0
+053610-20261014,053610,프로텍,KOSDAQ,2026-10-14,2026-10-15,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-14,,,discovery-live-v2,4cd0e2c824d0
+064760-20261014,064760,티씨케이,KOSDAQ,2026-10-14,2026-10-15,,,candidate,candidate,C,관찰,B,제외,,2026-10-14,,discovery-live-v2,4cd0e2c824d0
+086390-20261014,086390,유니테스트,KOSDAQ,2026-10-14,2026-10-15,,,near_miss,candidate,제외,제외,C,제외,2026-10-14,2026-10-15,,discovery-live-v2,4cd0e2c824d0
+095610-20261014,095610,테스,KOSDAQ,2026-10-14,2026-10-15,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-14,,,discovery-live-v2,4cd0e2c824d0
+232140-20261014,232140,와이씨,KOSDAQ,2026-10-14,2026-10-15,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
+278280-20261014,278280,천보,KOSDAQ,2026-10-14,2026-10-15,,,candidate,candidate,B,제외,C,제외,,2026-10-14,,discovery-live-v2,4cd0e2c824d0
+293490-20261014,293490,카카오게임즈,KOSDAQ,2026-10-14,2026-10-15,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-14,,,discovery-live-v2,4cd0e2c824d0
 329180-20261014,329180,HD현대중공업,KOSPI,2026-10-14,2026-10-14,,,candidate,candidate,C,제외,C,제외,,2026-10-14,,discovery-live-v2,4cd0e2c824d0
-356860-20261014,356860,티엘비,KOSDAQ,2026-10-14,2026-10-14,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-14,,,discovery-live-v2,4cd0e2c824d0
-377300-20261014,377300,카카오페이,KOSPI,2026-10-14,2026-10-14,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
+356860-20261014,356860,티엘비,KOSDAQ,2026-10-14,2026-10-15,,,near_miss,candidate,제외,제외,B,관찰,2026-10-14,2026-10-15,,discovery-live-v2,4cd0e2c824d0
+377300-20261014,377300,카카오페이,KOSPI,2026-10-14,2026-10-15,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
+005880-20261015,005880,대한해운,KOSPI,2026-10-15,2026-10-15,,,candidate,candidate,A,제외,A,제외,,2026-10-15,,discovery-live-v2,4cd0e2c824d0
+016380-20261015,016380,KG스틸,KOSPI,2026-10-15,2026-10-15,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-15,,,discovery-live-v2,4cd0e2c824d0
+039030-20261015,039030,이오테크닉스,KOSDAQ,2026-10-15,2026-10-15,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-15,,,discovery-live-v2,4cd0e2c824d0
+056190-20261015,056190,SFA,KOSDAQ,2026-10-15,2026-10-15,,,candidate,candidate,C,관찰,C,관찰,,2026-10-15,,discovery-live-v2,4cd0e2c824d0
+079160-20261015,079160,CJ CGV,KOSPI,2026-10-15,2026-10-15,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-15,,,discovery-live-v2,4cd0e2c824d0
+097950-20261015,097950,CJ제일제당,KOSPI,2026-10-15,2026-10-15,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-15,,,discovery-live-v2,4cd0e2c824d0
+215200-20261015,215200,메가스터디교육,KOSDAQ,2026-10-15,2026-10-15,,,candidate,candidate,C,관찰,C,관찰,,2026-10-15,,discovery-live-v2,4cd0e2c824d0
+219130-20261015,219130,타이거일렉,KOSDAQ,2026-10-15,2026-10-15,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-15,,,discovery-live-v2,4cd0e2c824d0
+236200-20261015,236200,슈프리마,KOSDAQ,2026-10-15,2026-10-15,,,candidate,candidate,C,관찰,C,관찰,,2026-10-15,,discovery-live-v2,4cd0e2c824d0
+263750-20261015,263750,펄어비스,KOSDAQ,2026-10-15,2026-10-15,,,near_miss,near_miss,제외,제외,제외,제외,2026-10-15,,,discovery-live-v2,4cd0e2c824d0
+420770-20261015,420770,기가비스,KOSDAQ,2026-10-15,2026-10-15,,,matched_control,matched_control,제외,제외,제외,제외,,,,discovery-live-v2,4cd0e2c824d0
