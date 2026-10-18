@@ -56,7 +56,7 @@ def select_candidates(scored, limit=LIMIT):
     eligible = pd.Series(True, index=scored.index)
     for col in ("discovery_eligible", "data_fresh"):
         if col in scored:
-            eligible &= scored[col].fillna(False).eq(True)
+            eligible &= scored[col].eq(True).fillna(False)
     cols = [c for c in ("discovery_score", "timing_score", "entry_score") if c in scored]
     selected = scored.loc[eligible]
     if cols:
