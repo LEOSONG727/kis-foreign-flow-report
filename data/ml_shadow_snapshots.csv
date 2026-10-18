@@ -107,3 +107,15 @@ signal_date,model_version,symbol,name,market,ml_shadow_rank,ml_shadow_score,ml_s
 2026-10-13,v3.1-c-extra-trees-r1,045100,한양이엔지,KOSDAQ,10,25.0,0.5119563040488515,7,93.9,False,False,30950.0,,,,,,,False
 2026-10-13,v3.1-c-extra-trees-r1,483650,달바글로벌,KOSPI,11,16.666666666666664,0.5036445139931454,10,92.1,False,False,159100.0,,,,,,,False
 2026-10-13,v3.1-c-extra-trees-r1,017890,한국알콜,KOSDAQ,12,8.333333333333332,0.501225930138586,6,95.7,False,False,15720.0,,,,,,,False
+2026-10-16,v3.1-c-extra-trees-pit-r2,017670,SK텔레콤,KOSPI,1,100.0,0.5654181619440324,11,90.9,True,False,78500.0,,,,,,,False
+2026-10-16,v3.1-c-extra-trees-pit-r2,001450,현대해상,KOSPI,2,91.66666666666666,0.5499847896684641,12,88.4,False,False,43050.0,,,,,,,False
+2026-10-16,v3.1-c-extra-trees-pit-r2,285130,SK케미칼,KOSPI,3,83.33333333333334,0.5414666076352441,9,91.7,False,False,46450.0,,,,,,,False
+2026-10-16,v3.1-c-extra-trees-pit-r2,306200,세아제강,KOSPI,4,75.0,0.5412986068528716,4,98.0,False,False,138100.0,,,,,,,False
+2026-10-16,v3.1-c-extra-trees-pit-r2,002380,KCC,KOSPI,5,66.66666666666666,0.5409019244073706,6,95.2,False,False,430000.0,,,,,,,False
+2026-10-16,v3.1-c-extra-trees-pit-r2,005880,대한해운,KOSPI,6,58.333333333333336,0.5385045950139202,10,91.5,False,False,2050.0,,,,,,,False
+2026-10-16,v3.1-c-extra-trees-pit-r2,192080,더블유게임즈,KOSPI,7,50.0,0.5364158574951755,1,100.0,False,True,56200.0,,,,,,,False
+2026-10-16,v3.1-c-extra-trees-pit-r2,016380,KG스틸,KOSPI,8,41.66666666666667,0.5347991346307165,5,97.7,False,False,5430.0,,,,,,,False
+2026-10-16,v3.1-c-extra-trees-pit-r2,001040,CJ,KOSPI,9,33.33333333333333,0.5325135935487646,8,93.3,False,False,125000.0,,,,,,,False
+2026-10-16,v3.1-c-extra-trees-pit-r2,005180,빙그레,KOSPI,10,25.0,0.5277679473216489,7,94.3,False,False,90700.0,,,,,,,False
+2026-10-16,v3.1-c-extra-trees-pit-r2,078340,컴투스,KOSDAQ,11,16.666666666666664,0.5203391670379132,3,99.9,False,False,34250.0,,,,,,,False
+2026-10-16,v3.1-c-extra-trees-pit-r2,017890,한국알콜,KOSDAQ,12,8.333333333333332,0.4899443947501285,2,100.0,False,False,14860.0,,,,,,,False
