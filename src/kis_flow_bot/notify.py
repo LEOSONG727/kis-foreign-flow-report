@@ -14,6 +14,7 @@ import requests
 from .brief import (
     annotate_watch_brief,
     format_pct,
+    inventory_summary,
     iter_brief_rows,
     _bool,
     _float,
@@ -149,7 +150,7 @@ def build_headline(
     section_rank = {"buy": 0, "priced": 1, "steady": 2, "cheap": 3, "other": 4}
     rows = sorted(rows, key=lambda row: (section_rank.get(_section_of(row), 9),))
     buy_rows = [row for row in rows if _text(row, "proposal_status") == "오늘 신규매수 검토"]
-    wait_rows = [row for row in rows if _text(row, "proposal_status") != "오늘 신규매수 검토"]
+    wait_rows = [row for row in rows if _text(row, "proposal_status") in {"강한 후보·가격 대기", "관찰"}]
 
     def item(row: pd.Series, index: int) -> HeadlineItem:
         timing, reason = _timing(row, model)
@@ -267,7 +268,10 @@ def _stability_line(row: pd.Series | dict) -> str:
     else:
         trend = "20일선 횡보"
     distribution = _float(row, "distribution_score")
-    return f"외인 순매수 {buy_days}/10일 · {trend} · 분산위험 {distribution:.0f}/100"
+    line = f"외인 순매수 {buy_days}/10일 · {trend} · 분산위험 {distribution:.0f}/100"
+    if _text(row, "campaign_regime") == "신규재진입":
+        line += f" · {inventory_summary(row)}"
+    return line
 
 
 def _judgment_line(row: pd.Series | dict, model: ModelConfig | None = None) -> str:

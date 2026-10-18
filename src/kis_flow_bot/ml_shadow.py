@@ -178,6 +178,8 @@ def prepare_shadow_candidates(
         if column not in candidates:
             candidates[column] = np.nan
         candidates[column] = pd.to_numeric(candidates[column], errors="coerce")
+    # Consolidate the raw columns before adding ranks to a wide report frame.
+    candidates = candidates.copy()
     for source, target in zip(RANK_SOURCES, RANK_FEATURES):
         candidates[target] = candidates[source].rank(method="average", pct=True)
     return candidates

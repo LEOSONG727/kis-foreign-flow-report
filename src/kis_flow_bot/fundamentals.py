@@ -29,7 +29,7 @@ import numpy as np
 import pandas as pd
 import requests
 
-from .dart import DartClient, DartError, load_corp_codes, update_filings
+from .dart import DartClient, DartError, DartUnavailable, load_corp_codes, update_filings
 from .point_in_time import PIT_VERSION, bind_receipts, backward_asof, local_dates
 from .storage import read_csv, write_csv
 
@@ -142,6 +142,9 @@ class FinancialsClient:
         status = str(payload.get("status", ""))
         if status == "013":
             return []
+        if status == "020":
+            self.dart.unavailable = True
+            raise DartUnavailable("DART daily request budget exhausted; remaining collection deferred")
         if status != "000":
             raise DartError(f"fnlttMultiAcnt {status}: {payload.get('message')}")
         return payload.get("list") or []
@@ -171,24 +174,40 @@ def update_financials(
     code_to_symbol = dict(zip(wanted["corp_code"].astype(str).str.zfill(8), wanted["symbol"]))
     corp_codes = sorted(code_to_symbol)
     safe_cache = cached[cached.get("pit_source_version", pd.Series("", index=cached.index)).eq(PIT_VERSION)]
-    fetched_keys = set(zip(safe_cache["bsns_year"].astype(str), safe_cache["reprt_code"].astype(str)))
     refresh = {str(year) for year in refresh_years}
     frames = [cached]
     client = FinancialsClient(dart)
+    stopped = False
     for year in years:
         for reprt_code in REPORT_CODES:
-            if (str(year), reprt_code) in fetched_keys and str(year) not in refresh:
-                continue
+            # A partial successful batch must not mark an entire report complete.
+            have = set(safe_cache.loc[
+                safe_cache["bsns_year"].astype(str).eq(str(year))
+                & safe_cache["reprt_code"].astype(str).eq(reprt_code), "symbol"
+            ]) if str(year) not in refresh else set()
+            pending = [code for code in corp_codes if code_to_symbol[code] not in have]
             rows: list[dict[str, Any]] = []
-            for start in range(0, len(corp_codes), 100):
+            for start in range(0, len(pending), 100):
                 try:
-                    rows.extend(client.multi_accounts(corp_codes[start : start + 100], year, reprt_code))
+                    rows.extend(client.multi_accounts(pending[start : start + 100], year, reprt_code))
+                except DartUnavailable as exc:
+                    LOGGER.warning("%s; retaining partial financial cache", exc)
+                    stopped = True
+                    break
                 except (DartError, requests.RequestException, ValueError) as exc:
                     LOGGER.warning("DART financials %s/%s failed: %s", year, reprt_code, exc)
+                    if "020" in str(exc):
+                        stopped = True
+                        break
             parsed = parse_multi_accounts(rows, code_to_symbol)
             LOGGER.info("DART financials %s %s: %d companies", year, REPORT_CODES[reprt_code], len(parsed))
             frames.append(parsed)
-    combined = pd.concat([frame for frame in frames if not frame.empty], ignore_index=True)
+            if stopped:
+                break
+        if stopped:
+            break
+    nonempty = [frame for frame in frames if not frame.empty]
+    combined = pd.concat(nonempty, ignore_index=True) if nonempty else pd.DataFrame(columns=FIN_COLUMNS)
     if combined.empty:
         combined = pd.DataFrame(columns=FIN_COLUMNS)
     # Preserve each correction separately, and never rewrite an existing
@@ -274,7 +293,7 @@ def refresh_financials_from_env(settings, symbols: Iterable[str], history_start:
     financials = update_financials(dart, settings.data_dir, symbols, years, refresh_years=(today.year - 1, today.year))
     # Fetch actual receipts; prefix dates may narrow the download range but are
     # never a fallback availability date. Missing evidence stays unavailable.
-    if dart is not None and not financials.empty:
+    if dart is not None and not dart.unavailable and not financials.empty:
         update_filings(dart, settings.data_dir,
                        [(str(symbol), date(history_start.year - 1, 1, 1), today) for symbol in symbols],
                        max_calls=5000)

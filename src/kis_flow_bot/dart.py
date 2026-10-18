@@ -45,6 +45,10 @@ class DartError(RuntimeError):
     pass
 
 
+class DartUnavailable(DartError):
+    """Stop collection while preserving successfully cached data."""
+
+
 def xml_to_text(markup: str) -> str:
     """Strip DART XML/HTML tags and collapse whitespace."""
 
@@ -60,6 +64,8 @@ class DartClient:
         session: Any | None = None,
         pause: Callable[[float], None] = time.sleep,
         min_interval: float = 0.12,
+        max_attempts: int = 3,
+        failure_limit: int = 3,
     ):
         if not api_key:
             raise ValueError("DART_API_KEY is required")
@@ -68,26 +74,47 @@ class DartClient:
         self.pause = pause
         self.min_interval = min_interval
         self.calls = 0
+        self.max_attempts = max(1, max_attempts)
+        self.failure_limit = max(1, failure_limit)
+        self.consecutive_failures = 0
+        self.unavailable = False
 
     @classmethod
     def from_env(cls) -> "DartClient":
         return cls(os.getenv("DART_API_KEY", ""))
 
     def _get(self, path: str, params: dict[str, Any]) -> requests.Response:
-        for attempt in range(4):
+        if self.unavailable:
+            raise DartUnavailable("DART collection paused after repeated service failures")
+        error = ""
+        for attempt in range(self.max_attempts):
             self.calls += 1
-            response = self.session.get(
-                f"{BASE_URL}/{path}",
-                params={"crtfc_key": self.api_key, **params},
-                timeout=30,
-            )
-            if response.status_code in (429, 500, 502, 503, 504) and attempt < 3:
+            try:
+                response = self.session.get(
+                    f"{BASE_URL}/{path}",
+                    params={"crtfc_key": self.api_key, **params},
+                    timeout=30,
+                )
+            except requests.RequestException as exc:
+                # Request exception URLs can contain the API key.
+                error = f"DART {path} transport failure ({type(exc).__name__})"
+            else:
+                if response.status_code in (401, 403, 429):
+                    self.unavailable = True
+                    raise DartUnavailable(f"DART {path} HTTP {response.status_code}; collection deferred")
+                if response.status_code not in (500, 502, 503, 504):
+                    self.consecutive_failures = 0
+                    if self.min_interval:
+                        self.pause(self.min_interval)
+                    return response
+                error = f"DART {path} HTTP {response.status_code}"
+            if attempt + 1 < self.max_attempts:
                 self.pause(2.0 * (attempt + 1))
-                continue
-            if self.min_interval:
-                self.pause(self.min_interval)
-            return response
-        return response
+        self.consecutive_failures += 1
+        if self.consecutive_failures >= self.failure_limit:
+            self.unavailable = True
+            raise DartUnavailable(f"{error}; repeated failures, remaining collection deferred")
+        raise DartError(error)
 
     def document_text(self, rcept_no: str, max_chars: int = 6000) -> str:
         """Plain text of one filing (document.xml returns a zip of DART XML)."""
@@ -154,6 +181,9 @@ class DartClient:
             status = str(payload.get("status", ""))
             if status == "013":  # no data
                 return rows
+            if status == "020":
+                self.unavailable = True
+                raise DartUnavailable("DART daily request budget exhausted; remaining collection deferred")
             if status != "000":
                 raise DartError(f"list.json {status}: {payload.get('message')}")
             rows.extend(payload.get("list") or [])
@@ -217,6 +247,9 @@ def update_filings(
         corp = codes.loc[symbol]
         try:
             rows = client.filings(str(corp["corp_code"]).zfill(8), lo, hi)
+        except DartUnavailable as exc:
+            LOGGER.warning("%s; keeping filing cache and incomplete coverage", exc)
+            break
         except (DartError, requests.RequestException, ValueError) as exc:
             LOGGER.warning("DART filings failed for %s: %s", symbol, exc)
             if "020" in str(exc):  # daily request limit

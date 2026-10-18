@@ -167,7 +167,7 @@ def normalize_opinions(symbol: str, rows: Iterable[dict[str, Any]]) -> pd.DataFr
 
 
 def _window(group: pd.DataFrame, n: int) -> pd.DataFrame:
-    return group.tail(min(n, len(group))).copy()
+    return group.tail(min(n, len(group)))
 
 
 def _float_or(value: Any, default: float = 0.0) -> float:
@@ -176,10 +176,11 @@ def _float_or(value: Any, default: float = 0.0) -> float:
 
 
 def _return(group: pd.DataFrame, n: int) -> float:
-    view = group.tail(min(n + 1, len(group)))
-    if len(view) < 2 or view["close"].iloc[0] <= 0:
+    if len(group) < 2:
         return 0.0
-    return float(view["close"].iloc[-1] / view["close"].iloc[0] - 1.0)
+    closes = group["close"]
+    first = closes.iloc[max(0, len(group) - n - 1)]
+    return float(closes.iloc[-1] / first - 1.0) if first > 0 else 0.0
 
 
 def _lagged_return(group: pd.DataFrame, n: int, end_offset: int) -> float:
@@ -352,6 +353,12 @@ def _holding_change(symbol: str, snapshots: pd.DataFrame) -> float:
     if snapshots.empty or "foreign_holding_qty" not in snapshots:
         return float("nan")
     group = snapshots[snapshots["symbol"].astype(str).str.zfill(6) == symbol].copy()
+    return _holding_change_group(group)
+
+
+def _holding_change_group(group: pd.DataFrame) -> float:
+    if group.empty or "foreign_holding_qty" not in group:
+        return float("nan")
     group = group.sort_values("date").dropna(subset=["foreign_holding_qty"])
     if len(group) < 2:
         return float("nan")
@@ -371,6 +378,15 @@ def _opinion_consensus(
     if opinions.empty or close <= 0:
         return float("nan"), float("nan"), 0, float("nan"), float("nan")
     group = opinions[opinions["symbol"].astype(str).str.zfill(6) == symbol].copy()
+    return _opinion_consensus_group(group, close, as_of)
+
+
+def _opinion_consensus_group(
+    group: pd.DataFrame, close: float, as_of: pd.Timestamp,
+) -> tuple[float, float, int, float, float]:
+    if group.empty or close <= 0:
+        return float("nan"), float("nan"), 0, float("nan"), float("nan")
+    group = group.copy()
     group["date"] = pd.to_datetime(group["date"], errors="coerce")
     as_of = pd.to_datetime(as_of)
     group = group[
@@ -387,6 +403,16 @@ def _opinion_consensus(
     return target, target / close - 1.0, len(group), recency_days, dispersion
 
 
+def _symbol_groups(frame: pd.DataFrame) -> dict[str, pd.DataFrame]:
+    """Normalize auxiliary tables once rather than scanning them per stock."""
+    if frame.empty:
+        return {}
+    frame = frame.copy()
+    frame["symbol"] = frame["symbol"].astype("string").str.zfill(6)
+    frame["date"] = pd.to_datetime(frame["date"], errors="coerce")
+    return {str(symbol): group for symbol, group in frame.groupby("symbol", sort=False)}
+
+
 def build_base_features(
     history: pd.DataFrame,
     universe: pd.DataFrame,
@@ -398,12 +424,20 @@ def build_base_features(
         return pd.DataFrame()
     snapshots = snapshots if snapshots is not None else pd.DataFrame()
     opinions = opinions if opinions is not None else pd.DataFrame()
+    snapshot_groups = _symbol_groups(snapshots)
+    opinion_groups = _symbol_groups(opinions)
+    empty_aux = pd.DataFrame()
     frame = history.copy()
     frame["date"] = pd.to_datetime(frame["date"], errors="coerce")
     frame["symbol"] = frame["symbol"].astype("string").str.zfill(6)
     for column in NUMERIC_HISTORY_COLUMNS:
         frame[column] = pd.to_numeric(frame[column], errors="coerce").fillna(0.0)
     frame = frame.sort_values(["symbol", "date"])
+    frame["flow_ratio"] = np.where(
+        frame["turnover"] > 0,
+        frame["foreign_net_amount"] / frame["turnover"],
+        0.0,
+    )
 
     meta = universe.copy()
     meta["symbol"] = meta["symbol"].astype("string").str.zfill(6)
@@ -419,12 +453,6 @@ def build_base_features(
         w1, w3, w5, w10, w20, w60, w120 = (
             _window(group, n) for n in (1, 3, 5, 10, 20, 60, 120)
         )
-        for window in (w1, w3, w5, w10, w20, w60, w120):
-            window["flow_ratio"] = np.where(
-                window["turnover"] > 0,
-                window["foreign_net_amount"] / window["turnover"],
-                0.0,
-            )
         adtv20 = float(w20["turnover"].median()) if not w20.empty else 0.0
         foreign_pos20 = float(w20.loc[w20["foreign_net_amount"] > 0, "foreign_net_amount"].sum())
         foreign_neg20 = abs(float(w20.loc[w20["foreign_net_amount"] < 0, "foreign_net_amount"].sum()))
@@ -536,16 +564,13 @@ def build_base_features(
         gap = float(latest["open"] / previous_close - 1.0) if previous_close > 0 else 0.0
         daily_range = max(float(latest["high"] - latest["low"]), 1.0)
         upper_wick = float((latest["high"] - max(latest["open"], latest["close"])) / daily_range)
-        target, target_upside, coverage, opinion_recency_days, opinion_dispersion = _opinion_consensus(
-            symbol, opinions, float(latest["close"]), latest["date"]
+        target, target_upside, coverage, opinion_recency_days, opinion_dispersion = _opinion_consensus_group(
+            opinion_groups.get(symbol, empty_aux), float(latest["close"]), latest["date"]
         )
 
         latest_snapshot = pd.DataFrame()
-        symbol_snapshots = pd.DataFrame()
-        if not snapshots.empty:
-            symbol_snapshots = snapshots[
-                snapshots["symbol"].astype(str).str.zfill(6) == symbol
-            ].copy()
+        symbol_snapshots = snapshot_groups.get(symbol, empty_aux)
+        if not symbol_snapshots.empty:
             if point_in_time:
                 symbol_snapshots = symbol_snapshots[pd.to_datetime(symbol_snapshots["date"], errors="coerce") <= latest["date"]]
             latest_snapshot = symbol_snapshots.sort_values("date").tail(1)
@@ -623,6 +648,7 @@ def build_base_features(
                 "up_down_volume_ratio10": up_down_volume_ratio10,
                 "foreign_net3": foreign_net3,
                 "foreign_net5": foreign_net5,
+                "foreign_net10": float(w10["foreign_net_amount"].sum()),
                 "foreign_net1": float(w1["foreign_net_amount"].sum()),
                 "foreign_net20": foreign_net20,
                 "foreign_net60": float(w60["foreign_net_amount"].sum()),
@@ -671,7 +697,7 @@ def build_base_features(
                 "roe": _float_or(m.get("roe")),
                 "financial_base_ym": str(m.get("financial_base_ym", "")),
                 "foreign_holding_qty": _float_or(snapshot.get("foreign_holding_qty", np.nan), np.nan),
-                "foreign_holding_change": _holding_change(symbol, symbol_snapshots),
+                "foreign_holding_change": _holding_change_group(symbol_snapshots),
                 "foreign_holding_ratio": _float_or(snapshot.get("foreign_holding_ratio", np.nan), np.nan),
                 "per": _float_or(snapshot.get("per", np.nan), np.nan),
                 "pbr": _float_or(snapshot.get("pbr", np.nan), np.nan),

@@ -70,13 +70,21 @@ def _resolve_investor_query_date(
         try:
             rows = client.investor_daily(probe_symbol, candidate)
             if rows:
+                observed = pd.to_datetime(
+                    [row.get("stck_bsop_date", "") for row in rows],
+                    format="%Y%m%d", errors="coerce",
+                ).max()
+                if pd.isna(observed) or observed.date() > candidate:
+                    raise RuntimeError("Investor-flow date probe returned an invalid or future session")
+                if (requested_as_of - observed.date()).days > max_lookback_days:
+                    raise RuntimeError("Investor-flow date probe returned an outdated session")
                 if days_back:
                     LOGGER.info(
                         "Investor-flow query date adjusted from %s to %s because the newer date is not settled",
                         requested_as_of,
                         candidate,
                     )
-                return candidate
+                return observed.date()
         except KISAPIError as exc:
             if exc.code != "OPSQ2001":
                 raise
@@ -121,6 +129,24 @@ def _collect_windows(
             LOGGER.info("%s progress: %d/%d (failures=%d)", label, index, total, len(failures))
     result = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
     return result, total - len(failures), failures
+
+
+def _validate_scan_freshness(
+    incoming: pd.DataFrame, universe: pd.DataFrame, session: date,
+    minimum_coverage: float = 0.70,
+) -> None:
+    """A nonempty historical response is not a successful current scan."""
+    dates = pd.to_datetime(incoming["date"], errors="coerce") if not incoming.empty else pd.Series(dtype="datetime64[ns]")
+    if (dates.dt.date > session).any():
+        raise RuntimeError("Daily scan contains data later than the settled session")
+    expected = set(universe["symbol"].astype(str).str.zfill(6))
+    fresh = set(incoming.loc[dates.dt.date == session, "symbol"].astype(str).str.zfill(6)) if not incoming.empty else set()
+    covered = len(expected & fresh)
+    if covered / max(len(expected), 1) < minimum_coverage:
+        raise RuntimeError(
+            f"Daily scan settled-session coverage too low for {session}: "
+            f"fresh={covered}/{len(expected)}; refusing to publish stale candidates"
+        )
 
 
 def _features_and_scores(
@@ -431,6 +457,7 @@ def run_pipeline(
             f"Daily scan data quality too low: success={success_count}/{len(universe)}, failures={failures[:10]}"
         )
     validate_investor_amounts(incoming)
+    _validate_scan_freshness(incoming, universe, as_of)
     history = merge_history(
         history, incoming, settings.screening.history_retention_days, as_of
     )
