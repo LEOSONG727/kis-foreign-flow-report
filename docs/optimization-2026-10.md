@@ -31,6 +31,8 @@
 
 ## 검증과 운영 범위
 
+GitHub 최초 최종 검사에서 267개 테스트는 통과했지만, pandas 2.3.3 + NumPy 2.5.4 조합이 날짜 연산마다 경고를 내어 총 725,572건이 기록됐다. [NumPy 2.5의 generic timedelta 폐기 안내](https://numpy.org/doc/stable/reference/arrays.datetime.html)와 [pandas 이슈 #66608](https://github.com/pandas-dev/pandas/issues/66608)에 근거해, pandas 2.x를 사용하는 동안 NumPy 상한을 `<2.5`로 제한한다. 이 특정 경고는 pytest에서 오류로 처리해 재발을 감지하며, 경고를 숨기지 않는다. Jev의 nullable boolean 필터 순서도 결과를 유지하면서 수정해 기존 다운캐스팅 경고를 제거한다.
+
 `tests/test_runtime_and_selection.py`는 일시 장애 복구, 반복 장애의 호출 상한, 인증/한도 중단, 부분 저장과 미수집 재개, 거래일·당일 수집률, 제외 종목 재유입, 장기 순매도 표시를 검사한다. 기존 PIT·모델·백테스트·리포트 회귀도 함께 실행한다.
 
 ```bash

@@ -9,7 +9,8 @@ description = "Daily KRX foreign accumulation ranking report powered by KIS Open
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-  "numpy>=1.26,<3",
+  # pandas 2.x emits a timedelta warning storm with NumPy 2.5.
+  "numpy>=1.26,<2.5",
   "pandas>=2.2,<3",
   "requests>=2.32,<3",
 ]
@@ -28,4 +29,7 @@ where = ["src"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-q"
+filterwarnings = [
+  "error:The 'generic' unit for NumPy timedelta is deprecated:DeprecationWarning",
+]
 
