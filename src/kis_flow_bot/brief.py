@@ -389,6 +389,10 @@ def flow_summary(row: pd.Series | dict) -> str:
     ]
     if _bool(row, "large_flow_signal"):
         parts.append("500억+")
+    if "foreign_net10" in row:
+        parts.append(f'10일 {format_eok(_float(row, "foreign_net10"))}')
+    if _text(row, "campaign_regime") == "신규재진입":
+        parts.append(inventory_summary(row))
     if _bool(row, "steady_accumulation") or is_steady_accumulation(row):
         up_days = int(_flow_metric(row, "foreign_buy_days10", "foreign_roll20_up_days10"))
         if up_days > 0:
@@ -413,6 +417,23 @@ def flow_summary(row: pd.Series | dict) -> str:
     buy_days = _float(row, "buy_days20")
     if buy_days > 0:
         parts.append(f"매수 {int(buy_days)}일/20일")
+    return " · ".join(parts)
+
+
+def inventory_summary(row: pd.Series | dict) -> str:
+    """Keep a short buying reversal distinct from confirmed long inventory."""
+    parts: list[str] = []
+    long_selling = False
+    for sessions in (60, 120):
+        key = f"foreign_net{sessions}"
+        if key not in row or _float(row, "data_points") < sessions:
+            parts.append(f"{sessions}일 이력 미확보")
+            continue
+        value = _float(row, key, float("nan"))
+        parts.append(f"{sessions}일 {format_eok(value)}")
+        long_selling |= value < 0
+    if long_selling:
+        parts.append("장기 순매도 잔존 · 단기 재유입")
     return " · ".join(parts)
 
 
@@ -610,6 +631,17 @@ def _summary_from_row(row: pd.Series) -> str:
     return flow_summary(row)
 
 
+def _shortlist_mask(frame: pd.DataFrame) -> pd.Series:
+    allowed = ~frame["watch_tier"].isin(["제외", "위험확인"])
+    if "proposal_status" in frame:
+        allowed &= frame["proposal_status"].ne("제외")
+    if "discovery_eligible" in frame:
+        allowed &= frame["discovery_eligible"].map(
+            lambda value: pd.notna(value) and _bool({"eligible": value}, "eligible")
+        )
+    return allowed
+
+
 def select_daily_brief(
     scored: pd.DataFrame,
     brief: BriefConfig | None = None,
@@ -623,6 +655,11 @@ def select_daily_brief(
         frame = annotate_watch_brief(frame, brief=brief)
     if "flow_freshness" not in frame:
         frame["flow_freshness"] = [flow_freshness(row) for _, row in frame.iterrows()]
+    # Setup-specific slots must obey the same exclusions as the main list.
+    # A steady-buying flag alone must never resurrect a rejected/risky row.
+    frame = frame.loc[_shortlist_mask(frame)].copy()
+    if frame.empty:
+        return frame.reset_index(drop=True)
     frame["symbol"] = frame["symbol"].astype("string").str.zfill(6)
     picked: list[pd.DataFrame] = []
 
@@ -710,8 +747,6 @@ def select_daily_brief(
     take("급락진정", 1)
     take("눌림대기", 1)
     take("감시", 1)
-    if sum(len(part) for part in picked) < min(3, brief.size):
-        take("위험확인", 1)
     take("관심후보", brief.size)
     take("고확신눌림", brief.size)
 
@@ -730,6 +765,8 @@ def select_daily_brief(
 
 def iter_brief_rows(scored: pd.DataFrame, brief: BriefConfig | None = None) -> Iterable[pd.Series]:
     selected = scored[scored.get("in_daily_brief", False)] if "in_daily_brief" in scored else pd.DataFrame()
+    if not selected.empty:
+        selected = selected.loc[_shortlist_mask(selected)]
     if selected.empty:
         selected = select_daily_brief(scored, brief)
     else:

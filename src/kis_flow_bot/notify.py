@@ -14,10 +14,12 @@ import requests
 from .brief import (
     annotate_watch_brief,
     format_pct,
+    inventory_summary,
     iter_brief_rows,
     _bool,
     _float,
     _text,
+    _shortlist_mask,
 )
 from .config import BriefConfig, ModelConfig
 from .horizon import HorizonBoard
@@ -148,8 +150,16 @@ def build_headline(
     rows = list(iter_brief_rows(frame, brief))
     section_rank = {"buy": 0, "priced": 1, "steady": 2, "cheap": 3, "other": 4}
     rows = sorted(rows, key=lambda row: (section_rank.get(_section_of(row), 9),))
-    buy_rows = [row for row in rows if _text(row, "proposal_status") == "오늘 신규매수 검토"]
-    wait_rows = [row for row in rows if _text(row, "proposal_status") != "오늘 신규매수 검토"]
+    # Count the complete eligible pool, even when the human shortlist is full.
+    # The headline still presents at most three names.
+    buy_pool = frame.loc[
+        _shortlist_mask(frame) & frame["proposal_status"].eq("오늘 신규매수 검토")
+    ] if not frame.empty else frame
+    sort_cols = [c for c in ("watch_priority", "flow_freshness", "discovery_score") if c in buy_pool]
+    if sort_cols:
+        buy_pool = buy_pool.sort_values(sort_cols, ascending=False, kind="stable")
+    buy_rows = [row for _, row in buy_pool.iterrows()]
+    wait_rows = [row for row in rows if _text(row, "proposal_status") in {"강한 후보·가격 대기", "관찰"}]
 
     def item(row: pd.Series, index: int) -> HeadlineItem:
         timing, reason = _timing(row, model)
@@ -267,7 +277,10 @@ def _stability_line(row: pd.Series | dict) -> str:
     else:
         trend = "20일선 횡보"
     distribution = _float(row, "distribution_score")
-    return f"외인 순매수 {buy_days}/10일 · {trend} · 분산위험 {distribution:.0f}/100"
+    line = f"외인 순매수 {buy_days}/10일 · {trend} · 분산위험 {distribution:.0f}/100"
+    if _text(row, "campaign_regime") == "신규재진입":
+        line += f" · {inventory_summary(row)}"
+    return line
 
 
 def _judgment_line(row: pd.Series | dict, model: ModelConfig | None = None) -> str:

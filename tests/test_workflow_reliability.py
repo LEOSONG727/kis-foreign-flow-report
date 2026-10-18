@@ -100,13 +100,19 @@ def test_autostash_conflict_is_not_reported_as_success(repositories):
     assert (local / "logs/persist-results.patch").exists()
 
 
-def test_all_six_workflows_share_queue_and_persistence():
+def test_all_result_writers_share_queue_and_persistence():
     files = sorted((ROOT / ".github/workflows").glob("*.yml"))
-    assert len(files) == 6
+    writers = 0
     for path in files:
         # BaseLoader keeps YAML 1.1's 'on' and booleans as strings, like Actions YAML.
         workflow = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
         assert "runner." not in str(workflow.get("env", {}))
+        if workflow["permissions"].get("contents") != "write":
+            assert workflow["permissions"]["contents"] == "read"
+            assert "secrets." not in str(workflow)
+            assert "persist-results.sh" not in str(workflow)
+            continue
+        writers += 1
         assert workflow["concurrency"] == {"group": "foreign-flow-data-write", "queue": "max", "cancel-in-progress": "false"}
         for job in workflow["jobs"].values():
             # runner context is unavailable while evaluating workflow/job env.
@@ -122,3 +128,4 @@ def test_all_six_workflows_share_queue_and_persistence():
             for step in steps:
                 if "run" in step:
                     subprocess.run(["bash", "-n"], input=step["run"], text=True, check=True)
+    assert writers == 6

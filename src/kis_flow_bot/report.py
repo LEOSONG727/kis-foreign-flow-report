@@ -534,7 +534,7 @@ def render_report(
         wait_sort, ascending=False
     ).head(10)
     wait_brief = daily_brief[
-        daily_brief["proposal_status"] != "오늘 신규매수 검토"
+        daily_brief["proposal_status"].isin(["강한 후보·가격 대기", "관찰"])
     ].head(3)
     price_wait = ranked[ranked["proposal_status"] == "강한 후보·가격 대기"].sort_values(
         wait_sort, ascending=False
