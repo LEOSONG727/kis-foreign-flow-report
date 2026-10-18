@@ -3,85 +3,87 @@
   "prompt_hash": "eedd5ea91139456e",
   "model": "jev-1.13.0",
   "rows": 5760,
-  "rows_with_text": 5476,
-  "jev_answered": 5746,
+  "rows_with_text": 5515,
+  "jev_answered": 245,
   "flags": [
     {
       "source": "jev",
-      "flag_rate": 0.08197006613296207,
-      "flagged": 471,
-      "excess_flagged": -0.004527429733319595,
-      "excess_clean": 0.0016424032208272174,
-      "severe_flagged": 0.04883227176220807,
-      "severe_clean": 0.1061611374407583
+      "flag_rate": 0.0,
+      "flagged": 0,
+      "excess_flagged": null,
+      "excess_clean": 0.001889162093587885,
+      "severe_flagged": null,
+      "severe_clean": 0.12653061224489795
     },
     {
       "source": "kw",
-      "flag_rate": 0.05555555555555555,
-      "flagged": 320,
-      "excess_flagged": -0.019851673921599578,
-      "excess_clean": 0.0025815752221100188,
-      "severe_flagged": 0.025,
-      "severe_clean": 0.10588235294117647
+      "flag_rate": 0.03784722222222222,
+      "flagged": 218,
+      "excess_flagged": -0.04854022595097701,
+      "excess_clean": -0.005514145216813082,
+      "severe_flagged": 0.12385321100917432,
+      "severe_clean": 0.08372428726091663
     }
   ],
   "dates": 288,
   "portfolios": {
     "baseline": {
       "dates": 288,
-      "mean": -0.006490069572896518,
-      "low": -0.025272060197269446,
-      "high": 0.01424634287096644,
-      "positive_share": 0.3611111111111111,
-      "effective_t": -0.3866008369082967
+      "mean": -0.012020822437138078,
+      "low": -0.034521627695252105,
+      "high": 0.011297506674119221,
+      "positive_share": 0.3819444444444444,
+      "effective_t": -0.6152650407021238
     },
-    "baseline_severe": 0.09444444444444444,
+    "baseline_severe": 0.06527777777777778,
     "jev_veto": {
-      "dates": 280,
-      "mean": -0.0034050136946233204,
-      "low": -0.02201902932309179,
-      "high": 0.016658950903331745,
-      "positive_share": 0.37857142857142856,
-      "effective_t": -0.20233802036859372
+      "dates": 0,
+      "mean": null,
+      "low": null,
+      "high": null,
+      "positive_share": null,
+      "effective_t": null
     },
-    "jev_veto_severe": 0.10142857142857142,
+    "jev_veto_severe": null,
     "keyword_veto": {
       "dates": 288,
-      "mean": -0.0036985813860623343,
-      "low": -0.022022589916321462,
-      "high": 0.016434914605503007,
-      "positive_share": 0.40625,
-      "effective_t": -0.22354036637783462
+      "mean": -0.011713982897618918,
+      "low": -0.03386371594182706,
+      "high": 0.011142331557852974,
+      "positive_share": 0.3784722222222222,
+      "effective_t": -0.6032527607220144
     },
-    "keyword_veto_severe": 0.09236111111111112,
+    "keyword_veto_severe": 0.06458333333333334,
     "jev_veto_minus_baseline": {
-      "dates": 280,
-      "mean": 0.0015780692189917324,
-      "low": -0.0012071452230409303,
-      "high": 0.004861033881539277,
-      "positive_share": 0.20714285714285716,
-      "effective_t": 0.29600587844938525
+      "dates": 0,
+      "mean": null,
+      "low": null,
+      "high": null,
+      "positive_share": null,
+      "effective_t": null
     },
     "keyword_veto_minus_baseline": {
       "dates": 288,
-      "mean": 0.002791488186834183,
-      "low": -0.0007144702546267404,
-      "high": 0.0067543799836709256,
-      "positive_share": 0.23958333333333334,
-      "effective_t": 0.551548066511401
+      "mean": 0.0003068395395191602,
+      "low": -0.0003025951878039368,
+      "high": 0.0010719250185923885,
+      "positive_share": 0.034722222222222224,
+      "effective_t": 0.19257665225851786
     },
     "jev_veto_minus_keyword_veto": {
-      "dates": 280,
-      "mean": -0.0012931757731805703,
-      "low": -0.004990020310794362,
-      "high": 0.002096068575324913,
-      "positive_share": 0.19642857142857142,
-      "effective_t": -0.30458732108310504
+      "dates": 0,
+      "mean": null,
+      "low": null,
+      "high": null,
+      "positive_share": null,
+      "effective_t": null
     }
   },
   "verdict": "NO_VALUE",
   "reasons": [
-    "Jev − 키워드 하한 -0.50%, 키워드 − H1 하한 -0.07%"
+    "Jev − 키워드 하한 +nan%, 키워드 − H1 하한 -0.03%"
   ],
-  "generated_at": "2026-10-11T16:54:25+09:00"
+  "generated_at": "2026-10-18T18:59:57+09:00",
+  "pit_version": "receipt-pit-v3",
+  "availability_policy": "after_receipt_and_answer_capture"
 }
