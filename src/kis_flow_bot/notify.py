@@ -19,6 +19,7 @@ from .brief import (
     _bool,
     _float,
     _text,
+    _shortlist_mask,
 )
 from .config import BriefConfig, ModelConfig
 from .horizon import HorizonBoard
@@ -149,7 +150,15 @@ def build_headline(
     rows = list(iter_brief_rows(frame, brief))
     section_rank = {"buy": 0, "priced": 1, "steady": 2, "cheap": 3, "other": 4}
     rows = sorted(rows, key=lambda row: (section_rank.get(_section_of(row), 9),))
-    buy_rows = [row for row in rows if _text(row, "proposal_status") == "오늘 신규매수 검토"]
+    # Count the complete eligible pool, even when the human shortlist is full.
+    # The headline still presents at most three names.
+    buy_pool = frame.loc[
+        _shortlist_mask(frame) & frame["proposal_status"].eq("오늘 신규매수 검토")
+    ] if not frame.empty else frame
+    sort_cols = [c for c in ("watch_priority", "flow_freshness", "discovery_score") if c in buy_pool]
+    if sort_cols:
+        buy_pool = buy_pool.sort_values(sort_cols, ascending=False, kind="stable")
+    buy_rows = [row for _, row in buy_pool.iterrows()]
     wait_rows = [row for row in rows if _text(row, "proposal_status") in {"강한 후보·가격 대기", "관찰"}]
 
     def item(row: pd.Series, index: int) -> HeadlineItem:

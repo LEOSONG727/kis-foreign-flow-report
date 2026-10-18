@@ -11,6 +11,7 @@ from kis_flow_bot.brief import annotate_watch_brief, inventory_summary, select_d
 from kis_flow_bot.dart import DartClient, DartError, DartUnavailable, update_filings
 from kis_flow_bot.features import build_base_features
 from kis_flow_bot.notify import build_headline
+from kis_flow_bot.config import BriefConfig
 from kis_flow_bot.pipeline import _resolve_investor_query_date, _validate_scan_freshness
 from kis_flow_bot.storage import read_csv, write_csv
 from test_brief import _row
@@ -163,6 +164,16 @@ def test_empty_shortlist_is_valid_when_every_candidate_is_rejected():
     frame = annotate_watch_brief(pd.DataFrame([_row(steady_accumulation=True, discovery_eligible=False)]))
     assert select_daily_brief(frame).empty
     assert not build_headline(frame).items and not build_headline(frame).wait_items
+
+
+def test_headline_counts_full_buy_pool_even_when_shortlist_is_smaller():
+    rows = [_row(symbol=f"{i:06}", name=f"buy{i}", action="초기 분할매수",
+                 decision_bucket="신규매수", discovery_score=90) for i in range(6)]
+    brief = BriefConfig(size=1)
+    frame = annotate_watch_brief(pd.DataFrame(rows), brief=brief)
+    headline = build_headline(frame, brief)
+    assert "6개" in headline.verdict
+    assert len(headline.items) == 3
 
 
 def test_stale_saved_shortlist_flag_cannot_reintroduce_rejected_row():
