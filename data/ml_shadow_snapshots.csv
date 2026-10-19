@@ -119,3 +119,15 @@ signal_date,model_version,symbol,name,market,ml_shadow_rank,ml_shadow_score,ml_s
 2026-10-16,v3.1-c-extra-trees-pit-r2,005180,빙그레,KOSPI,10,25.0,0.5277679473216489,7,94.3,False,False,90700.0,,,,,,,False
 2026-10-16,v3.1-c-extra-trees-pit-r2,078340,컴투스,KOSDAQ,11,16.666666666666664,0.5203391670379132,3,99.9,False,False,34250.0,,,,,,,False
 2026-10-16,v3.1-c-extra-trees-pit-r2,017890,한국알콜,KOSDAQ,12,8.333333333333332,0.4899443947501285,2,100.0,False,False,14860.0,,,,,,,False
+2026-10-19,v3.1-c-extra-trees-pit-r2,017670,SK텔레콤,KOSPI,1,100.0,0.568697870982081,9,95.8,True,False,78900.0,,,,,,,False
+2026-10-19,v3.1-c-extra-trees-pit-r2,001450,현대해상,KOSPI,2,91.66666666666666,0.5550872963495586,5,100.0,False,False,43400.0,,,,,,,False
+2026-10-19,v3.1-c-extra-trees-pit-r2,306200,세아제강,KOSPI,3,83.33333333333334,0.5452493203388175,10,94.8,False,False,140000.0,,,,,,,False
+2026-10-19,v3.1-c-extra-trees-pit-r2,033100,제룡전기,KOSDAQ,4,75.0,0.5446424144329308,12,89.1,False,False,43100.0,,,,,,,False
+2026-10-19,v3.1-c-extra-trees-pit-r2,005880,대한해운,KOSPI,5,66.66666666666666,0.5427820164318239,3,100.0,False,False,2040.0,,,,,,,False
+2026-10-19,v3.1-c-extra-trees-pit-r2,285130,SK케미칼,KOSPI,6,58.333333333333336,0.5383898597458331,11,91.2,False,False,47450.0,,,,,,,False
+2026-10-19,v3.1-c-extra-trees-pit-r2,214450,파마리서치,KOSDAQ,7,50.0,0.5377579676433464,8,97.0,False,False,278500.0,,,,,,,False
+2026-10-19,v3.1-c-extra-trees-pit-r2,001040,CJ,KOSPI,8,41.66666666666667,0.5359506235947168,1,100.0,False,True,127200.0,,,,,,,False
+2026-10-19,v3.1-c-extra-trees-pit-r2,016380,KG스틸,KOSPI,9,33.33333333333333,0.5349796975923915,7,97.4,False,False,5420.0,,,,,,,False
+2026-10-19,v3.1-c-extra-trees-pit-r2,192080,더블유게임즈,KOSPI,10,25.0,0.5338983189853168,4,100.0,False,False,55700.0,,,,,,,False
+2026-10-19,v3.1-c-extra-trees-pit-r2,005180,빙그레,KOSPI,11,16.666666666666664,0.5267341959697153,2,100.0,False,False,88200.0,,,,,,,False
+2026-10-19,v3.1-c-extra-trees-pit-r2,383220,F&F,KOSPI,12,8.333333333333332,0.5260482276784556,6,97.4,False,False,70900.0,,,,,,,False
