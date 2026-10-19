@@ -79,6 +79,118 @@ def h4_window(dates: pd.Series) -> pd.Series:
     )
 
 
+# ---------------------------------------------------------------------------
+# H5 (registered 2026-10-19): foreign accumulation that price has *confirmed*
+# ---------------------------------------------------------------------------
+# Found on the stored history 2025-04-14 ~ 2026-10-16 (every date was looked at,
+# so all of it is discovery). Inside the top 20% by 60-session foreign net buy
+# divided by market cap, names whose 20-session return was in the top third beat
+# names in the bottom third by +2.5%p of D+20 excess on average (90% block
+# bootstrap +0.9%p ~ +4.7%p); the bottom-third "underreaction" basket lost in
+# every variant tried. This is the opposite of the current buy gate, which
+# requires price to have *not* reacted. Flow is normalised by market cap
+# (ownership change), not by turnover.
+#
+# Frozen rule, per signal date, over the eligible universe:
+#   flow  = foreign_net60 / market cap (KRW)
+#   keep  = within-date pct rank(flow) >= 0.80
+#   H5    = keep & pct rank(price_return20) >= 2/3, ordered by flow, top k
+#   twin  = keep & pct rank(price_return20) <  1/3, ordered by flow, top k
+# Confirmed only by dates after registration: >= 60 dates where the H5 top-10
+# mean D+20 excess has a 90% lower bound > 0 AND (H5 - twin) has a lower
+# bound > 0. Changing any number here means a new id and a new date.
+
+H5_ID = "H5-flow-mcap-price-confirm"
+H5_TITLE = "60일 외인 순매수/시총 상위 20% 중 20일 가격확인 상위 1/3"
+H5_REGISTERED_ON = "2026-10-19"
+H5_FLOW_MIN_RANK = 0.80
+H5_CONFIRM_MIN_RANK = 2.0 / 3.0
+H5_LAG_MAX_RANK = 1.0 / 3.0
+H5_TOP_K = 10
+H5_FLOW_COLUMN = "h5_flow_mcap60"
+
+
+def h5_window(dates: pd.Series) -> pd.Series:
+    """Every date up to registration shaped H5 (discovery); later ones confirm it."""
+
+    stamp = pd.to_datetime(dates)
+    return pd.Series(
+        np.where(stamp <= pd.Timestamp(H5_REGISTERED_ON), "discovery", "confirmation"), index=dates.index
+    )
+
+
+def h5_flow(foreign_net60: pd.Series, market_cap_krw: pd.Series) -> pd.Series:
+    """60-session foreign net buy as a share of market cap (missing when cap is unknown)."""
+
+    net = pd.to_numeric(foreign_net60, errors="coerce")
+    cap = pd.to_numeric(market_cap_krw, errors="coerce")
+    return (net / cap.where(cap > 0)).astype(float)
+
+
+def h5_cap_scale(universe: pd.DataFrame, closes: pd.DataFrame) -> pd.Series:
+    """Shares implied by the master market cap: cap (KRW) / last stored close, per symbol.
+
+    Multiplying by a date's close gives that date's cap with today's share count.
+    Live and research use the same scale so H5 ranks the same universe in both;
+    the holdings-snapshot cap covers only a subset of names. A share-count drift
+    is a small error for a flow denominator.
+    """
+
+    if universe.empty or "market_cap_eok" not in universe or closes.empty:
+        return pd.Series(dtype=float)
+    symbols = universe["symbol"].astype(str).str.zfill(6)
+    cap = pd.Series(pd.to_numeric(universe["market_cap_eok"], errors="coerce").to_numpy() * 100_000_000.0, index=symbols)
+    cap = cap[~cap.index.duplicated(keep="last")]
+    last = closes.ffill().iloc[-1]
+    last.index = last.index.astype(str).str.zfill(6)
+    scale = cap / last.reindex(cap.index)
+    return scale[np.isfinite(scale) & (scale > 0)].astype(float)
+
+
+def attach_h5_flow(frame: pd.DataFrame, scale: pd.Series) -> pd.DataFrame:
+    """Add ``h5_flow_mcap60`` from ``foreign_net60`` and the scaled signal-date cap."""
+
+    result = frame.copy()
+    if result.empty or "foreign_net60" not in result or "close" not in result or scale.empty:
+        result[H5_FLOW_COLUMN] = np.nan
+        return result
+    caps = result["symbol"].astype(str).str.zfill(6).map(scale) * pd.to_numeric(result["close"], errors="coerce")
+    result[H5_FLOW_COLUMN] = h5_flow(result["foreign_net60"], caps).to_numpy()
+    return result
+
+
+def h5_select(frame: pd.DataFrame, side: str = "confirm", top_k: int = H5_TOP_K, date_column: str = "as_of") -> pd.DataFrame:
+    """H5 picks (``side='confirm'``) or its underreaction twin (``side='lag'``) per date.
+
+    Ranks are taken within each date over the rows given, which must already be
+    the eligible universe. Rows without flow or 20-session return are ignored.
+    """
+
+    if side not in {"confirm", "lag"}:
+        raise ValueError(f"unknown H5 side: {side}")
+    needed = {date_column, H5_FLOW_COLUMN, "price_return20"}
+    if frame.empty or not needed.issubset(frame.columns):
+        return frame.iloc[0:0]
+    data = frame.copy()
+    data["_flow"] = pd.to_numeric(data[H5_FLOW_COLUMN], errors="coerce")
+    data["_r20"] = pd.to_numeric(data["price_return20"], errors="coerce")
+    data = data.dropna(subset=["_flow", "_r20"])
+    if data.empty:
+        return data.drop(columns=["_flow", "_r20"])
+    grouped = data.groupby(date_column)
+    flow_rank = grouped["_flow"].rank(pct=True)
+    price_rank = grouped["_r20"].rank(pct=True)
+    keep = flow_rank >= H5_FLOW_MIN_RANK
+    keep &= price_rank >= H5_CONFIRM_MIN_RANK if side == "confirm" else price_rank < H5_LAG_MAX_RANK
+    chosen = (
+        data[keep]
+        .sort_values([date_column, "_flow"], ascending=[True, False], kind="stable")
+        .groupby(date_column, sort=True)
+        .head(top_k)
+    )
+    return chosen.drop(columns=["_flow", "_r20"])
+
+
 def hypothesis_score(frame: pd.DataFrame, hypothesis: Hypothesis, date_column: str = "as_of") -> pd.Series:
     """Weighted sum of within-date percentile ranks, centred at 0."""
 
