@@ -143,3 +143,15 @@ signal_date,model_version,symbol,name,market,ml_shadow_rank,ml_shadow_score,ml_s
 2026-10-20,v3.1-c-extra-trees-pit-r2,005180,빙그레,KOSPI,10,25.0,0.5298072584333535,1,100.0,False,True,86800.0,,,,,,,False
 2026-10-20,v3.1-c-extra-trees-pit-r2,096530,씨젠,KOSDAQ,11,16.666666666666664,0.5161804271307463,7,95.0,False,False,36500.0,,,,,,,False
 2026-10-20,v3.1-c-extra-trees-pit-r2,017890,한국알콜,KOSDAQ,12,8.333333333333332,0.5053825438841368,6,96.0,False,False,14220.0,,,,,,,False
+2026-10-21,v3.1-c-extra-trees-pit-r2,018260,삼성에스디에스,KOSPI,1,100.0,0.5796804813195402,1,100.0,True,True,200000.0,,,,,,,False
+2026-10-21,v3.1-c-extra-trees-pit-r2,017670,SK텔레콤,KOSPI,2,91.66666666666666,0.567705677467271,6,98.5,False,False,77100.0,,,,,,,False
+2026-10-21,v3.1-c-extra-trees-pit-r2,011200,HMM,KOSPI,3,83.33333333333334,0.5508380555696086,12,95.1,False,False,23250.0,,,,,,,False
+2026-10-21,v3.1-c-extra-trees-pit-r2,001450,현대해상,KOSPI,4,75.0,0.5483259642687028,7,98.4,False,False,42500.0,,,,,,,False
+2026-10-21,v3.1-c-extra-trees-pit-r2,000080,하이트진로,KOSPI,5,66.66666666666666,0.5429827972027663,11,97.0,False,False,15790.0,,,,,,,False
+2026-10-21,v3.1-c-extra-trees-pit-r2,005180,빙그레,KOSPI,6,58.333333333333336,0.536600155367108,3,100.0,False,False,82200.0,,,,,,,False
+2026-10-21,v3.1-c-extra-trees-pit-r2,016380,KG스틸,KOSPI,7,50.0,0.5363863564192145,10,97.1,False,False,5290.0,,,,,,,False
+2026-10-21,v3.1-c-extra-trees-pit-r2,001040,CJ,KOSPI,8,41.66666666666667,0.5349823183308052,2,100.0,False,False,120800.0,,,,,,,False
+2026-10-21,v3.1-c-extra-trees-pit-r2,192080,더블유게임즈,KOSPI,9,33.33333333333333,0.5333272578421112,4,100.0,False,False,55500.0,,,,,,,False
+2026-10-21,v3.1-c-extra-trees-pit-r2,213420,덕산네오룩스,KOSDAQ,10,25.0,0.5331836631687633,8,97.7,False,False,26650.0,,,,,,,False
+2026-10-21,v3.1-c-extra-trees-pit-r2,096530,씨젠,KOSDAQ,11,16.666666666666664,0.5158600491518629,5,99.8,False,False,36150.0,,,,,,,False
+2026-10-21,v3.1-c-extra-trees-pit-r2,017890,한국알콜,KOSDAQ,12,8.333333333333332,0.4984488060069857,9,97.4,False,False,14580.0,,,,,,,False
