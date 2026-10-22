@@ -41,7 +41,13 @@ STRATEGY_LABELS = {
     "value_top5": "사전등록 가설 H1 상위 5 (영업이익 수익률·순자산·저변동성)",
     "value_clean_top5": "H1 상위 5 · 일회성 이익 제외 (가설 H3, 키워드)",
     "learned_top20pct": "가설 H4: 학습 모델 상위 20% 무작위 분산 (40종목)",
+    "h5_confirm_top5": "가설 H5: 60일 외인/시총 상위 + 가격확인 상위 5",
+    "h5_lag_top5": "H5 대조: 60일 외인/시총 상위 + 가격 미반응 상위 5",
 }
+# H5 (registered 2026-10-19): the same flow ranking with opposite price filters.
+# The twin keeps the current model's "price has not reacted" idea, so the pair
+# tests which side of that choice earns money on forward dates.
+H5_STRATEGIES = {"h5_confirm_top5": "confirm", "h5_lag_top5": "lag"}
 # H4 (registered 2026-09-30): a diversified sample of the learned model's top
 # quintile. Each day two names are drawn at random (seed = signal date) from the
 # top 20% by learned score and held for 20 sessions across 40 slots.
@@ -292,6 +298,11 @@ def live_signals(scored: pd.DataFrame, picks: int = 5) -> pd.DataFrame:
     if "learned_rank" in ordered and ordered["learned_rank"].notna().any():
         ranked = ordered.dropna(subset=["learned_rank"]).sort_values("learned_rank")
         chosen[H4_ID] = quintile_sample(ranked, as_of)
+    if "h5_flow_mcap60" in ordered and ordered["h5_flow_mcap60"].notna().any():
+        from .hypotheses import h5_select
+
+        for strategy, side in H5_STRATEGIES.items():
+            chosen[strategy] = h5_select(ordered.assign(as_of=as_of), side, top_k=picks)
     if "kw_dilution" in ordered:
         risky = (
             ordered["kw_dilution"].astype("boolean").fillna(False).astype(bool)
@@ -381,31 +392,55 @@ def update_paper_trading(
     start = pd.Timestamp(getattr(getattr(settings, "paper", None), "start_date", "") or "1900-01-01")
     ledger_path = settings.data_dir / "paper_signals.csv"
     ledger = read_csv(ledger_path)
+    opens, closes = _price_pivots(history)
+    if "h5_flow_mcap60" not in scored:
+        from .hypotheses import attach_h5_flow, h5_cap_scale
+
+        universe = read_csv(settings.data_dir / "universe.csv")
+        scored = attach_h5_flow(scored, h5_cap_scale(universe, closes))
     today = live_signals(scored, config.picks_per_day)
     if not today.empty and pd.Timestamp(today["as_of"].iloc[0]) >= start:
         ledger = append_signals(ledger, today, generated_at.isoformat(timespec="seconds"))
         write_csv(ledger, ledger_path)
     if ledger.empty:
         return pd.DataFrame()
-    opens, closes = _price_pivots(history)
     picks = ledger[ledger["symbol"].astype(str).str.strip().ne("") & ledger["symbol"].notna()]
     first = pd.to_datetime(ledger["as_of"]).min()
-    nav, trades = simulate(
-        picks.assign(symbol=picks["symbol"].astype(str)), opens, closes, config, start=first, overrides=STRATEGY_OVERRIDES
-    )
-    strategies = sorted(ledger["strategy"].unique())
-    if not nav.empty:
+    # A strategy added later is measured from its own first record, against the
+    # index over the same span, so cash days before it existed do not count.
+    starts = pd.to_datetime(ledger["as_of"]).groupby(ledger["strategy"].astype(str)).min()
+    navs, trade_frames, summaries = [], [], []
+    for start_day, names in starts.groupby(starts):
+        names = list(names.index)
+        nav_part, trades_part = simulate(
+            picks[picks["strategy"].astype(str).isin(names)].assign(symbol=lambda f: f["symbol"].astype(str)),
+            opens, closes, config, start=start_day, overrides=STRATEGY_OVERRIDES,
+        )
+        days = sorted(d for d in closes.index if d >= start_day)
         # Strategies that never picked still exist, as cash.
-        missing = [s for s in strategies if s not in set(nav["strategy"])]
-        days = sorted(nav["date"].unique())
+        missing = [s for s in names if nav_part.empty or s not in set(nav_part["strategy"])]
         for strategy in missing:
-            nav = pd.concat(
-                [nav, pd.DataFrame({"date": days, "strategy": strategy, "equity": config.initial_equity,
-                                    "cash": config.initial_equity, "positions": 0, "exposure": 0.0})],
+            nav_part = pd.concat(
+                [nav_part, pd.DataFrame({"date": days, "strategy": strategy, "equity": config.initial_equity,
+                                         "cash": config.initial_equity, "positions": 0, "exposure": 0.0})],
                 ignore_index=True,
             )
-    bench = benchmark_nav(closes, first, config.initial_equity)
-    summary = summarize(nav, trades, bench)
+        bench_part = benchmark_nav(closes, start_day, config.initial_equity)
+        navs.append(nav_part)
+        trade_frames.append(trades_part)
+        summaries.append(summarize(nav_part, trades_part, bench_part))
+    nav = pd.concat([n for n in navs if not n.empty], ignore_index=True) if any(not n.empty for n in navs) else pd.DataFrame()
+    trades = (
+        pd.concat([t for t in trade_frames if not t.empty], ignore_index=True)
+        if any(not t.empty for t in trade_frames) else pd.DataFrame()
+    )
+    summary = (
+        pd.concat([s for s in summaries if not s.empty], ignore_index=True)
+        if any(not s.empty for s in summaries) else pd.DataFrame()
+    )
+    if not summary.empty:
+        summary = summary.sort_values("strategy", kind="stable").reset_index(drop=True)
+        summary["start"] = summary["strategy"].map(starts).dt.strftime("%Y-%m-%d")
     write_csv(nav, settings.data_dir / "paper_nav.csv")
     write_csv(trades, settings.data_dir / "paper_trades.csv")
     lines = [
@@ -416,8 +451,14 @@ def update_paper_trading(
         f"편도 비용 {config.cost_per_side:.2%}, 시작 자금 {config.initial_equity / 1e8:.0f}억 원(가상)",
         "- 매일 추천은 처음 기록된 순간 고정됩니다. 가격을 본 뒤 고칠 수 없습니다.",
         "- 비교 지수는 저장된 전 종목의 동일가중 일간 수익률입니다.",
+        "- 나중에 추가된 전략은 처음 기록된 날부터, 같은 기간의 지수와 비교합니다.",
         "",
     ]
+    later = starts[starts > first]
+    if not later.empty:
+        lines.extend(
+            [f"- {STRATEGY_LABELS.get(name, name)}: {day.date()}부터 기록" for name, day in later.items()] + [""]
+        )
     lines.extend(render_summary_table(summary) if not summary.empty else ["아직 체결된 거래가 없습니다."])
     lines.extend(["", "20거래일 보유 기준이라 최소 1~2개월은 지나야 의미 있는 비교가 됩니다. 이 기록은 모델을 자동 변경하지 않습니다.", ""])
     (settings.reports_dir / "paper_trading.md").write_text("\n".join(lines), encoding="utf-8")
@@ -479,6 +520,15 @@ def portfolio_backtest(
             h4_rows.append(sample.assign(strategy=H4_ID)[["as_of", "strategy", "rank", "symbol"]])
         if h4_rows:
             signals.append(pd.concat(h4_rows, ignore_index=True))
+    if not panel.empty and "h5_flow_mcap60" in panel and panel["h5_flow_mcap60"].notna().any():
+        from .hypotheses import h5_select
+
+        for strategy, side in H5_STRATEGIES.items():
+            top = h5_select(panel, side, top_k=config.picks_per_day).copy()
+            if top.empty:
+                continue
+            top["rank"] = top.groupby("as_of").cumcount() + 1
+            signals.append(top.assign(strategy=strategy)[["as_of", "strategy", "rank", "symbol"]])
     if not signals:
         return pd.DataFrame()
     frame = pd.concat(signals, ignore_index=True)
@@ -496,6 +546,7 @@ def portfolio_backtest(
         f"- 모의 운용과 같은 규칙: 다음 날 시가 매수, 최대 {config.slots}종목, {config.hold_sessions}거래일 보유, 편도 {config.cost_per_side:.2%}",
         "- 발견점수는 이 기간 데이터로 규칙을 조정했으므로 표본 내 결과입니다. 학습 모델은 워크포워드(그날까지 확정된 결과로만 학습)입니다.",
         "- 가설 H1은 2026-04-06 ~ 2026-08-26을 보고 만든 가설이라 이 구간 성과는 증거가 아닙니다. 그 밖의 구간과 모의 운용으로 판정합니다.",
+        "- 가설 H5와 그 미반응 대조는 2026-10-16까지의 이력을 보고 만들었으므로, 이 표의 H5 성과는 전부 표본 내입니다. 등록(2026-10-19) 이후 모의 운용만 증거입니다.",
         "- 동시 보유·현금·비용을 반영한 계좌 수익률이라, 종목별 평균보다 실제 운용에 가깝습니다.",
         "",
     ]
