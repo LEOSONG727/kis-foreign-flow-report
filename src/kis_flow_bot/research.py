@@ -47,12 +47,21 @@ from .hypotheses import (
     DISCOVERY_END,
     DISCOVERY_START,
     H4_REGISTERED_ON,
+    H5_FLOW_COLUMN,
+    H5_ID,
+    H5_REGISTERED_ON,
+    H5_TITLE,
+    H5_TOP_K,
     HYPOTHESES,
     MIN_CONFIRMATION_DATES,
     REGISTERED_ON,
     VERDICT_LABELS as HYPOTHESIS_LABELS,
     add_hypothesis_scores,
     h4_window,
+    attach_h5_flow,
+    h5_cap_scale,
+    h5_select,
+    h5_window,
     verdict as hypothesis_verdict,
     window_of,
 )
@@ -193,6 +202,7 @@ def _panel_one_date(date_index: int) -> pd.DataFrame:
     scored["date_index"] = date_index
     scored["entry_date"] = dates[date_index + 1]
     scored["symbol"] = scored["symbol"].astype(str).str.zfill(6)
+    scored = attach_h5_flow(scored, ctx.get("cap_scale", pd.Series(dtype=float)))
 
     opens: pd.DataFrame = ctx["opens"]
     closes: pd.DataFrame = ctx["closes"]
@@ -232,6 +242,8 @@ def _panel_one_date(date_index: int) -> pd.DataFrame:
                 "market_return20",
                 "timing_score",
                 "close",
+                "foreign_net60",
+                H5_FLOW_COLUMN,
                 *(f"fwd{h}" for h in PANEL_HORIZONS),
                 *(f"excess{h}" for h in PANEL_HORIZONS),
                 *(f"label_end_{h}" for h in PANEL_HORIZONS),
@@ -261,14 +273,16 @@ def _load_inputs(settings: Settings) -> dict[str, Any]:
         if not frame.empty and "date" in frame:
             frame["date"] = pd.to_datetime(frame["date"], errors="coerce")
     universe["symbol"] = universe["symbol"].astype("string").str.zfill(6)
+    closes = history.pivot_table(index="date", columns="symbol", values="close", aggfunc="last")
     return {
+        "cap_scale": h5_cap_scale(universe, closes),
         "history": history,
         "universe": universe,
         "snapshots": snapshots,
         "opinions": opinions,
         "dates": [pd.Timestamp(value) for value in sorted(history["date"].unique())],
         "opens": history.pivot_table(index="date", columns="symbol", values="open", aggfunc="last"),
-        "closes": history.pivot_table(index="date", columns="symbol", values="close", aggfunc="last"),
+        "closes": closes,
         "lows": history.pivot_table(index="date", columns="symbol", values="low", aggfunc="last"),
     }
 
@@ -674,6 +688,51 @@ def evaluate_h4(merged: pd.DataFrame, settings: Settings) -> dict[str, Any]:
     return result
 
 
+def h5_series(labelled: pd.DataFrame, target: str, top_k: int = H5_TOP_K) -> pd.DataFrame:
+    """Per date: mean excess of the H5 picks, of its underreaction twin, and the spread."""
+
+    if labelled.empty or target not in labelled:
+        return pd.DataFrame()
+    data = labelled[pd.to_numeric(labelled[target], errors="coerce").notna()]
+    confirm = h5_select(data, "confirm", top_k).groupby("as_of")[target].mean()
+    lag = h5_select(data, "lag", top_k).groupby("as_of")[target].mean()
+    frame = pd.DataFrame({"confirm": confirm, "lag": lag}).dropna()
+    if frame.empty:
+        return pd.DataFrame()
+    frame["spread"] = frame["confirm"] - frame["lag"]
+    return frame.rename_axis("as_of").reset_index()
+
+
+def evaluate_h5(labelled: pd.DataFrame, settings: Settings) -> dict[str, Any]:
+    """H5: price-confirmed heavy foreign buying beats zero and its underreaction twin."""
+
+    research = settings.research
+    horizon = research.horizon
+    kwargs = {"confidence": research.confidence, "samples": research.bootstrap_samples}
+    series = h5_series(labelled, f"excess{horizon}")
+    result: dict[str, Any] = {"id": H5_ID, "title": H5_TITLE, "registered_on": H5_REGISTERED_ON, "top_k": H5_TOP_K}
+    if series.empty:
+        result["verdict"] = "INSUFFICIENT_DATA"
+        return result
+    windows = h5_window(series["as_of"])
+    for window in ("discovery", "confirmation"):
+        part = series[windows == window]
+        result[window] = {
+            column: summarize_series(part[column], horizon, **kwargs).as_dict()
+            for column in ("confirm", "lag", "spread")
+        }
+    confirmation = result["confirmation"]
+    if confirmation["confirm"]["dates"] < MIN_CONFIRMATION_DATES:
+        result["verdict"] = "INSUFFICIENT_DATA"
+    elif confirmation["confirm"]["low"] > 0 and confirmation["spread"]["low"] > 0:
+        result["verdict"] = "CONFIRMED"
+    elif confirmation["spread"]["high"] < 0:
+        result["verdict"] = "REVERSED"
+    else:
+        result["verdict"] = "NOT_CONFIRMED"
+    return result
+
+
 def analyze_panel(panel: pd.DataFrame, settings: Settings) -> dict[str, Any]:
     research = settings.research
     horizon = research.horizon
@@ -778,6 +837,7 @@ def analyze_panel(panel: pd.DataFrame, settings: Settings) -> dict[str, Any]:
         "predictions": predictions,
         "hypotheses": evaluate_hypotheses(labelled, settings),
         "h4": evaluate_h4(merged, settings),
+        "h5": evaluate_h5(labelled, settings),
         "factors": factors,
         "oos": oos,
         "champion": champion,
@@ -920,6 +980,31 @@ def render_research_markdown(result: dict[str, Any], settings: Settings, generat
                 f"{_fmt(item['bottom']['mean'], pct=True)} | {_fmt(item['spread']['mean'], pct=True)} | {_fmt(item['spread']['low'], pct=True)} |"
             )
         lines.extend(["", f"H4 판정: **{HYPOTHESIS_LABELS.get(h4.get('verdict', ''), h4.get('verdict', ''))}**", ""])
+    h5 = result.get("h5") or {}
+    if h5.get("discovery") or h5.get("confirmation"):
+        lines.extend(
+            [
+                "## 5. 사전등록 가설 H5: 가격이 확인한 외인 매집",
+                "",
+                f"{H5_REGISTERED_ON} 등록. 60일 외국인 순매수/시가총액 상위 20% 안에서 20일 수익률 상위 1/3을 순매수 순으로 "
+                f"{H5_TOP_K}개 고른 바구니(H5)와, 같은 수급에서 20일 수익률 하위 1/3을 고른 **가격 미반응 쌍둥이**를 비교합니다. "
+                f"H5의 D+{research.horizon} 초과수익과 H5 − 쌍둥이 격차가 모두 90% 하한 > 0이어야 확인입니다(검증 구간 "
+                f"{MIN_CONFIRMATION_DATES}일 이상). 등록일까지의 저장 이력은 모두 이 가설을 만든 **발견 구간**입니다.",
+                "",
+                "| 구간 | 신호일 | H5 | 하한 | 미반응 쌍둥이 | H5 − 쌍둥이 | 하한 |",
+                "|---|---:|---:|---:|---:|---:|---:|",
+            ]
+        )
+        for window, label in (("discovery", "발견"), ("confirmation", "검증")):
+            item = h5.get(window)
+            if not item:
+                lines.append(f"| {label} | 0 | - | - | - | - | - |")
+                continue
+            lines.append(
+                f"| {label} | {item['confirm']['dates']} | {_fmt(item['confirm']['mean'], pct=True)} | {_fmt(item['confirm']['low'], pct=True)} | "
+                f"{_fmt(item['lag']['mean'], pct=True)} | {_fmt(item['spread']['mean'], pct=True)} | {_fmt(item['spread']['low'], pct=True)} |"
+            )
+        lines.extend(["", f"H5 판정: **{HYPOTHESIS_LABELS.get(h5.get('verdict', ''), h5.get('verdict', ''))}**", ""])
     return "\n".join(lines)
 
 
@@ -979,6 +1064,7 @@ def write_research_outputs(result: dict[str, Any], settings: Settings, generated
         "challenger": result["challenger"],
         "hypotheses": result.get("hypotheses", []),
         "h4": result.get("h4", {}),
+        "h5": result.get("h5", {}),
     }
     ranker = {
         **record,
@@ -1007,6 +1093,7 @@ def write_research_outputs(result: dict[str, Any], settings: Settings, generated
             "challenger_oos_dates": record["challenger"]["oos_ic"]["dates"],
             "ic_delta": record["challenger"]["ic_delta_vs_champion"]["mean"],
             "h4_verdict": record["h4"].get("verdict"),
+            "h5_verdict": record["h5"].get("verdict"),
             "hypotheses": {
                 item["id"]: {
                     "verdict": item["verdict"],
