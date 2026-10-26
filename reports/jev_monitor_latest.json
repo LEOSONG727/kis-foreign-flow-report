@@ -1,24 +1,24 @@
 {
-  "captured_at": "2026-10-23T16:03:17.870202+00:00",
+  "captured_at": "2026-10-26T17:45:16.433261+00:00",
   "evidence": {
     "operational_status": "no_reported_issues",
     "status_counts": {
-      "VALIDATION_OFF": 671
+      "VALIDATION_OFF": 667
     },
     "cohort": "f004567e14ac4a55",
-    "recorded_signal_days": 13,
+    "recorded_signal_days": 14,
     "completed_common_days": 0,
     "sample_status": "insufficient_for_performance_review",
     "return_difference": "unavailable",
     "entry_loss_difference": "unavailable",
     "limitations": "Overlapping holdings; no significance claim, no automatic promotion; this is not portfolio MDD.",
     "champion_status": "INSUFFICIENT_DATA",
-    "challenger_status": "NO_EDGE",
+    "challenger_status": "PROMOTE",
     "jev_replay_verdict": "NO_VALUE"
   },
-  "decision": "OBSERVE",
+  "decision": "REVIEW",
   "source": "code",
   "model": null,
   "error": null,
-  "note": "모델 감독: 계속 관찰\n자가검증: 현행 표본 부족 · 도전자 예측력 미확인\nJev 과거 검증: 추가 가치 없음 (일일 호출 중지)"
+  "note": "모델 감독: 개선 검토 필요\n자가검증: 현행 표본 부족 · 도전자 승격 기준 통과\nJev 과거 검증: 추가 가치 없음 (일일 호출 중지)\n검증 결과가 바뀌었습니다. 사람이 검토하세요. 자동 수정은 하지 않습니다."
 }
