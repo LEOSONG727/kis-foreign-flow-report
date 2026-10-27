@@ -1,41 +1,41 @@
 {
-  "as_of": "2026-10-26",
+  "as_of": "2026-10-27",
   "long_core": [
     {
       "name": "HMM",
-      "score": 80.4,
+      "score": 79.6,
       "since": "2026-10-20",
       "symbol": "011200"
     },
     {
       "name": "S-Oil",
-      "score": 63.5,
+      "score": 63.8,
       "since": "2026-10-21",
       "symbol": "010950"
     },
     {
       "name": "씨젠",
-      "score": 51.0,
+      "score": 55.4,
       "since": "2026-10-21",
       "symbol": "096530"
     }
   ],
   "mid_core": [
     {
-      "name": "한국알콜",
-      "score": 79.7,
-      "since": "2026-10-15",
-      "symbol": "017890"
+      "name": "HMM",
+      "score": 100.0,
+      "since": "2026-10-27",
+      "symbol": "011200"
     },
     {
       "name": "빙그레",
-      "score": 76.5,
+      "score": 84.1,
       "since": "2026-10-16",
       "symbol": "005180"
     },
     {
       "name": "경동나비엔",
-      "score": 61.0,
+      "score": 66.7,
       "since": "2026-10-16",
       "symbol": "009450"
     }
@@ -47,24 +47,24 @@
       "symbol": "251270"
     },
     {
-      "name": "HMM",
-      "status": "강한 후보·가격 대기",
-      "symbol": "011200"
+      "name": "더블유게임즈",
+      "status": "오늘 신규매수 검토",
+      "symbol": "192080"
     },
     {
-      "name": "CJ",
-      "status": "강한 후보·가격 대기",
-      "symbol": "001040"
+      "name": "SK텔레콤",
+      "status": "오늘 신규매수 검토",
+      "symbol": "017670"
     },
     {
-      "name": "현대해상",
-      "status": "강한 후보·가격 대기",
-      "symbol": "001450"
+      "name": "KG스틸",
+      "status": "오늘 신규매수 검토",
+      "symbol": "016380"
     },
     {
-      "name": "SFA",
-      "status": "강한 후보·가격 대기",
-      "symbol": "056190"
+      "name": "신세계 I&C",
+      "status": "오늘 신규매수 검토",
+      "symbol": "035510"
     }
   ]
 }
