@@ -1,60 +1,50 @@
 {
-  "as_of": "2026-10-29",
+  "as_of": "2026-10-30",
   "long_core": [
     {
-      "name": "HMM",
-      "score": 80.1,
-      "since": "2026-10-20",
-      "symbol": "011200"
+      "name": "CJ",
+      "score": 66.6,
+      "since": "2026-10-30",
+      "symbol": "001040"
     },
     {
       "name": "S-Oil",
-      "score": 69.0,
+      "score": 63.6,
       "since": "2026-10-21",
       "symbol": "010950"
     },
     {
       "name": "씨젠",
-      "score": 54.8,
+      "score": 55.6,
       "since": "2026-10-21",
       "symbol": "096530"
     }
   ],
   "mid_core": [
     {
-      "name": "HMM",
-      "score": 100.0,
-      "since": "2026-10-27",
-      "symbol": "011200"
-    },
-    {
       "name": "CJ",
-      "score": 97.9,
+      "score": 100.0,
       "since": "2026-10-28",
       "symbol": "001040"
     },
     {
-      "name": "빙그레",
-      "score": 88.1,
-      "since": "2026-10-16",
-      "symbol": "005180"
+      "name": "씨젠",
+      "score": 90.1,
+      "since": "2026-10-30",
+      "symbol": "096530"
+    },
+    {
+      "name": "현대해상",
+      "score": 89.2,
+      "since": "2026-10-30",
+      "symbol": "001450"
     }
   ],
   "tactical": [
     {
-      "name": "넷마블",
-      "status": "오늘 신규매수 검토",
-      "symbol": "251270"
-    },
-    {
       "name": "금호석유화학",
       "status": "오늘 신규매수 검토",
       "symbol": "011780"
-    },
-    {
-      "name": "CJ",
-      "status": "오늘 신규매수 검토",
-      "symbol": "001040"
     },
     {
       "name": "씨젠",
@@ -62,9 +52,19 @@
       "symbol": "096530"
     },
     {
-      "name": "빙그레",
+      "name": "넷마블",
       "status": "오늘 신규매수 검토",
-      "symbol": "005180"
+      "symbol": "251270"
+    },
+    {
+      "name": "F&F",
+      "status": "오늘 신규매수 검토",
+      "symbol": "383220"
+    },
+    {
+      "name": "케이뱅크",
+      "status": "오늘 신규매수 검토",
+      "symbol": "279570"
     }
   ]
 }
