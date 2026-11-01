@@ -3,39 +3,39 @@
   "prompt_hash": "eedd5ea91139456e",
   "model": "jev-1.13.0",
   "rows": 5760,
-  "rows_with_text": 5522,
+  "rows_with_text": 5530,
   "jev_answered": 238,
   "flags": [
     {
       "source": "jev",
-      "flag_rate": 0.0,
-      "flagged": 0,
-      "excess_flagged": null,
-      "excess_clean": 0.001732134641461802,
-      "severe_flagged": null,
-      "severe_clean": 0.13025210084033614
+      "flag_rate": 0.004201680672268907,
+      "flagged": 1,
+      "excess_flagged": 0.1294270774112297,
+      "excess_clean": 0.0007757169178002627,
+      "severe_flagged": 0.0,
+      "severe_clean": 0.14767932489451477
     },
     {
       "source": "kw",
-      "flag_rate": 0.03888888888888889,
-      "flagged": 224,
-      "excess_flagged": -0.05038449680701006,
-      "excess_clean": -0.004824216088857901,
-      "severe_flagged": 0.15625,
-      "severe_clean": 0.08815028901734104
+      "flag_rate": 0.04079861111111111,
+      "flagged": 235,
+      "excess_flagged": -0.04774061725132621,
+      "excess_clean": -0.004345855244256535,
+      "severe_flagged": 0.1829787234042553,
+      "severe_clean": 0.09447963800904978
     }
   ],
   "dates": 288,
   "portfolios": {
     "baseline": {
       "dates": 288,
-      "mean": -0.01169834218339407,
-      "low": -0.033811742205434966,
-      "high": 0.010963452546408146,
-      "positive_share": 0.3854166666666667,
-      "effective_t": -0.598864973975917
+      "mean": -0.01143514285044551,
+      "low": -0.03429823355311182,
+      "high": 0.011389448528271756,
+      "positive_share": 0.3888888888888889,
+      "effective_t": -0.5835116424984723
     },
-    "baseline_severe": 0.06736111111111111,
+    "baseline_severe": 0.07291666666666669,
     "jev_veto": {
       "dates": 0,
       "mean": null,
@@ -47,13 +47,13 @@
     "jev_veto_severe": null,
     "keyword_veto": {
       "dates": 288,
-      "mean": -0.011028759428157307,
-      "low": -0.03255823819830029,
-      "high": 0.011230262340283886,
-      "positive_share": 0.3819444444444444,
-      "effective_t": -0.5666505729839021
+      "mean": -0.010666564233876678,
+      "low": -0.03298617967427142,
+      "high": 0.011951969510583136,
+      "positive_share": 0.3854166666666667,
+      "effective_t": -0.5455765779931729
     },
-    "keyword_veto_severe": 0.06527777777777778,
+    "keyword_veto_severe": 0.06944444444444445,
     "jev_veto_minus_baseline": {
       "dates": 0,
       "mean": null,
@@ -64,11 +64,11 @@
     },
     "keyword_veto_minus_baseline": {
       "dates": 288,
-      "mean": 0.0006695827552367594,
-      "low": 3.6093936593103436e-05,
-      "high": 0.0014821070005917951,
-      "positive_share": 0.041666666666666664,
-      "effective_t": 0.38443537194721666
+      "mean": 0.0007685786165688277,
+      "low": 3.944914933326493e-05,
+      "high": 0.0016661071940642198,
+      "positive_share": 0.052083333333333336,
+      "effective_t": 0.415387077178544
     },
     "jev_veto_minus_keyword_veto": {
       "dates": 0,
@@ -81,9 +81,9 @@
   },
   "verdict": "KEYWORDS_ENOUGH",
   "reasons": [
-    "키워드 제외만으로 H1 대비 +0.07% (하한 +0.00%)"
+    "키워드 제외만으로 H1 대비 +0.08% (하한 +0.00%)"
   ],
-  "generated_at": "2026-10-25T15:45:34+09:00",
+  "generated_at": "2026-11-01T19:16:58+09:00",
   "pit_version": "receipt-pit-v3",
   "availability_policy": "after_receipt_and_answer_capture"
 }
