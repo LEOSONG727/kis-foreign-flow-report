@@ -238,4 +238,16 @@ signal_date,model_version,symbol,name,market,ml_shadow_rank,ml_shadow_score,ml_s
 2026-10-30,v3.1-c-extra-trees-pit-r2,499790,GS피앤엘,KOSPI,9,33.33333333333333,0.525214871277326,4,100.0,False,False,33200.0,,,,,,,False
 2026-10-30,v3.1-c-extra-trees-pit-r2,078340,컴투스,KOSDAQ,10,25.0,0.5118656830771185,11,93.0,False,False,31350.0,,,,,,,False
 2026-10-30,v3.1-c-extra-trees-pit-r2,001040,CJ,KOSPI,11,16.666666666666664,0.5083494364531734,3,100.0,False,False,109200.0,,,,,,,False
-2026-10-30,v3.1-c-extra-trees-pit-r2,214370,케어젠,KOSDAQ,12,8.333333333333332,0.48331759473834673,10,94.6,False,False,32850.0,,,,,,,False
+2026-10-30,v3.1-c-extra-trees-pit-r2,214370,케어젠,KOSDAQ,12,8.333333333333332,0.4833175947383467,10,94.6,False,False,32850.0,,,,,,,False
+2026-11-02,v3.1-c-extra-trees-pit-r2,145020,휴젤,KOSDAQ,1,100.0,0.5522129518303317,10,74.7,True,False,183000.0,,,,,,,False
+2026-11-02,v3.1-c-extra-trees-pit-r2,263750,펄어비스,KOSDAQ,2,91.66666666666666,0.548828546913785,7,77.8,False,False,32600.0,,,,,,,False
+2026-11-02,v3.1-c-extra-trees-pit-r2,011780,금호석유화학,KOSPI,3,83.33333333333334,0.5476369041679428,9,76.0,False,False,106500.0,,,,,,,False
+2026-11-02,v3.1-c-extra-trees-pit-r2,096530,씨젠,KOSDAQ,4,75.0,0.5442420736456098,6,78.8,False,False,32550.0,,,,,,,False
+2026-11-02,v3.1-c-extra-trees-pit-r2,001450,현대해상,KOSPI,5,66.66666666666666,0.5434227015612162,1,94.5,False,True,43200.0,,,,,,,False
+2026-11-02,v3.1-c-extra-trees-pit-r2,009450,경동나비엔,KOSPI,6,58.333333333333336,0.5430293611868456,11,74.3,False,False,59400.0,,,,,,,False
+2026-11-02,v3.1-c-extra-trees-pit-r2,279570,케이뱅크,KOSPI,7,50.0,0.5419756977736907,4,83.0,False,False,5220.0,,,,,,,False
+2026-11-02,v3.1-c-extra-trees-pit-r2,192080,더블유게임즈,KOSPI,8,41.66666666666667,0.541442538404303,3,83.7,False,False,54300.0,,,,,,,False
+2026-11-02,v3.1-c-extra-trees-pit-r2,196170,알테오젠,KOSDAQ,9,33.33333333333333,0.5353121956330757,12,74.1,False,False,213000.0,,,,,,,False
+2026-11-02,v3.1-c-extra-trees-pit-r2,060250,NHN KCP,KOSDAQ,10,25.0,0.5334990723452439,5,79.2,False,False,12000.0,,,,,,,False
+2026-11-02,v3.1-c-extra-trees-pit-r2,001040,CJ,KOSPI,11,16.666666666666664,0.5218683361414601,2,88.6,False,False,114800.0,,,,,,,False
+2026-11-02,v3.1-c-extra-trees-pit-r2,483650,달바글로벌,KOSPI,12,8.333333333333332,0.5135329785984688,8,76.8,False,False,147600.0,,,,,,,False
