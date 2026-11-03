@@ -251,3 +251,15 @@ signal_date,model_version,symbol,name,market,ml_shadow_rank,ml_shadow_score,ml_s
 2026-11-02,v3.1-c-extra-trees-pit-r2,060250,NHN KCP,KOSDAQ,10,25.0,0.5334990723452439,5,79.2,False,False,12000.0,,,,,,,False
 2026-11-02,v3.1-c-extra-trees-pit-r2,001040,CJ,KOSPI,11,16.666666666666664,0.5218683361414601,2,88.6,False,False,114800.0,,,,,,,False
 2026-11-02,v3.1-c-extra-trees-pit-r2,483650,달바글로벌,KOSPI,12,8.333333333333332,0.5135329785984688,8,76.8,False,False,147600.0,,,,,,,False
+2026-11-03,v3.1-c-extra-trees-pit-r2,011200,HMM,KOSPI,1,100.0,0.5829617597097205,11,88.3,True,False,23250.0,,,,,,,False
+2026-11-03,v3.1-c-extra-trees-pit-r2,263750,펄어비스,KOSDAQ,2,91.66666666666666,0.5540718651209781,5,91.2,False,False,31100.0,,,,,,,False
+2026-11-03,v3.1-c-extra-trees-pit-r2,001450,현대해상,KOSPI,3,83.33333333333334,0.5445398655682528,3,100.0,False,False,43000.0,,,,,,,False
+2026-11-03,v3.1-c-extra-trees-pit-r2,096530,씨젠,KOSDAQ,4,75.0,0.5436433387225583,4,99.1,False,False,31400.0,,,,,,,False
+2026-11-03,v3.1-c-extra-trees-pit-r2,279570,케이뱅크,KOSPI,5,66.66666666666666,0.5422637400541632,12,87.8,False,False,5160.0,,,,,,,False
+2026-11-03,v3.1-c-extra-trees-pit-r2,006360,GS건설,KOSPI,6,58.333333333333336,0.5417994739014442,8,89.8,False,False,28000.0,,,,,,,False
+2026-11-03,v3.1-c-extra-trees-pit-r2,192080,더블유게임즈,KOSPI,7,50.0,0.5380168214458302,1,100.0,False,True,54700.0,,,,,,,False
+2026-11-03,v3.1-c-extra-trees-pit-r2,060250,NHN KCP,KOSDAQ,8,41.66666666666667,0.5379140023014862,7,90.4,False,False,11840.0,,,,,,,False
+2026-11-03,v3.1-c-extra-trees-pit-r2,499790,GS피앤엘,KOSPI,9,33.33333333333333,0.536694897190471,10,89.3,False,False,34200.0,,,,,,,False
+2026-11-03,v3.1-c-extra-trees-pit-r2,036460,한국가스공사,KOSPI,10,25.0,0.5362986181254706,6,90.9,False,False,37250.0,,,,,,,False
+2026-11-03,v3.1-c-extra-trees-pit-r2,001040,CJ,KOSPI,11,16.666666666666664,0.5180467327012059,2,100.0,False,False,113800.0,,,,,,,False
+2026-11-03,v3.1-c-extra-trees-pit-r2,017890,한국알콜,KOSDAQ,12,8.333333333333332,0.515374885611479,9,89.6,False,False,16100.0,,,,,,,False

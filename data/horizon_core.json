@@ -1,45 +1,70 @@
 {
-  "as_of": "2026-11-02",
-  "long_core": [],
+  "as_of": "2026-11-03",
+  "long_core": [
+    {
+      "name": "HMM",
+      "score": 76.9,
+      "since": "2026-11-03",
+      "symbol": "011200"
+    },
+    {
+      "name": "CJ",
+      "score": 66.8,
+      "since": "2026-11-03",
+      "symbol": "001040"
+    },
+    {
+      "name": "현대해상",
+      "score": 57.6,
+      "since": "2026-11-03",
+      "symbol": "001450"
+    }
+  ],
   "mid_core": [
     {
-      "name": "휴젤",
-      "score": 70.9,
-      "since": "2026-11-02",
-      "symbol": "145020"
+      "name": "CJ",
+      "score": 96.4,
+      "since": "2026-11-03",
+      "symbol": "001040"
+    },
+    {
+      "name": "현대해상",
+      "score": 91.7,
+      "since": "2026-11-03",
+      "symbol": "001450"
     },
     {
       "name": "한국가스공사",
-      "score": 63.8,
+      "score": 70.8,
       "since": "2026-11-02",
       "symbol": "036460"
     }
   ],
   "tactical": [
     {
-      "name": "카카오뱅크",
-      "status": "관찰",
-      "symbol": "323410"
+      "name": "KG스틸",
+      "status": "오늘 신규매수 검토",
+      "symbol": "016380"
+    },
+    {
+      "name": "현대해상",
+      "status": "강한 후보·가격 대기",
+      "symbol": "001450"
+    },
+    {
+      "name": "더블유게임즈",
+      "status": "강한 후보·가격 대기",
+      "symbol": "192080"
     },
     {
       "name": "펄어비스",
-      "status": "관찰",
+      "status": "강한 후보·가격 대기",
       "symbol": "263750"
     },
     {
-      "name": "휴젤",
-      "status": "관찰",
-      "symbol": "145020"
-    },
-    {
-      "name": "한일시멘트",
-      "status": "관찰",
-      "symbol": "300720"
-    },
-    {
-      "name": "한국가스공사",
-      "status": "관찰",
-      "symbol": "036460"
+      "name": "CJ",
+      "status": "강한 후보·가격 대기",
+      "symbol": "001040"
     }
   ]
 }
