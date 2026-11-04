@@ -263,3 +263,15 @@ signal_date,model_version,symbol,name,market,ml_shadow_rank,ml_shadow_score,ml_s
 2026-11-03,v3.1-c-extra-trees-pit-r2,036460,한국가스공사,KOSPI,10,25.0,0.5362986181254706,6,90.9,False,False,37250.0,,,,,,,False
 2026-11-03,v3.1-c-extra-trees-pit-r2,001040,CJ,KOSPI,11,16.666666666666664,0.5180467327012059,2,100.0,False,False,113800.0,,,,,,,False
 2026-11-03,v3.1-c-extra-trees-pit-r2,017890,한국알콜,KOSDAQ,12,8.333333333333332,0.515374885611479,9,89.6,False,False,16100.0,,,,,,,False
+2026-11-04,v3.1-c-extra-trees-pit-r2,096530,씨젠,KOSDAQ,1,100.0,0.5487522692266039,7,93.9,True,False,31850.0,,,,,,,False
+2026-11-04,v3.1-c-extra-trees-pit-r2,102710,이엔에프테크놀로지,KOSDAQ,2,91.66666666666666,0.5475855110791154,8,90.0,False,False,41600.0,,,,,,,False
+2026-11-04,v3.1-c-extra-trees-pit-r2,036570,NC,KOSPI,3,83.33333333333334,0.5469323387515818,11,87.9,False,False,201000.0,,,,,,,False
+2026-11-04,v3.1-c-extra-trees-pit-r2,279570,케이뱅크,KOSPI,4,75.0,0.5468999570560933,9,89.3,False,False,5110.0,,,,,,,False
+2026-11-04,v3.1-c-extra-trees-pit-r2,001450,현대해상,KOSPI,5,66.66666666666666,0.5420755678547583,2,100.0,False,False,43850.0,,,,,,,False
+2026-11-04,v3.1-c-extra-trees-pit-r2,192080,더블유게임즈,KOSPI,6,58.333333333333336,0.5417980903265893,3,100.0,False,False,55400.0,,,,,,,False
+2026-11-04,v3.1-c-extra-trees-pit-r2,060250,NHN KCP,KOSDAQ,7,50.0,0.5410696078289611,6,95.1,False,False,11970.0,,,,,,,False
+2026-11-04,v3.1-c-extra-trees-pit-r2,383220,F&F,KOSPI,8,41.66666666666667,0.5321711969007176,10,89.2,False,False,63500.0,,,,,,,False
+2026-11-04,v3.1-c-extra-trees-pit-r2,036460,한국가스공사,KOSPI,9,33.33333333333333,0.530970922115615,5,95.6,False,False,37750.0,,,,,,,False
+2026-11-04,v3.1-c-extra-trees-pit-r2,051160,지어소프트,KOSDAQ,10,25.0,0.5128876936398519,4,99.6,False,False,13100.0,,,,,,,False
+2026-11-04,v3.1-c-extra-trees-pit-r2,001040,CJ,KOSPI,11,16.666666666666664,0.5077717237553481,1,100.0,False,True,115500.0,,,,,,,False
+2026-11-04,v3.1-c-extra-trees-pit-r2,300080,플리토,KOSDAQ,12,8.333333333333332,0.48748037425105567,12,87.8,False,False,8740.0,,,,,,,False
