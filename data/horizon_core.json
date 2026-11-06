@@ -1,21 +1,15 @@
 {
-  "as_of": "2026-11-05",
+  "as_of": "2026-11-06",
   "long_core": [
     {
-      "name": "HMM",
-      "score": 76.3,
-      "since": "2026-11-05",
-      "symbol": "011200"
-    },
-    {
       "name": "CJ",
-      "score": 62.6,
+      "score": 63.1,
       "since": "2026-11-03",
       "symbol": "001040"
     },
     {
       "name": "현대해상",
-      "score": 55.5,
+      "score": 57.9,
       "since": "2026-11-03",
       "symbol": "001450"
     }
@@ -23,43 +17,43 @@
   "mid_core": [
     {
       "name": "CJ",
-      "score": 84.3,
+      "score": 83.3,
       "since": "2026-11-03",
       "symbol": "001040"
     },
     {
       "name": "현대해상",
-      "score": 85.2,
+      "score": 90.2,
       "since": "2026-11-03",
       "symbol": "001450"
     },
     {
       "name": "한국가스공사",
-      "score": 79.2,
+      "score": 78.5,
       "since": "2026-11-02",
       "symbol": "036460"
     }
   ],
   "tactical": [
     {
-      "name": "KG스틸",
+      "name": "한국가스공사",
       "status": "오늘 신규매수 검토",
-      "symbol": "016380"
+      "symbol": "036460"
     },
     {
-      "name": "SFA",
+      "name": "현대해상",
       "status": "오늘 신규매수 검토",
-      "symbol": "056190"
+      "symbol": "001450"
     },
     {
-      "name": "펄어비스",
-      "status": "강한 후보·가격 대기",
-      "symbol": "263750"
+      "name": "일동제약",
+      "status": "오늘 신규매수 검토",
+      "symbol": "249420"
     },
     {
-      "name": "한국알콜",
-      "status": "강한 후보·가격 대기",
-      "symbol": "017890"
+      "name": "종근당",
+      "status": "오늘 신규매수 검토",
+      "symbol": "185750"
     },
     {
       "name": "더블유게임즈",
