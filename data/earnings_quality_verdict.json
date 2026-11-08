@@ -2,40 +2,40 @@
   "version": "jev-earnings-quality-v1",
   "prompt_hash": "eedd5ea91139456e",
   "model": "jev-1.13.0",
-  "rows": 5760,
-  "rows_with_text": 5530,
-  "jev_answered": 238,
+  "rows": 5780,
+  "rows_with_text": 5553,
+  "jev_answered": 306,
   "flags": [
     {
       "source": "jev",
-      "flag_rate": 0.004201680672268907,
-      "flagged": 1,
-      "excess_flagged": 0.1294270774112297,
-      "excess_clean": 0.0007757169178002627,
+      "flag_rate": 0.006535947712418301,
+      "flagged": 2,
+      "excess_flagged": 0.14081241354961488,
+      "excess_clean": 0.013243602704681967,
       "severe_flagged": 0.0,
-      "severe_clean": 0.14767932489451477
+      "severe_clean": 0.23684210526315788
     },
     {
       "source": "kw",
-      "flag_rate": 0.04079861111111111,
-      "flagged": 235,
-      "excess_flagged": -0.04774061725132621,
-      "excess_clean": -0.004345855244256535,
-      "severe_flagged": 0.1829787234042553,
-      "severe_clean": 0.09447963800904978
+      "flag_rate": 0.04238754325259515,
+      "flagged": 245,
+      "excess_flagged": -0.04512001669823308,
+      "excess_clean": -0.0037069552162237846,
+      "severe_flagged": 0.2,
+      "severe_clean": 0.1040650406504065
     }
   ],
-  "dates": 288,
+  "dates": 289,
   "portfolios": {
     "baseline": {
-      "dates": 288,
-      "mean": -0.01143514285044551,
-      "low": -0.03429823355311182,
-      "high": 0.011389448528271756,
-      "positive_share": 0.3888888888888889,
-      "effective_t": -0.5835116424984723
+      "dates": 289,
+      "mean": -0.010324080035695526,
+      "low": -0.033445394859824014,
+      "high": 0.011901881836942095,
+      "positive_share": 0.3944636678200692,
+      "effective_t": -0.5246075626496266
     },
-    "baseline_severe": 0.07291666666666669,
+    "baseline_severe": 0.08027681660899655,
     "jev_veto": {
       "dates": 0,
       "mean": null,
@@ -46,14 +46,14 @@
     },
     "jev_veto_severe": null,
     "keyword_veto": {
-      "dates": 288,
-      "mean": -0.010666564233876678,
-      "low": -0.03298617967427142,
-      "high": 0.011951969510583136,
-      "positive_share": 0.3854166666666667,
-      "effective_t": -0.5455765779931729
+      "dates": 289,
+      "mean": -0.008914394280386382,
+      "low": -0.03221095134018435,
+      "high": 0.013420856136806275,
+      "positive_share": 0.39100346020761245,
+      "effective_t": -0.44889085347042984
     },
-    "keyword_veto_severe": 0.06944444444444445,
+    "keyword_veto_severe": 0.0740484429065744,
     "jev_veto_minus_baseline": {
       "dates": 0,
       "mean": null,
@@ -63,12 +63,12 @@
       "effective_t": null
     },
     "keyword_veto_minus_baseline": {
-      "dates": 288,
-      "mean": 0.0007685786165688277,
-      "low": 3.944914933326493e-05,
-      "high": 0.0016661071940642198,
-      "positive_share": 0.052083333333333336,
-      "effective_t": 0.415387077178544
+      "dates": 289,
+      "mean": 0.001409685755309144,
+      "low": 0.00015128438952400583,
+      "high": 0.0029753700568372586,
+      "positive_share": 0.0657439446366782,
+      "effective_t": 0.6343372366514087
     },
     "jev_veto_minus_keyword_veto": {
       "dates": 0,
@@ -81,9 +81,9 @@
   },
   "verdict": "KEYWORDS_ENOUGH",
   "reasons": [
-    "키워드 제외만으로 H1 대비 +0.08% (하한 +0.00%)"
+    "키워드 제외만으로 H1 대비 +0.14% (하한 +0.02%)"
   ],
-  "generated_at": "2026-11-01T19:16:58+09:00",
+  "generated_at": "2026-11-08T19:06:00+09:00",
   "pit_version": "receipt-pit-v3",
   "availability_policy": "after_receipt_and_answer_capture"
 }
