@@ -1,21 +1,21 @@
 {
-  "as_of": "2026-11-10",
+  "as_of": "2026-11-11",
   "long_core": [
     {
       "name": "CJ",
-      "score": 64.8,
+      "score": 64.0,
       "since": "2026-11-03",
       "symbol": "001040"
     },
     {
       "name": "HMM",
-      "score": 73.6,
+      "score": 61.9,
       "since": "2026-11-09",
       "symbol": "011200"
     },
     {
       "name": "현대해상",
-      "score": 56.2,
+      "score": 57.9,
       "since": "2026-11-03",
       "symbol": "001450"
     }
@@ -23,28 +23,33 @@
   "mid_core": [
     {
       "name": "CJ",
-      "score": 99.1,
+      "score": 85.9,
       "since": "2026-11-03",
       "symbol": "001040"
     },
     {
       "name": "현대해상",
-      "score": 96.6,
+      "score": 98.6,
       "since": "2026-11-03",
       "symbol": "001450"
     },
     {
       "name": "한국가스공사",
-      "score": 60.9,
+      "score": 58.6,
       "since": "2026-11-02",
       "symbol": "036460"
     }
   ],
   "tactical": [
     {
-      "name": "글로벌텍스프리",
+      "name": "CJ",
       "status": "강한 후보·가격 대기",
-      "symbol": "204620"
+      "symbol": "001040"
+    },
+    {
+      "name": "카카오뱅크",
+      "status": "관찰",
+      "symbol": "323410"
     },
     {
       "name": "현대해상",
@@ -52,19 +57,14 @@
       "symbol": "001450"
     },
     {
-      "name": "CJ",
+      "name": "펄어비스",
       "status": "강한 후보·가격 대기",
-      "symbol": "001040"
+      "symbol": "263750"
     },
     {
-      "name": "포스코인터내셔널",
-      "status": "관찰",
-      "symbol": "047050"
-    },
-    {
-      "name": "빙그레",
+      "name": "경동나비엔",
       "status": "강한 후보·가격 대기",
-      "symbol": "005180"
+      "symbol": "009450"
     }
   ]
 }
