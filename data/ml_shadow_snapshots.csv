@@ -335,3 +335,15 @@ signal_date,model_version,symbol,name,market,ml_shadow_rank,ml_shadow_score,ml_s
 2026-11-11,v3.1-c-extra-trees-pit-r2,439260,대한조선,KOSPI,10,25.0,0.5302245674699826,11,76.0,False,False,35450.0,,,,,,,False
 2026-11-11,v3.1-c-extra-trees-pit-r2,237690,에스티팜,KOSDAQ,11,16.666666666666664,0.5226028635091378,9,78.7,False,False,75300.0,,,,,,,False
 2026-11-11,v3.1-c-extra-trees-pit-r2,001040,CJ,KOSPI,12,8.333333333333332,0.5148205168631769,4,95.4,False,False,113900.0,,,,,,,False
+2026-11-12,v3.1-c-extra-trees-pit-r2,035420,NAVER,KOSPI,1,100.0,0.5579588864961423,12,82.2,True,False,180900.0,,,,,,,False
+2026-11-12,v3.1-c-extra-trees-pit-r2,047050,포스코인터내셔널,KOSPI,2,91.66666666666666,0.5533433867915238,10,83.3,False,False,49300.0,,,,,,,False
+2026-11-12,v3.1-c-extra-trees-pit-r2,036570,NC,KOSPI,3,83.33333333333334,0.5518268500800069,4,100.0,False,False,188700.0,,,,,,,False
+2026-11-12,v3.1-c-extra-trees-pit-r2,323410,카카오뱅크,KOSPI,4,75.0,0.5456219448197024,7,93.8,False,False,20400.0,,,,,,,False
+2026-11-12,v3.1-c-extra-trees-pit-r2,009450,경동나비엔,KOSPI,5,66.66666666666666,0.5451737486079302,6,94.3,False,False,58700.0,,,,,,,False
+2026-11-12,v3.1-c-extra-trees-pit-r2,005180,빙그레,KOSPI,6,58.333333333333336,0.5419755937970702,2,100.0,False,False,77800.0,,,,,,,False
+2026-11-12,v3.1-c-extra-trees-pit-r2,263750,펄어비스,KOSDAQ,7,50.0,0.5380224878775841,8,91.7,False,False,28800.0,,,,,,,False
+2026-11-12,v3.1-c-extra-trees-pit-r2,017890,한국알콜,KOSDAQ,8,41.66666666666667,0.5288273328384813,11,82.4,False,False,15390.0,,,,,,,False
+2026-11-12,v3.1-c-extra-trees-pit-r2,001040,CJ,KOSPI,9,33.33333333333333,0.5272636618501206,1,100.0,False,True,111600.0,,,,,,,False
+2026-11-12,v3.1-c-extra-trees-pit-r2,001450,현대해상,KOSPI,10,25.0,0.5258187974538312,3,100.0,False,False,36750.0,,,,,,,False
+2026-11-12,v3.1-c-extra-trees-pit-r2,017960,한국카본,KOSPI,11,16.666666666666664,0.5179925570946751,9,83.7,False,False,14490.0,,,,,,,False
+2026-11-12,v3.1-c-extra-trees-pit-r2,237690,에스티팜,KOSDAQ,12,8.333333333333332,0.5023200512732259,5,96.3,False,False,72900.0,,,,,,,False
