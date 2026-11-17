@@ -1,12 +1,12 @@
 {
-  "captured_at": "2026-11-16T21:23:34.297381+00:00",
+  "captured_at": "2026-11-17T20:12:57.003430+00:00",
   "evidence": {
     "operational_status": "no_reported_issues",
     "status_counts": {
-      "VALIDATION_OFF": 618
+      "VALIDATION_OFF": 613
     },
     "cohort": "f004567e14ac4a55",
-    "recorded_signal_days": 29,
+    "recorded_signal_days": 30,
     "completed_common_days": 0,
     "sample_status": "insufficient_for_performance_review",
     "return_difference": "unavailable",
