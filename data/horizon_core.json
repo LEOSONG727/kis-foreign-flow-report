@@ -1,31 +1,43 @@
 {
-  "as_of": "2026-11-19",
-  "long_core": [],
+  "as_of": "2026-11-20",
+  "long_core": [
+    {
+      "name": "HMM",
+      "score": 73.4,
+      "since": "2026-11-20",
+      "symbol": "011200"
+    }
+  ],
   "mid_core": [
     {
-      "name": "NC",
-      "score": 84.1,
-      "since": "2026-11-19",
-      "symbol": "036570"
-    },
-    {
       "name": "경동나비엔",
-      "score": 82.3,
+      "score": 92.0,
       "since": "2026-11-19",
       "symbol": "009450"
     },
     {
-      "name": "코리안리",
-      "score": 57.1,
-      "since": "2026-11-18",
-      "symbol": "003690"
+      "name": "NICE평가정보",
+      "score": 77.6,
+      "since": "2026-11-20",
+      "symbol": "030190"
+    },
+    {
+      "name": "NC",
+      "score": 75.9,
+      "since": "2026-11-19",
+      "symbol": "036570"
     }
   ],
   "tactical": [
     {
-      "name": "NC",
+      "name": "한국가스공사",
       "status": "오늘 신규매수 검토",
-      "symbol": "036570"
+      "symbol": "036460"
+    },
+    {
+      "name": "동서",
+      "status": "오늘 신규매수 검토",
+      "symbol": "026960"
     },
     {
       "name": "NICE평가정보",
@@ -33,19 +45,14 @@
       "symbol": "030190"
     },
     {
-      "name": "동서",
+      "name": "경동나비엔",
       "status": "강한 후보·가격 대기",
-      "symbol": "026960"
+      "symbol": "009450"
     },
     {
       "name": "iM금융지주",
       "status": "강한 후보·가격 대기",
       "symbol": "139130"
-    },
-    {
-      "name": "경동나비엔",
-      "status": "강한 후보·가격 대기",
-      "symbol": "009450"
     }
   ]
 }
