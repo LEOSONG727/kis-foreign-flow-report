@@ -1,58 +1,58 @@
 {
-  "as_of": "2026-11-20",
+  "as_of": "2026-11-23",
   "long_core": [
     {
       "name": "HMM",
-      "score": 73.4,
+      "score": 73.0,
       "since": "2026-11-20",
       "symbol": "011200"
     }
   ],
   "mid_core": [
     {
+      "name": "HMM",
+      "score": 88.1,
+      "since": "2026-11-23",
+      "symbol": "011200"
+    },
+    {
       "name": "경동나비엔",
-      "score": 92.0,
+      "score": 81.5,
       "since": "2026-11-19",
       "symbol": "009450"
     },
     {
       "name": "NICE평가정보",
-      "score": 77.6,
+      "score": 80.7,
       "since": "2026-11-20",
       "symbol": "030190"
-    },
-    {
-      "name": "NC",
-      "score": 75.9,
-      "since": "2026-11-19",
-      "symbol": "036570"
     }
   ],
   "tactical": [
-    {
-      "name": "한국가스공사",
-      "status": "오늘 신규매수 검토",
-      "symbol": "036460"
-    },
     {
       "name": "동서",
       "status": "오늘 신규매수 검토",
       "symbol": "026960"
     },
     {
-      "name": "NICE평가정보",
-      "status": "오늘 신규매수 검토",
-      "symbol": "030190"
-    },
-    {
-      "name": "경동나비엔",
+      "name": "CJ대한통운",
       "status": "강한 후보·가격 대기",
-      "symbol": "009450"
+      "symbol": "000120"
     },
     {
       "name": "iM금융지주",
       "status": "강한 후보·가격 대기",
       "symbol": "139130"
+    },
+    {
+      "name": "CJ제일제당",
+      "status": "강한 후보·가격 대기",
+      "symbol": "097950"
+    },
+    {
+      "name": "HMM",
+      "status": "강한 후보·가격 대기",
+      "symbol": "011200"
     }
   ]
 }
