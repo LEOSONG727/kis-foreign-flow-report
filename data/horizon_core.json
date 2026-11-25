@@ -1,51 +1,58 @@
 {
-  "as_of": "2026-11-24",
-  "long_core": [],
+  "as_of": "2026-11-25",
+  "long_core": [
+    {
+      "name": "HMM",
+      "score": 73.2,
+      "since": "2026-11-25",
+      "symbol": "011200"
+    }
+  ],
   "mid_core": [
     {
-      "name": "CJ제일제당",
-      "score": 84.5,
-      "since": "2026-11-24",
-      "symbol": "097950"
+      "name": "HMM",
+      "score": 85.1,
+      "since": "2026-11-25",
+      "symbol": "011200"
     },
     {
-      "name": "CJ대한통운",
-      "score": 81.5,
-      "since": "2026-11-24",
-      "symbol": "000120"
+      "name": "경동나비엔",
+      "score": 80.2,
+      "since": "2026-11-25",
+      "symbol": "009450"
     },
     {
-      "name": "NICE평가정보",
-      "score": 62.8,
-      "since": "2026-11-20",
-      "symbol": "030190"
+      "name": "iM금융지주",
+      "score": 71.7,
+      "since": "2026-11-25",
+      "symbol": "139130"
     }
   ],
   "tactical": [
     {
-      "name": "빙그레",
-      "status": "강한 후보·가격 대기",
-      "symbol": "005180"
+      "name": "경동나비엔",
+      "status": "오늘 신규매수 검토",
+      "symbol": "009450"
     },
     {
-      "name": "CJ제일제당",
+      "name": "HMM",
       "status": "강한 후보·가격 대기",
-      "symbol": "097950"
-    },
-    {
-      "name": "CJ대한통운",
-      "status": "강한 후보·가격 대기",
-      "symbol": "000120"
-    },
-    {
-      "name": "포스코인터내셔널",
-      "status": "관찰",
-      "symbol": "047050"
+      "symbol": "011200"
     },
     {
       "name": "iM금융지주",
       "status": "관찰",
       "symbol": "139130"
+    },
+    {
+      "name": "빙그레",
+      "status": "관찰",
+      "symbol": "005180"
+    },
+    {
+      "name": "한국공항",
+      "status": "관찰",
+      "symbol": "005430"
     }
   ]
 }
