@@ -1,9 +1,9 @@
 {
-  "as_of": "2026-11-25",
+  "as_of": "2026-11-26",
   "long_core": [
     {
       "name": "HMM",
-      "score": 73.2,
+      "score": 72.1,
       "since": "2026-11-25",
       "symbol": "011200"
     }
@@ -11,27 +11,27 @@
   "mid_core": [
     {
       "name": "HMM",
-      "score": 85.1,
+      "score": 86.2,
       "since": "2026-11-25",
       "symbol": "011200"
     },
     {
       "name": "경동나비엔",
-      "score": 80.2,
+      "score": 82.9,
       "since": "2026-11-25",
       "symbol": "009450"
     },
     {
-      "name": "iM금융지주",
-      "score": 71.7,
-      "since": "2026-11-25",
-      "symbol": "139130"
+      "name": "CJ CGV",
+      "score": 73.5,
+      "since": "2026-11-26",
+      "symbol": "079160"
     }
   ],
   "tactical": [
     {
       "name": "경동나비엔",
-      "status": "오늘 신규매수 검토",
+      "status": "강한 후보·가격 대기",
       "symbol": "009450"
     },
     {
@@ -40,19 +40,19 @@
       "symbol": "011200"
     },
     {
-      "name": "iM금융지주",
+      "name": "NICE평가정보",
       "status": "관찰",
-      "symbol": "139130"
+      "symbol": "030190"
     },
     {
-      "name": "빙그레",
+      "name": "HD현대마린엔진",
       "status": "관찰",
-      "symbol": "005180"
+      "symbol": "071970"
     },
     {
-      "name": "한국공항",
+      "name": "일동제약",
       "status": "관찰",
-      "symbol": "005430"
+      "symbol": "249420"
     }
   ]
 }
