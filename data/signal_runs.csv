@@ -58,3 +58,4 @@ signal_date,captured_at,candidate_count,near_miss_count,control_count,model_vers
 2026-11-24,2026-11-25T06:31:44.959464+09:00,21,9,11,discovery-live-v2,4cd0e2c824d0
 2026-11-25,2026-11-26T05:38:27.956645+09:00,17,20,11,discovery-live-v2,4cd0e2c824d0
 2026-11-26,2026-11-27T05:30:03.521436+09:00,18,16,10,discovery-live-v2,4cd0e2c824d0
+2026-11-27,2026-11-28T05:15:58.051363+09:00,18,5,12,discovery-live-v2,4cd0e2c824d0

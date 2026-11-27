@@ -1,9 +1,9 @@
 {
-  "as_of": "2026-11-26",
+  "as_of": "2026-11-27",
   "long_core": [
     {
       "name": "HMM",
-      "score": 72.1,
+      "score": 73.9,
       "since": "2026-11-25",
       "symbol": "011200"
     }
@@ -11,48 +11,48 @@
   "mid_core": [
     {
       "name": "HMM",
-      "score": 86.2,
+      "score": 84.3,
       "since": "2026-11-25",
       "symbol": "011200"
     },
     {
       "name": "경동나비엔",
-      "score": 82.9,
+      "score": 81.3,
       "since": "2026-11-25",
       "symbol": "009450"
     },
     {
       "name": "CJ CGV",
-      "score": 73.5,
+      "score": 83.7,
       "since": "2026-11-26",
       "symbol": "079160"
     }
   ],
   "tactical": [
     {
-      "name": "경동나비엔",
+      "name": "iM금융지주",
+      "status": "오늘 신규매수 검토",
+      "symbol": "139130"
+    },
+    {
+      "name": "빙그레",
+      "status": "오늘 신규매수 검토",
+      "symbol": "005180"
+    },
+    {
+      "name": "CJ대한통운",
       "status": "강한 후보·가격 대기",
-      "symbol": "009450"
+      "symbol": "000120"
     },
     {
-      "name": "HMM",
+      "name": "포스코인터내셔널",
+      "status": "관찰",
+      "symbol": "047050"
+    },
+    {
+      "name": "CJ제일제당",
       "status": "강한 후보·가격 대기",
-      "symbol": "011200"
-    },
-    {
-      "name": "NICE평가정보",
-      "status": "관찰",
-      "symbol": "030190"
-    },
-    {
-      "name": "HD현대마린엔진",
-      "status": "관찰",
-      "symbol": "071970"
-    },
-    {
-      "name": "일동제약",
-      "status": "관찰",
-      "symbol": "249420"
+      "symbol": "097950"
     }
   ]
 }
